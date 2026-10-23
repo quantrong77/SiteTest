@@ -118,7 +118,9 @@
         const terminal = c === 'N' ? '2' : term;
         const parent = unitRef(c);
         const eq = bs ? addRef('SU', bs, { parent, position: terminal, phase: c.toUpperCase(), model: str(v[`${p}.type.${c}`]) || undefined, manufacturer: str(v[`${p}.manuf.${c}`]) || undefined }) : parent;
-        const tB = ok(amb) && ok(t) ? (2 * amb + t) / 3 : t;
+        const tAmbS = ok(toNum(v[`b.${side}.tamb`])) ? toNum(v[`b.${side}.tamb`]) : amb;
+        const tB = window.HitachiBushing ? HitachiBushing.bodyTemp(HitachiBushing.isMounted(v[`b.${side}.mount`] || 'Đã lắp'), tAmbS, t)
+          : (ok(amb) && ok(t) ? (2 * amb + t) / 3 : t);
         [['tgd1', 'TGD1', '%'], ['c1', 'C1', 'pF'], ['r1', 'R1', 'MΩ'], ['tgd2', 'TGD2', '%'], ['c2', 'C2', 'pF'], ['r2', 'R2', 'MΩ']].forEach(([r, prm, u]) => {
           const k = `${p}.${r}.${c}`;
           const n = toNum(res.calc[`${q}.${r}.${c}`]);

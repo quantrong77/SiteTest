@@ -17,6 +17,8 @@ TEMPLATES = {
     "C": ROOT / "Template" / "BBTN_MBA_500_C.docx",
 }
 FACTORY = ROOT / "ThinghiemHientruongMBA" / "Bao_Cao_Thu_Nghiem_3_MBA_500kV_Di_Linh-v4.xlsx"
+# Test report sứ RIP Hitachi + bảng hệ số quy đổi (sheet TestReport, TraCuu)
+BUSHING_TR = ROOT / "ThinghiemHientruongMBA" / "SuRIP_Hitachi_QuyDoi20C.xlsx"
 
 
 def b64(path):
@@ -28,6 +30,8 @@ def main():
         "templates": {k: {"name": p.name, "b64": b64(p)} for k, p in TEMPLATES.items() if p.exists()},
         "factory": {"name": FACTORY.name, "b64": b64(FACTORY)},
     }
+    if BUSHING_TR.exists():
+        data["bushingTR"] = {"name": BUSHING_TR.name, "b64": b64(BUSHING_TR)}
     out = APP / "js" / "embedded.js"
     out.write_text(
         "// Tự sinh bởi tools/build_embedded.py — không sửa tay.\n"

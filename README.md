@@ -40,8 +40,13 @@ Dữ liệu đang nhập được tự lưu trong trình duyệt; dùng **Lưu .
 - R60 ≥ Bảng 5 tại nhiệt độ đo (file xuất xưởng không có R60 tuyệt đối nên chưa áp được tiêu chí “giảm ≤30%”);
   PI theo Điều 29; lõi/gông > 500 MΩ (mới) / > 100 MΩ (đã vận hành).
 - tgδ cuộn dây ≤ 1 % ở 20 °C (K2 – Bảng 47), nếu lớn hơn thì xét mức tăng ≤ 30 % so với xuất xưởng cùng nhiệt độ; điện dung ±5 %.
-- Sứ: tiêu chí NSX đọc từ file xuất xưởng (C1 ±3 %, tgδ ≤ 0,5 %), kèm Bảng 52; quy đổi 20 °C theo fc của sứ RIP
-  (HD hãng: T sứ = (2·T kk + T dầu)/3) hoặc nhập hệ số K.
+- Sứ RIP Hitachi Energy — theo HD vận hành sứ của hãng mục 19.6–19.8, đúng nghiệp vụ file `SuRIP_Hitachi_QuyDoi20C.xlsx`:
+  - T sứ = T môi trường khi **chưa lắp**; = (2·T môi trường + T dầu)/3 khi **đã lắp** (chọn trạng thái ở từng phía sứ).
+  - tanδ20 = tanδ/fc (fc nội suy Bảng 13, 0–80 °C); C20 = C·(1 − ΔT·0,0004); sứ đã lắp: C1 relative = C1@20 + ΔC (Bảng 14).
+  - So với **test report của hãng theo S/N sứ** (sheet TestReport), dung sai Bảng 15 theo Ur (≤145 kV / >145 kV);
+    kết luận "Không đạt – liên hệ Hitachi Energy" / "Đạt" / "Chưa đủ dữ liệu". Hằng số đọc từ sheet TraCuu (sửa ô vàng khi hãng cập nhật).
+  - Nạp file ở mục 0 (*Nạp test report sứ*) hoặc nhúng sẵn bằng `tools/build_embedded.py`.
+  - Sứ hãng khác: chọn "Nhập hệ số K" và tiêu chí ở mục 0 (tham khảo Bảng 52, Điều 38).
 - R một chiều quy về 75 °C: R2 = R1·(235+t2)/(235+t1), lệch ≤ 2 % so với NSX và giữa các pha.
 - Tỷ số biến lệch ≤ 0,5 % so với nameplate và giữa các pha.
 - P0 (MBA 1 pha ≥ 110 kV) lệch ≤ 10 % sau lắp đặt/sửa chữa, ≤ 15 % vận hành; độ ẩm cách điện cứng theo Điều 28;

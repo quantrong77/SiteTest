@@ -152,11 +152,91 @@
     // ================= 5. Sứ đầu vào =================
     const amb = val('meta.ambT');
     const sideGroups = schema.sections.find(s => s.id === 'bushing').groups.filter(g => g.term);
+    // Ur mặc định khi test report không có sứ (phân nhóm dung sai Bảng 15 Hitachi)
+    const UR_DEFAULT = { hv: 550, mv: 252, N: 126, lv: 40.5 };
+    sideGroups.forEach(gr => {
+      const side = gr.id, mg = gr.grids[0];
+      if (/Nhập/i.test(txt(`b.${side}.kmode`)) || typeof HitachiBushing === 'undefined') return; // chế độ nhập K: xử lý ở khối dưới
+      const H = HitachiBushing, HK = H.consts;
+      const tOil = val(`b.${side}.t`);
+      const mount = txt(`b.${side}.mount`) || 'Đã lắp';
+      const tAmb = ok(val(`b.${side}.tamb`)) ? val(`b.${side}.tamb`) : amb;
+      const btype = txt(`b.${side}.btype`) || 'RIP';
+      calc[`b.${side}.tamb`] = ok(amb) ? fmt(amb, 1) : '';
+      const sideF = H.to20({ mount, tAmb, tOil, c1: 1 });
+      notes[`b.${side}.btype`] = ' ' + btype;
+      notes[`b.${side}.k`] = ok(sideF.fc)
+        ? ` ${fmt(1 / sideF.fc, 3)} (fc = ${fmt(sideF.fc, 3)} tại T sứ = ${fmt(sideF.tB, 1)} °C, sứ ${mount.toLowerCase()}; tanδ20 = tanδ/fc, C20 = C·(1−∆T·${String(HK.cCoef).replace('.', ',')}))`
+        : (ok(sideF.tB) ? ` — T sứ ${fmt(sideF.tB, 1)} °C ngoài dải 0–80 °C, không quy đổi` : '');
+      if (ok(sideF.fc)) calc[`b.${side}.k`] = fmt(1 / sideF.fc, 3);
+      const tWarn = !ok(tAmb) ? 'Thiếu nhiệt độ môi trường. ' : (mount === 'Đã lắp' && !ok(tOil) ? 'Sứ đã lắp: cần nhiệt độ dầu để tính T sứ. ' : '');
+
+      mg.cols.filter(c => c.phase).forEach(c => {
+        const p = `b.${side}.meas`, q = `b.${side}.c20`;
+        ['type', 'manuf', 'serial'].forEach(r => { calc[`${q}.${r}.${c.k}`] = txt(`${p}.${r}.${c.k}`); });
+        const m = { mount, tAmb, tOil, c1: val(`${p}.c1.${c.k}`), tgd1: val(`${p}.tgd1.${c.k}`), c2: val(`${p}.c2.${c.k}`), tgd2: val(`${p}.tgd2.${c.k}`) };
+        const bs = txt(`${p}.serial.${c.k}`);
+        const tr = H.report(bs);
+        const urDef = tr && ok(tr.raw.ur) ? tr.raw.ur : UR_DEFAULT[c.k === 'N' ? 'N' : side];
+        calc[`${p}.ur.${c.k}`] = fmt(urDef, 1);
+        m.ur = ok(val(`${p}.ur.${c.k}`)) ? val(`${p}.ur.${c.k}`) : urDef;
+        const f = H.to20(m);
+        if (ok(f.tgd1)) calc[`${q}.tgd1.${c.k}`] = fmt(f.tgd1, 3);
+        if (ok(f.tgd2)) calc[`${q}.tgd2.${c.k}`] = fmt(f.tgd2, 3);
+        if (ok(f.c1)) calc[`${q}.c1.${c.k}`] = fmt(f.c1, 1);
+        if (ok(f.c2)) calc[`${q}.c2.${c.k}`] = fmt(f.c2, 1);
+        if (![m.c1, m.tgd1, m.c2, m.tgd2].some(ok)) return;
+
+        // Giá trị chuẩn: test report hãng theo S/N; không có thì dùng giá trị nhãn sứ trong hồ sơ MBA
+        let ref = tr, refName = tr ? `test report Hitachi (${H.source})` : '';
+        if (!ref && F) {
+          const fb = F.bushingBySerial(bs);
+          if (fb && (ok(fb.c1np) || ok(fb.tdnp))) { ref = { c1: fb.c1np, tgd1: fb.tdnp, c2: NaN, tgd2: NaN }; refName = 'giá trị nhãn sứ trong hồ sơ xuất xưởng MBA (không có test report hãng)'; }
+        }
+        const cmp = H.compare(f, ref, m.ur);
+        const loc = `${gr.title.replace(/^5\.\d\s*/, '').replace('Sứ phía ', '')} – ${c.label}${bs ? ` [${bs}]` : ''}`;
+        const grp = `${cmp.group}`;
+        const base = { sec: 'bushing', loc, basis: 'HD sứ Hitachi Energy 19.6–19.8 (Bảng 13–15); QĐ 1901 Điều 38.3' };
+        const st = (x, has) => (!has ? null : !ref || x.pass === null ? 'missing' : x.pass ? 'pass' : 'fail');
+        const noRef = bs ? `Không có test report cho S/N “${bs}”` : 'Chưa nhập S/N sứ — không tra được test report';
+        if (ok(m.c1)) add(Object.assign({}, base, { item: 'Điện dung C1 sứ', meas: `${fmt(m.c1, 1)} pF`, keys: [`${p}.c1.${c.k}`],
+          conv: ok(f.c1) ? `${fmt(f.c1, 1)} pF @20 °C${f.dC ? ` + ΔC lắp đặt ${fmt(f.dC, 0)} pF = ${fmt(f.c1rel, 1)} pF` : ''}` : '',
+          ref: ref && ok(ref.c1) ? `${fmt(ref.c1, 1)} pF @20 °C` : '', dev: ok(cmp.c1.dev) ? `${sgn(cmp.c1.dev * 100)} %` : '',
+          limit: `±${fmt(cmp.c1.tol * 100, 0)} % (${grp})`, status: st(cmp.c1, true), note: (ref ? `So với ${refName}` : noRef) + '. ' + tWarn }));
+        if (ok(m.tgd1)) {
+          // QĐ 1901: trong vận hành tgδ C1 không tăng quá 100% giá trị khởi đầu (70–100% đo thêm 15/400 Hz)
+          const rise = ref && ok(ref.tgd1) && ok(f.tgd1) ? devPct(f.tgd1, ref.tgd1) : NaN;
+          const stRise = !isNew && ok(rise) ? (rise > L.BUSHING_TGD_RISE_FAIL ? 'fail' : rise >= L.BUSHING_TGD_RISE_WARN ? 'warn' : null) : null;
+          const lim52 = QD.BUSHING_TGD_NEW[btype];
+          add(Object.assign({}, base, { item: 'tgδ C1 sứ', meas: `${fmt(m.tgd1, 3)} %`, keys: [`${p}.tgd1.${c.k}`],
+            conv: ok(f.tgd1) ? `${fmt(f.tgd1, 3)} % @20 °C` : 'chưa quy đổi', ref: ref && ok(ref.tgd1) ? `${fmt(ref.tgd1, 3)} % @20 °C` : '',
+            dev: ok(cmp.tgd1.dev) ? `${sgn(cmp.tgd1.dev, 3)} điểm %` : '', limit: `±${fmt(cmp.tgd1.tol, 2)} điểm % (${grp})`,
+            status: worst(st(cmp.tgd1, true), stRise),
+            note: (ref ? `So với ${refName}` : noRef) + `. Tham khảo Bảng 52 (${btype}) < ${fmt(lim52, 1)} %: ${m.tgd1 < lim52 ? 'thỏa' : 'KHÔNG thỏa'}. ` + tWarn }));
+        }
+        if (ok(m.c2)) add(Object.assign({}, base, { item: 'Điện dung C2 sứ', meas: `${fmt(m.c2, 1)} pF`, keys: [`${p}.c2.${c.k}`],
+          conv: ok(f.c2) ? `${fmt(f.c2, 1)} pF @20 °C` : '', ref: ref && ok(ref.c2) ? `${fmt(ref.c2, 1)} pF @20 °C` : '',
+          dev: ok(cmp.c2.dev) ? `${sgn(cmp.c2.dev * 100)} %` : '', limit: `±${fmt(cmp.c2.tol * 100, 0)} % (${grp})`,
+          status: st(cmp.c2, true) === 'missing' ? 'info' : st(cmp.c2, true), note: ref && !ok(ref.c2) ? 'Test report không có C2 — lưu làm giá trị tham chiếu' : (ref ? `So với ${refName}` : noRef) }));
+        if (ok(m.tgd2)) add(Object.assign({}, base, { item: 'tgδ C2 sứ', meas: `${fmt(m.tgd2, 3)} %`, keys: [`${p}.tgd2.${c.k}`],
+          conv: ok(f.tgd2) ? `${fmt(f.tgd2, 3)} % @20 °C` : '', ref: ref && ok(ref.tgd2) ? `${fmt(ref.tgd2, 3)} % @20 °C` : '',
+          dev: ok(cmp.tgd2.dev) ? `${sgn(cmp.tgd2.dev, 3)} điểm %` : '', limit: `±${fmt(cmp.tgd2.tol, 2)} điểm % (${grp})`,
+          status: st(cmp.tgd2, true) === 'missing' ? 'info' : st(cmp.tgd2, true), note: ref && !ok(ref.tgd2) ? 'Test report không có tgδ2 — lưu làm giá trị tham chiếu' : (ref ? `So với ${refName}` : noRef) }));
+        // Kết luận theo HD Hitachi: có mục không đạt → liên hệ hãng; đủ 4 mục đạt → Đạt; còn lại → Chưa đủ dữ liệu
+        if (ref) add(Object.assign({}, base, { item: 'Kết luận sứ theo HD Hitachi', meas: cmp.verdict, keys: [],
+          status: /Không đạt/.test(cmp.verdict) ? 'fail' : cmp.verdict === 'Đạt' ? 'pass' : 'info',
+          note: cmp.verdict === 'Chưa đủ dữ liệu' ? 'Chưa đủ 4 chỉ tiêu C1, tanδ1, C2, tanδ2 để kết luận đầy đủ theo hãng' : '' }));
+      });
+      mg.cols.filter(c => c.k === 'u' || c.k === 'd').forEach(c => {
+        ['tgd1', 'tgd2'].forEach(r => { calc[`b.${side}.c20.${r}.${c.k}`] = txt(`b.${side}.meas.${r}.${c.k}`); });
+      });
+    });
     sideGroups.forEach(gr => {
       const side = gr.id, mg = gr.grids[0], cg = gr.grids[1];
       const tOil = val(`b.${side}.t`);
       const btype = txt(`b.${side}.btype`) || 'RIP';
-      const rip = !/Nhập/i.test(txt(`b.${side}.kmode`));
+      const rip = false; // chế độ nhập hệ số K (Hitachi đã xử lý ở khối trên)
+      if (!/Nhập/i.test(txt(`b.${side}.kmode`)) && typeof HitachiBushing !== 'undefined') return;
       let K = NaN, fc = NaN, tB = NaN;
       if (rip && ok(tOil)) {
         tB = ok(amb) ? (2 * amb + tOil) / 3 : tOil;

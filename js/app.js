@@ -4,6 +4,7 @@
   const LS_STATE = 'bbtn-mba.state.v1';
   const LS_TPL = 'bbtn-mba.customTemplate';
   const LS_FAC = 'bbtn-mba.customFactory';
+  const LS_HIT = 'bbtn-mba.customHitachi';
   const ST_TEXT = { pass: 'Đạt', warn: 'Cần xem xét', fail: 'Không đạt', missing: 'Thiếu dữ liệu', info: 'Tham khảo' };
 
   // Template & Test report nhúng sẵn (js/embedded.js, tự sinh, không đưa lên Git). Thiếu thì người dùng nạp file ở mục 0.
@@ -95,7 +96,7 @@
     Schema.eachGrid(schema, g => {
       if (g.readonly) return;
       g.rows.forEach(r => g.cols.forEach(c => {
-        if (c.calc || c.auto || (g.skip && g.skip(r.k, c.k))) return;
+        if (r.nodoc || c.calc || c.auto || (g.skip && g.skip(r.k, c.k))) return;
         const tc = tpl.cell(g.tables, r.doc, r.cmap && r.cmap[c.k] !== undefined ? r.cmap[c.k] : c.doc);
         const t = tc ? tc.textContent.trim() : '';
         if (t && t !== '/') state.v[`${g.id}.${r.k}.${c.k}`] = t;
@@ -206,8 +207,8 @@
         const text = r.text || c.text;
         // Bảng đã có cột độ lệch riêng (ΔR, ΔK, sai số) thì không lặp lại gợi ý dưới ô
         const hasDevCol = g.cols.some(x => x.k === 'd' + c.k || x.k === c.k + 'e');
-        const hint = hasDevCol || c.auto ? '' : `<span class="hint" data-h="${key}"></span>`;
-        h += `<td><input data-k="${key}" data-g="${g.id}" data-r="${ri}" data-col="${ci}" class="${text ? 'text' : ''} ${c.auto || r.text ? 'auto' : ''}" value="${val}" ${text ? '' : 'inputmode="decimal"'} autocomplete="off">${hint}</td>`;
+        const hint = hasDevCol || c.auto || r.auto ? '' : `<span class="hint" data-h="${key}"></span>`;
+        h += `<td><input data-k="${key}" data-g="${g.id}" data-r="${ri}" data-col="${ci}" class="${text ? 'text' : ''} ${c.auto || r.text || r.auto ? 'auto' : ''}" value="${val}" ${text ? '' : 'inputmode="decimal"'} autocomplete="off">${hint}</td>`;
       });
       h += '</tr>';
     });
@@ -253,7 +254,13 @@
       case 'ir': return `<div class="callout">${mainLine}. Xuất xưởng (đo ${fm(cond.ins, 1)} °C) chỉ có Kht, PI và R lõi/gông — không có R60 tuyệt đối, nên R60 được đánh giá theo Bảng 5. Quy đổi R về 20 °C bằng K1 (Bảng 45) theo chiều vật lý: R giảm khi nhiệt độ tăng.</div>`;
       case 'bushing': {
         const bl = D.bushings.filter(b => Object.values(state.cfg.ps).includes(b.mba));
-        return `<div class="callout">Sứ được tra theo <b>số chế tạo sứ</b> nhập ở hàng “Số chế tạo sứ”; nếu không khớp sẽ tra theo vị trí đầu sứ của MBA ứng với cột pha (${ps}). Tiêu chí NSX đọc từ file: ${esc(D.bushingCriteria.text || '—')}. Có ${bl.length} sứ trong hồ sơ của các máy đang chọn.
+        const HB = window.HitachiBushing, HK = HB && HB.consts, tl = HK && HK.tol;
+        return `<div class="callout"><b>Sứ RIP Hitachi Energy</b> quy đổi theo HD vận hành sứ của hãng (mục 19.6–19.8):
+          T sứ = T môi trường khi <b>chưa lắp</b>, = (2·T môi trường + T dầu)/3 khi <b>đã lắp</b>; tanδ20 = tanδ/fc; C20 = C·(1 − ∆T·${HK ? String(HK.cCoef).replace('.', ',') : '0,0004'});
+          sứ đã lắp cộng ΔC lắp đặt vào C1 (${HK ? HK.dC.map(r => `Ur ≤ ${r.ur} kV: ${r.pf} pF`).join('; ') : ''}).
+          So với <b>test report của hãng tra theo S/N sứ</b> (${esc(HB && HB.source ? `${HB.source}, ${HB.reports.length} sứ` : 'chưa nạp — nạp ở mục 0')}):
+          ${tl ? `Ur ≤ ${HK.urSplit} kV: C1 ±${tl.low.c1 * 100}%, tanδ1 ±${String(tl.low.tgd1).replace('.', ',')}, C2 ±${tl.low.c2 * 100}%, tanδ2 ±${String(tl.low.tgd2).replace('.', ',')} điểm %; Ur > ${HK.urSplit} kV: C1 ±${tl.high.c1 * 100}%` : ''}.
+          Sứ không có trong test report thì so với giá trị nhãn trong hồ sơ MBA (${bl.length} sứ của các máy đang chọn; ${ps}).
           <div class="row-actions"><button class="btn small" data-act="fillBushingSN">Điền S/N sứ theo hồ sơ xuất xưởng (cần đối chiếu thực tế)</button></div></div>`;
       }
       case 'wtgd': return `<div class="callout">${mainLine}. tgδ/C xuất xưởng đo ở ${fm(FX.insT(s), 1)} °C cho 2 sơ đồ: HV+MV+N–LV+Tank và LV–HV+MV+N+Tank. Quy đổi tgδ bằng K2 (Bảng 47).</div>`;
@@ -276,7 +283,9 @@
     h += cfgField('template', 'Template BBTN dùng để xuất', { options: (Object.keys(EMB.templates).length ? Object.keys(EMB.templates).map(k => [k, EMB.templates[k].name]) : [['A', '(chưa có — nạp template .docx)']]).concat(lsGet(LS_TPL) ? [['custom', 'Tùy chỉnh: ' + JSON.parse(lsGet(LS_TPL)).name]] : []) });
     h += `<div class="field"><label>Nạp template khác (.docx cùng cấu trúc)</label><button class="btn" data-act="loadDocx">Chọn file template…</button></div>`;
     h += `<div class="field"><label>File số liệu xuất xưởng</label><div class="calcval">${esc(D ? D.fileName : 'chưa nạp')}</div></div>`;
-    h += `<div class="field"><label>Nạp file xuất xưởng khác (.xlsx)</label><button class="btn" data-act="loadXlsx">Chọn file .xlsx…</button></div></div>`;
+    h += `<div class="field"><label>Nạp file xuất xưởng khác (.xlsx)</label><button class="btn" data-act="loadXlsx">Chọn file .xlsx…</button></div>`;
+    h += `<div class="field"><label>Test report sứ Hitachi (quy đổi 20 °C)</label><div class="calcval">${esc(HitachiBushing.source || 'chưa nạp')}${HitachiBushing.source ? ` · ${HitachiBushing.reports.length} sứ` : ''}</div></div>`;
+    h += `<div class="field"><label>Nạp test report sứ khác (.xlsx, sheet TestReport + TraCuu)</label><button class="btn" data-act="loadHitachi">Chọn file .xlsx…</button></div></div>`;
     if (D && D.warnings.length) h += `<div class="callout warn">${D.warnings.map(esc).join('<br>')}</div>`;
     h += '<h3>Ánh xạ cột pha ↔ số chế tạo (để so sánh từng cột với đúng máy)</h3><div class="hint-text">Template có cột A/B/C. Với tổ 3 máy 1 pha, mỗi cột ứng với một máy; nếu chỉ thí nghiệm một máy, đặt cả ba cột về cùng số chế tạo hoặc chỉ nhập cột của máy đó. Cột N (trung tính) dùng số chế tạo máy chính.</div><div class="fields">';
     ['A', 'B', 'C'].forEach(p => { h += cfgField(`ps.${p}`, `Cột pha ${p} (a)`, serialOpts.length ? { options: [['', '—']].concat(serialOpts) } : {}); });
@@ -288,8 +297,8 @@
     h += cfgField('sLV', 'Công suất cuộn hạ áp S_LV (MVA)', { num: true });
     h += cfgField('sR', 'Công suất định mức S_r (MVA)', { num: true });
     h += cfgField('i0Ref', 'I0 nameplate (%) — để so sánh', { num: true, note: 'vd 0.04 theo nameplate AT1' });
-    h += cfgField('bC1Dev', 'Tiêu chí NSX sứ: lệch C1 tối đa (%)', { num: true, note: 'Đọc từ file xuất xưởng; để trống → dùng 5% (Điều 38)' });
-    h += cfgField('bTgdMax', 'Tiêu chí NSX sứ: tgδ C1 @20 °C tối đa (%)', { num: true });
+    h += cfgField('bC1Dev', 'Sứ (chế độ nhập K): lệch C1 tối đa (%)', { num: true, note: 'Chỉ dùng khi chọn “Nhập hệ số K”. Sứ Hitachi dùng dung sai Bảng 15 của hãng' });
+    h += cfgField('bTgdMax', 'Sứ (chế độ nhập K): tgδ C1 @20 °C tối đa (%)', { num: true });
     h += cfgField('bctCores.hv', 'TI chân sứ HV: số cuộn thứ cấp', { options: [4, 5, 6] });
     h += cfgField('bctCores.mv', 'TI chân sứ MV: số cuộn thứ cấp', { options: [4, 5] });
     h += cfgField('ctNo.hv', 'Mã lõi CT phía HV (cuộn 1..n)');
@@ -442,7 +451,7 @@
     const el = e.target;
     if (el.dataset.k) {
       state.v[el.dataset.k] = el.value;
-      if (/\.kmode$/.test(el.dataset.k)) { recompute(); renderMain(); persist(); return; }
+      if (/\.(kmode|mount)$/.test(el.dataset.k)) { recompute(); renderMain(); persist(); return; }
       if (el.dataset.k === 'meta.serial' && e.type === 'change') onSerialChange();
       scheduleEval();
     } else if (el.dataset.cfg && e.type === 'change') {
@@ -516,6 +525,7 @@
       else if (act === 'open') $('#fileJson').click();
       else if (act === 'loadXlsx') $('#fileXlsx').click();
       else if (act === 'loadDocx') $('#fileDocx').click();
+      else if (act === 'loadHitachi') $('#fileHitachi').click();
       else if (act === 'resetXlsx') { lsSet(LS_FAC, null); loadFactoryDefault(); applyFactoryDefaults(state.cfg); recompute(); renderMain(); toast('Đã dùng lại file xuất xưởng mặc định'); }
       else if (act === 'docx') await exportDocx();
       else if (act === 'xlsx') exportXlsx();
@@ -575,6 +585,14 @@
     } catch (e) { console.warn('custom factory invalid', e); }
     FX = EMB.factory ? Factory.fromBase64(EMB.factory.b64, EMB.factory.name) : null;
   }
+  // Test report sứ Hitachi + hằng số quy đổi: file nạp tay (lưu trình duyệt) ưu tiên hơn file nhúng sẵn
+  function loadHitachiDefault() {
+    try {
+      const custom = lsGet(LS_HIT);
+      if (custom) { const o = JSON.parse(custom); HitachiBushing.fromBase64(o.b64, o.name); return; }
+      if (EMB.bushingTR) HitachiBushing.fromBase64(EMB.bushingTR.b64, EMB.bushingTR.name);
+    } catch (e) { console.warn('Hitachi test report:', e); toast('Không đọc được file test report sứ: ' + e.message, true); }
+  }
 
   // ---------------------------------------------------------------- export
   async function exportDocx() {
@@ -608,7 +626,7 @@
     let cells = 0;
     Schema.eachGrid(schema, g => {
       g.rows.forEach(r => g.cols.forEach(c => {
-        if (g.skip && g.skip(r.k, c.k)) return;
+        if (r.nodoc || (g.skip && g.skip(r.k, c.k))) return;
         const key = `${g.id}.${r.k}.${c.k}`;
         const val = (g.readonly || c.calc) ? res.calc[key] : ((v[key] ?? '').toString().trim() || res.calc[key]);
         if (val === undefined || val === null || String(val).trim() === '') return;
@@ -664,6 +682,7 @@
   // ---------------------------------------------------------------- boot
   async function boot() {
     loadFactoryDefault();
+    loadHitachiDefault();
     const saved = lsGet(LS_STATE);
     let restored = false;
     if (saved) {
@@ -693,6 +712,12 @@
       applyFactoryDefaults(state.cfg);
       recompute(); renderMain(); persist();
       toast(`Đã nạp ${f.name}: ${FX.data.order.length} máy${FX.data.warnings.length ? ' — có cảnh báo' : ''}`, FX.data.warnings.length > 0);
+    }));
+    $('#fileHitachi').addEventListener('change', e => readFile(e.target, async f => {
+      const buf = await f.arrayBuffer();
+      const info = HitachiBushing.fromArrayBuffer(buf, f.name);
+      if (!lsSet(LS_HIT, JSON.stringify({ name: f.name, b64: abToB64(buf) }))) toast('File lớn — chỉ dùng trong phiên này', true);
+      recompute(); renderMain(); toast(`Đã nạp test report sứ ${f.name}: ${info.count} sứ`);
     }));
     $('#fileDocx').addEventListener('change', e => readFile(e.target, async f => {
       const buf = await f.arrayBuffer();
