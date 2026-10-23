@@ -67,6 +67,7 @@
   // ================================================================ thông báo lỗi dễ hiểu
   function friendly(e) {
     const code = e && (e.code || ''), msg = String((e && e.message) || e || '');
+    if (code === 'google_disabled') return 'Đăng nhập Google chưa được bật trên CSDL. Quản trị viên cần bật Google tại Supabase → Authentication → Sign In / Providers. Tạm thời dùng đăng nhập email.';
     if (code === 'file_protocol') return 'Đăng nhập Google cần mở app qua địa chỉ http(s) — chạy start.bat (localhost) hoặc dùng bản GitHub Pages, không mở trực tiếp file index.html.';
     if (code === 'invalid_credentials' || /Invalid login credentials/i.test(msg)) return 'Email hoặc mật khẩu không đúng.';
     if (code === 'email_not_confirmed' || /Email not confirmed/i.test(msg)) return 'Email chưa được xác nhận. Mở thư xác nhận trong hộp thư rồi đăng nhập lại.';

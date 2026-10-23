@@ -363,6 +363,15 @@
     if (location.protocol === 'file:') {
       throw Object.assign(new Error('file-protocol'), { code: 'file_protocol' });
     }
+    // Hỏi trước máy chủ xem Google đã bật chưa — nếu chưa, Supabase chỉ trả trang JSON lỗi sau khi đã chuyển trang
+    try {
+      const c = cfgGet();
+      const r = await fetch(c.url.trim().replace(/\/$/, '') + '/auth/v1/settings', { headers: { apikey: c.key.trim() } });
+      if (r.ok) {
+        const s = await r.json();
+        if (s.external && s.external.google === false) throw Object.assign(new Error('google-disabled'), { code: 'google_disabled' });
+      }
+    } catch (e) { if (e.code === 'google_disabled') throw e; /* lỗi mạng: để bước chuyển trang tự báo */ }
     authChk(await need().auth.signInWithOAuth({ provider: 'google', options: { redirectTo: appUrl(), queryParams: { prompt: 'select_account' } } }));
   }
   async function resetPassword(email) { authChk(await need().auth.resetPasswordForEmail(email, { redirectTo: appUrl() })); }
