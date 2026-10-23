@@ -322,7 +322,8 @@
     client = null; user = null; role = 'none'; profile = null;
     if (!c.url || !c.key || !window.supabase) return false;
     client = window.supabase.createClient(c.url.trim(), c.key.trim(), {
-      auth: { persistSession: true, storageKey: 'bbtn-mba-auth', flowType: 'pkce', detectSessionInUrl: true, autoRefreshToken: true },
+      // implicit: máy chủ trả phiên thẳng về trang (#access_token), không có bước đổi mã ?code= dễ lỗi trên trang tĩnh
+      auth: { persistSession: true, storageKey: 'bbtn-mba-auth', flowType: 'implicit', detectSessionInUrl: true, autoRefreshToken: true },
       global: { fetch: trackedFetch },
     });
     return true;
