@@ -285,9 +285,9 @@
     h += '<h3>Template & số liệu xuất xưởng</h3><div class="fields">';
     h += cfgField('template', 'Template BBTN dùng để xuất', { options: (Object.keys(EMB.templates).length ? Object.keys(EMB.templates).map(k => [k, EMB.templates[k].name]) : [['A', '(chưa có — nạp template .docx)']]).concat(lsGet(LS_TPL) ? [['custom', 'Tùy chỉnh: ' + JSON.parse(lsGet(LS_TPL)).name]] : []) });
     h += `<div class="field"><label>Nạp template khác (.docx cùng cấu trúc)</label><button class="btn" data-act="loadDocx">Chọn file template…</button></div>`;
-    h += `<div class="field"><label>File số liệu xuất xưởng</label><div class="calcval">${esc(D ? D.fileName : 'chưa nạp')}</div></div>`;
+    h += `<div class="field"><label>File số liệu xuất xưởng</label><div class="calcval file" title="${esc(D ? D.fileName : '')}">${esc(D ? D.fileName : 'chưa nạp')}</div></div>`;
     h += `<div class="field"><label>Nạp file xuất xưởng khác (.xlsx)</label><button class="btn" data-act="loadXlsx">Chọn file .xlsx…</button></div>`;
-    h += `<div class="field"><label>Test report sứ Hitachi (quy đổi 20 °C)</label><div class="calcval">${esc(HitachiBushing.source || 'chưa nạp')}${HitachiBushing.source ? ` · ${HitachiBushing.reports.length} sứ` : ''}</div></div>`;
+    h += `<div class="field"><label>Test report sứ Hitachi (quy đổi 20 °C)</label><div class="calcval file" title="${esc(HitachiBushing.source || '')}">${esc(HitachiBushing.source || 'chưa nạp')}${HitachiBushing.source ? ` · ${HitachiBushing.reports.length} sứ` : ''}</div></div>`;
     h += `<div class="field"><label>Nạp test report sứ khác (.xlsx, sheet TestReport + TraCuu)</label><button class="btn" data-act="loadHitachi">Chọn file .xlsx…</button></div></div>`;
     if (D && D.warnings.length) h += `<div class="callout warn">${D.warnings.map(esc).join('<br>')}</div>`;
     h += '<h3>Ánh xạ cột pha ↔ số chế tạo (để so sánh từng cột với đúng máy)</h3><div class="hint-text">Template có cột A/B/C. Với tổ 3 máy 1 pha, mỗi cột ứng với một máy; nếu chỉ thí nghiệm một máy, đặt cả ba cột về cùng số chế tạo hoặc chỉ nhập cột của máy đó. Cột N (trung tính) dùng số chế tạo máy chính.</div><div class="fields">';

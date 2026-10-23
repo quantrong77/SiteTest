@@ -155,6 +155,19 @@ h4 { font-size: 13px; margin: 14px 0 6px; color: var(--muted); font-weight: 600;
 .field input.st-warn, .field select.st-warn { border-color: #d99a12; background: #fffbf1; }
 .field input.st-missing, .field select.st-missing { border-color: var(--missing); }
 .field .calcval { padding: 6px 8px; border-radius: var(--radius); background: var(--calc); font-family: var(--num); font-size: 13px; min-height: 33px; }
+/* Căn hàng: mỗi trường chiếm 3 dòng con chung của lưới (nhãn · ô nhập · ghi chú) —
+   nhãn dài xuống dòng vẫn giữ các ô nhập cùng hàng thẳng nhau */
+@supports (grid-template-rows: subgrid) {
+  .fields { row-gap: 0; }
+  .field { display: grid; grid-row: span 3; grid-template-rows: subgrid; row-gap: 4px; padding-bottom: 12px; }
+  .field > label { align-self: end; }
+  .field > .note { align-self: start; }
+}
+.field > input, .field > select, .field > .btn, .field > .calcval { height: 36px; min-height: 36px; }
+.field > .btn { width: 100%; }
+.field > .calcval { height: auto; line-height: 22px; }
+.field > .calcval.file { height: 36px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.field > .calcval:empty::before { content: '\00a0'; }
 
 /* ---------- data grids ---------- */
 .grid-block { margin: 8px 0 18px; }
