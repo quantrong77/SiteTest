@@ -6,7 +6,8 @@ js/embedded.js
 *.pdf
 ~$*
 
-# Cấu hình kết nối riêng của từng máy
+# Cấu hình kết nối Supabase của từng máy (mẫu: js/config.example.js)
+js/config.js
 js/config.local.js
 .env*
 

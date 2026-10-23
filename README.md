@@ -60,7 +60,8 @@ App quy đổi theo chiều vật lý (nhiệt độ giảm thì R tăng) và hi
    `20261023000100_field_test_db.sql` rồi `20261023000200_substation_bay_hierarchy.sql`
    (hoặc dùng Supabase CLI: `supabase link` rồi `supabase db push`).
 3. Trong app: trang **CSDL** → nhập *Project URL* và *anon/publishable key* (Settings → API) → **Kết nối**.
-   Muốn cả đơn vị dùng chung thì điền sẵn vào `js/config.js`. Không bao giờ dùng `service_role` key trong app.
+   Muốn điền sẵn trên máy: chép `js/config.example.js` thành `js/config.js` rồi điền URL + key
+   (`js/config.js` nằm trong `.gitignore`, không đưa lên Git). Không bao giờ dùng `service_role` key trong app.
 4. Đăng ký tài khoản trong app. Người mới mặc định quyền **viewer** (chỉ xem). Cấp quyền trong SQL Editor:
    ```sql
    update public.app_users set role = 'admin'  where email = 'ban@donvi.vn';   -- người quản trị đầu tiên
