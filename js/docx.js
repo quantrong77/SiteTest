@@ -74,6 +74,47 @@
       return true;
     }
 
+    // Thêm cột vào các bảng (giữ độ rộng tổng: cột đầu giữ nguyên, các cột số liệu chia đều phần còn lại)
+    ensureColumns(tables, n) {
+      tables.forEach(i => {
+        const tbl = this.tables[i];
+        const grid = tbl && kids(tbl, 'tblGrid')[0];
+        if (!grid) return;
+        const cols = kids(grid, 'gridCol');
+        if (cols.length >= n) return;
+        const ws = cols.map(c => +wAttr(c, 'w') || 0);
+        const first = ws[0], each = Math.floor(ws.slice(1).reduce((a, b) => a + b, 0) / (n - 1));
+        while (kids(grid, 'gridCol').length < n) grid.appendChild(cols[cols.length - 1].cloneNode(true));
+        kids(grid, 'gridCol').forEach((c, k) => c.setAttributeNS(W, 'w:w', String(k === 0 ? first : each)));
+        kids(tbl, 'tr').forEach(tr => {
+          let tcs = kids(tr, 'tc');
+          while (tcs.length < n) {
+            const clone = tcs[tcs.length - 1].cloneNode(true);
+            desc(clone, 't').forEach(t => { t.textContent = ''; });
+            tr.appendChild(clone);
+            tcs = kids(tr, 'tc');
+          }
+          tcs.forEach((tc, k) => {
+            const pr = kids(tc, 'tcPr')[0], tw = pr && kids(pr, 'tcW')[0];
+            if (tw) { tw.setAttributeNS(W, 'w:w', String(k === 0 ? first : each)); tw.setAttributeNS(W, 'w:type', 'dxa'); }
+          });
+        });
+      });
+    }
+
+    // Chèn hàng tiêu đề (sao định dạng hàng đầu tiên) lên đầu bảng
+    insertHeaderRow(tblIdx, labels) {
+      const tbl = this.tables[tblIdx];
+      const first = tbl && kids(tbl, 'tr')[0];
+      if (!first) return;
+      const tr = first.cloneNode(true);
+      kids(tr, 'tc').forEach((tc, k) => this.setCellText(tc, labels[k] || ''));
+      let trPr = kids(tr, 'trPr')[0];
+      if (!trPr) { trPr = this.doc.createElementNS(W, 'w:trPr'); tr.insertBefore(trPr, tr.firstChild); }
+      if (!kids(trPr, 'tblHeader').length) trPr.appendChild(this.doc.createElementNS(W, 'w:tblHeader'));
+      tbl.insertBefore(tr, first);
+    }
+
     paraText(p) { return desc(p, 't').map(t => t.textContent).join(''); }
 
     // Thay nhóm (?<v>…) của regex trong đoạn p bằng value, tác động trực tiếp lên các w:t

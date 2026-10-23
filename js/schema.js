@@ -146,7 +146,8 @@
       rows.push({ k: `w${w}u`, label: `${w}S1-${w}S${lastS}: U (V)`, doc: 2 * (w - 1) });
       rows.push({ k: `w${w}i`, label: `${w}S1-${w}S${lastS}: I (mA)`, doc: 2 * (w - 1) + 1 });
     }
-    return { id, title, tables, rows, cols: [1, 2, 3].map(i => col(`p${i}`, `Điểm ${i}`, i)) };
+    // 25 / 50 / 75 % và điểm khuỷu; cột khuỷu (lưới 4) không có trong template — được chèn thêm khi xuất BBTN
+    return { id, title, tables, rows, ex: true, cols: [col('p1', 'Mốc 25 %', 1), col('p2', 'Mốc 50 %', 2), col('p3', 'Mốc 75 %', 3), col('p4', 'Khuỷu (Uk / Ik)', 4)] };
   }
 
   function build(cfg) {

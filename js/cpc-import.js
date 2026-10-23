@@ -1,8 +1,7 @@
 // Nhập đặc tính từ hóa biến dòng chân sứ từ file XML OMICRON CPC 100 (card nType = 8, "Excitation").
-// Trích 3 điểm (U, I) theo IEC 61869-2: điểm gối E_k là điện áp mà khi tăng 10 % thì dòng từ hóa tăng 50 %.
-//   Điểm 1 = 0,5·E_k (vùng tuyến tính) · Điểm 2 = E_k · Điểm 3 = 1,1·E_k (theo định nghĩa I ≈ 1,5·I_k)
-// Ưu tiên điểm gối do CPC 100 tính; nếu máy không báo thì tính theo định nghĩa trên đường cong đo (nội suy log–log).
-// Đường cong chưa tới vùng gối: lấy 3 điểm ở 1/3, 2/3 và 100 % điện áp lớn nhất đã đo.
+// Trích điểm khuỷu (U_k, I_k) và các mốc 25 %, 50 %, 75 %. Khuỷu theo IEC 61869-2: tăng U 10 % thì I tăng 50 %;
+// ưu tiên khuỷu do CPC 100 tính, máy không báo thì tính theo định nghĩa trên đường cong đo (nội suy log–log).
+// Có khuỷu: mốc theo % U_k. Không xác định được khuỷu: mốc theo % U lớn nhất đã đo.
 (function () {
   'use strict';
   const $ = (s, r = document) => r.querySelector(s);
@@ -77,21 +76,24 @@
     return null;
   }
 
+  // 4 giá trị mỗi cuộn: mốc 25 %, 50 %, 75 % và điểm khuỷu.
+  // Có điểm khuỷu → mốc theo % U_k; không xác định được khuỷu → mốc theo % U lớn nhất đã đo (cột khuỷu để trống).
+  const LEVELS = [0.25, 0.5, 0.75];
   function pick(card) {
     const pts = card.points;
-    if (pts.length < 2) return { knee: null, picks: [], how: 'Cuộn không có số liệu đo', status: 'empty' };
+    if (pts.length < 2) return { knee: null, picks: [], how: 'Cuộn không có số liệu đo', status: 'empty', basis: '' };
     const app = kneeIEC(pts);
     const knee = card.cpcKnee ? Object.assign({ src: 'CPC 100' }, card.cpcKnee) : app ? Object.assign({ src: 'tính theo IEC' }, app) : null;
     if (knee) {
-      const picks = [0.5 * knee.v, knee.v, 1.1 * knee.v].map((v, k) => ({ v, i: k === 1 ? knee.i : iAt(pts, v) }));
+      const picks = LEVELS.map(f => ({ v: f * knee.v, i: iAt(pts, f * knee.v) })).concat([{ v: knee.v, i: knee.i, knee: true }]);
       const how = card.cpcKnee
-        ? `Điểm gối E_k = ${fmt(knee.v, 1)} V / ${fmt(knee.i * 1000, 3)} mA do CPC 100 tính${app ? ` (app tính lại: ${fmt(app.v, 1)} V)` : ''}`
-        : `CPC 100 không báo điểm gối; app tính theo IEC 61869-2: E_k = ${fmt(knee.v, 1)} V / ${fmt(knee.i * 1000, 3)} mA — nên kiểm tra lại`;
-      return { knee, picks, how, status: card.cpcKnee ? 'cpc' : 'app' };
+        ? `Khuỷu U_k = ${fmt(knee.v, 1)} V / ${fmt(knee.i * 1000, 3)} mA do CPC 100 tính${app ? ` (app tính lại theo IEC: ${fmt(app.v, 1)} V)` : ''}; mốc 25/50/75 % U_k`
+        : `CPC 100 không báo khuỷu; app tính theo IEC 61869-2: U_k = ${fmt(knee.v, 1)} V / ${fmt(knee.i * 1000, 3)} mA — nên kiểm tra lại; mốc 25/50/75 % U_k`;
+      return { knee, picks, how, status: card.cpcKnee ? 'cpc' : 'app', basis: '% U_k' };
     }
     const vmax = pts[pts.length - 1].v;
-    return { knee: null, picks: [vmax / 3, 2 * vmax / 3, vmax].map(v => ({ v, i: iAt(pts, v) })),
-      how: `Chưa tới vùng gối trong dải đo (U lớn nhất ${fmt(vmax, 1)} V) — lấy 3 điểm 1/3, 2/3, 100 % U lớn nhất`, status: 'noknee' };
+    return { knee: null, picks: LEVELS.map(f => ({ v: f * vmax, i: iAt(pts, f * vmax) })),
+      how: `Không xác định được điểm khuỷu trong dải đo (U lớn nhất ${fmt(vmax, 1)} V) — mốc 25/50/75 % theo U lớn nhất đã đo`, status: 'noknee', basis: '% U max' };
   }
 
   const fmt = (x, d) => (ok(x) ? x.toFixed(d).replace('.', ',') : '—');
@@ -121,14 +123,17 @@
   const PHASES = { hv: ['A', 'B', 'C'], mv: ['A', 'B', 'C'], n: ['N'], lv: ['a', 'b', 'c'] };
   const MAXCORE = { hv: 6, mv: 5, n: 3, lv: 4 }; // số cuộn tối đa template hỗ trợ
   let files = [];
+  let locked = null; // { side, phase } khi tải XML cho một ô pha cụ thể
 
-  function open(fileList) {
+  function open(fileList, target) {
+    locked = target || null;
     const jobs = Array.from(fileList).map(f => f.text().then(t => parse(t, f.name)).catch(e => ({ error: e.message, file: f.name })));
     Promise.all(jobs).then(list => {
       files = list.filter(x => !x.error);
       list.filter(x => x.error).forEach(x => Notify.show({ type: 'error', msg: x.error }));
       if (!files.length) return;
       assignSides(files);
+      if (locked) files.forEach(f => { f.side = locked.side; f.phase = locked.phase; });
       files.forEach(f => f.cards.forEach(c => { c.use = c.status !== 'empty' && c.core <= MAXCORE[f.side]; }));
       render();
       $('#cpcDialog').showModal();
@@ -137,18 +142,18 @@
 
   function render() {
     let h = `<div class="ad-body cpc"><h2 id="cpcTitle">Nhập đặc tính từ hóa từ CPC 100</h2>
-      <p class="ad-lead">3 điểm theo IEC 61869-2: <b>0,5·E<sub>k</sub></b> · <b>E<sub>k</sub></b> (điểm gối: +10 % áp → +50 % dòng) · <b>1,1·E<sub>k</sub></b>. Kiểm tra phía và pha của từng file trước khi điền.</p>`;
+      <p class="ad-lead">Mỗi cuộn lấy <b>mốc 25 %, 50 %, 75 %</b> và <b>điểm khuỷu</b> (IEC 61869-2: +10 % áp → +50 % dòng). Có khuỷu thì mốc tính theo % U<sub>k</sub>; không xác định được khuỷu thì theo % U lớn nhất đã đo.${locked ? '' : ' Kiểm tra phía và pha của từng file trước khi điền.'}</p>`;
     files.forEach((f, fi) => {
       h += `<section class="cpc-file"><div class="cpc-file-head"><b>${esc(f.file)}</b><span>${esc(f.date)}</span>
-        <label>Phía <select data-cpc="side" data-f="${fi}">${Object.entries(SIDES).map(([k, t]) => `<option value="${k}" ${k === f.side ? 'selected' : ''}>${t}</option>`).join('')}</select></label>
-        <label>Pha <select data-cpc="phase" data-f="${fi}">${PHASES[f.side].map(p => `<option ${p === f.phase ? 'selected' : ''}>${p}</option>`).join('')}</select></label></div>
-        <table class="ftable cpc-tbl"><thead><tr><th></th><th>Cuộn</th><th>Điểm 1</th><th>Điểm 2</th><th>Điểm 3</th><th>Ghi chú</th></tr></thead><tbody>`;
+        <label>Phía <select data-cpc="side" data-f="${fi}" ${locked ? 'disabled' : ''}>${Object.entries(SIDES).map(([k, t]) => `<option value="${k}" ${k === f.side ? 'selected' : ''}>${t}</option>`).join('')}</select></label>
+        <label>Pha <select data-cpc="phase" data-f="${fi}" ${locked ? 'disabled' : ''}>${PHASES[f.side].map(p => `<option ${p === f.phase ? 'selected' : ''}>${p}</option>`).join('')}</select></label></div>
+        <table class="ftable cpc-tbl"><thead><tr><th></th><th>Cuộn</th><th>Mốc 25 %</th><th>Mốc 50 %</th><th>Mốc 75 %</th><th>Khuỷu (U<sub>k</sub>, I<sub>k</sub>)</th><th>Ghi chú</th></tr></thead><tbody>`;
       f.cards.forEach((c, ci) => {
         const over = c.core > MAXCORE[f.side];
         const pt = p => (p ? `${fmt(p.v, 1)} V<br><span>${fmt(p.i * 1000, 3)} mA</span>` : '—');
         h += `<tr class="${c.status === 'empty' ? 'muted' : ''}"><td><input type="checkbox" data-cpc="use" data-f="${fi}" data-c="${ci}" ${c.use ? 'checked' : ''} ${c.status === 'empty' || over ? 'disabled' : ''} aria-label="Điền cuộn ${esc(c.name)}"></td>
           <td><b>${esc(c.name)}</b><br><span>${c.points.length} điểm</span></td>
-          <td class="num">${pt(c.picks[0])}</td><td class="num">${pt(c.picks[1])}</td><td class="num">${pt(c.picks[2])}</td>
+          <td class="num">${pt(c.picks[0])}</td><td class="num">${pt(c.picks[1])}</td><td class="num">${pt(c.picks[2])}</td><td class="num knee">${pt(c.picks[3])}</td>
           <td class="note">${over ? `Template phía này chỉ có ${MAXCORE[f.side]} cuộn` : esc(c.how)}${c.status === 'app' ? ' <span class="badge st-warn">kiểm tra</span>' : ''}</td></tr>`;
       });
       h += '</tbody></table></section>';
@@ -173,12 +178,14 @@
     files.forEach(f => f.cards.forEach(c => {
       if (!c.use || !c.picks.length) return;
       const g = f.side === 'n' ? 'bct.n.ex.N' : `bct.${f.side}.ex.${f.phase}`;
-      c.picks.forEach((p, k) => {
-        st.v[`${g}.w${c.core}u.p${k + 1}`] = p.v.toFixed(1);
-        st.v[`${g}.w${c.core}i.p${k + 1}`] = (p.i * 1000).toFixed(3);
+      [0, 1, 2, 3].forEach(k => { // xóa giá trị cũ (vd cột khuỷu khi lần này không xác định được khuỷu)
+        const p = c.picks[k];
+        st.v[`${g}.w${c.core}u.p${k + 1}`] = p ? p.v.toFixed(1) : '';
+        st.v[`${g}.w${c.core}i.p${k + 1}`] = p ? (p.i * 1000).toFixed(3) : '';
       });
       st.v[`${g}.src.w${c.core}`] = `${f.file} · ${c.name} · ${c.how}`;
-      st.v[`${g}.tap.w${c.core}`] = c.name; // đầu cuộn thực đo, ghi vào ô nhãn của BBTN
+      // đầu cuộn thực đo ghi vào ô nhãn BBTN; cuộn không xác định được khuỷu ghi rõ mốc theo % U max
+      st.v[`${g}.tap.w${c.core}`] = c.name + (c.status === 'noknee' ? ' (mốc theo % U max)' : '');
       filled.push(`${SIDES[f.side]} ${f.phase} · ${c.name}`);
     }));
     $('#cpcDialog').close();
@@ -202,5 +209,5 @@
     if (b.dataset.cpc === 'apply') apply();
   });
 
-  window.CpcImport = { parse, kneeIEC, iAt, open, guess, assignSides };
+  window.CpcImport = { parse, kneeIEC, iAt, open, guess, assignSides, pick, LEVELS };
 })();

@@ -16,6 +16,7 @@
   const lsSet = (k, v) => { try { v === null ? localStorage.removeItem(k) : localStorage.setItem(k, v); return true; } catch (e) { return false; } };
 
   let FX = null, state = null, schema = null, res = null, current = 'general';
+  let cpcTarget = null; // ô pha/phía đang tải XML CPC 100
   const filters = {};
 
   // ---------------------------------------------------------------- helpers
@@ -186,7 +187,8 @@
 
   function gridHTML(g) {
     const ro = !!g.readonly;
-    let h = `<div class="grid-block">${g.title ? `<div class="grid-title">${esc(g.title)}</div>` : ''}<div class="grid-wrap ${ro ? 'readonly' : ''}"><table class="grid" data-grid="${g.id}"><thead><tr><th></th>`;
+    const cpcBtn = g.ex ? `<button class="btn small" data-act="cpcSlot" data-grid="${g.id}">Tải XML CPC 100…</button>` : '';
+    let h = `<div class="grid-block">${g.title || cpcBtn ? `<div class="grid-title">${esc(g.title || '')}${cpcBtn}</div>` : ''}<div class="grid-wrap ${ro ? 'readonly' : ''}"><table class="grid" data-grid="${g.id}"><thead><tr><th></th>`;
     // cột pha: gắn mã pha để tô vạch màu A vàng · B xanh · C đỏ
     g.cols.forEach(c => {
       const ph = c.phase ? String(c.k).charAt(0).toUpperCase() : '';
@@ -530,7 +532,12 @@
       else if (act === 'loadXlsx') $('#fileXlsx').click();
       else if (act === 'loadDocx') $('#fileDocx').click();
       else if (act === 'loadHitachi') $('#fileHitachi').click();
-      else if (act === 'loadCpc') $('#fileCpc').click();
+      else if (act === 'loadCpc') { cpcTarget = null; $('#fileCpc').multiple = true; $('#fileCpc').click(); }
+      else if (act === 'cpcSlot') {
+        const m = b.dataset.grid.match(/^bct\.(\w+)\.ex\.(\w)$/);
+        cpcTarget = { side: m[1], phase: m[2] };
+        $('#fileCpc').multiple = false; $('#fileCpc').click();
+      }
       else if (act === 'resetXlsx') { lsSet(LS_FAC, null); loadFactoryDefault(); applyFactoryDefaults(state.cfg); recompute(); renderMain(); toast('Đã dùng lại file xuất xưởng mặc định'); }
       else if (act === 'docx') await exportDocx();
       else if (act === 'xlsx') exportXlsx();
@@ -630,6 +637,9 @@
     schema.sections.forEach(s => (s.extraDoc || []).forEach(x => write({ doc: x.doc, k: x.k }, (res.notes[x.k] || '').trim())));
     let cells = 0;
     Schema.eachGrid(schema, g => {
+      // bảng đặc tính từ hóa có số liệu điểm khuỷu → chèn cột thứ 4 vào bảng của template
+      const exWide = g.ex && g.rows.some(r => (v[`${g.id}.${r.k}.p4`] || '').toString().trim());
+      if (exWide) tpl.ensureColumns(g.tables, 5);
       g.rows.forEach(r => g.cols.forEach(c => {
         if (r.nodoc || (g.skip && g.skip(r.k, c.k))) return;
         const key = `${g.id}.${r.k}.${c.k}`;
@@ -643,6 +653,8 @@
         const tap = v[`${g.id}.tap.${r.k.slice(0, -1)}`];
         if (tap) tpl.setCellText(tpl.cell(g.tables, r.doc, 0), tap);
       });
+      // Bảng đã chèn cột khuỷu: thêm hàng tiêu đề (làm sau cùng vì làm lệch chỉ số hàng)
+      if (exWide) tpl.insertHeaderRow(g.tables[0], ['Đầu cuộn', 'Mốc 25 %', 'Mốc 50 %', 'Mốc 75 %', 'Điểm khuỷu']);
     });
     schema.sections.forEach(s => {
       const row = Schema.SUMMARY_ROWS[s.id];
@@ -723,7 +735,7 @@
       recompute(); renderMain(); persist();
       toast(`Đã nạp ${f.name}: ${FX.data.order.length} máy${FX.data.warnings.length ? ' — có cảnh báo' : ''}`, FX.data.warnings.length > 0);
     }));
-    $('#fileCpc').addEventListener('change', e => { const fl = Array.from(e.target.files); e.target.value = ''; if (fl.length) CpcImport.open(fl); });
+    $('#fileCpc').addEventListener('change', e => { const fl = Array.from(e.target.files); e.target.value = ''; if (fl.length) CpcImport.open(fl, cpcTarget); });
     $('#fileHitachi').addEventListener('change', e => readFile(e.target, async f => {
       const buf = await f.arrayBuffer();
       const info = HitachiBushing.fromArrayBuffer(buf, f.name);
