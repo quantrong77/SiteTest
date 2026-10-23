@@ -101,8 +101,9 @@
 
     // 6. tgδ cuộn dây (quy đổi 20 °C)
     const tW = toNum(v['wtgd.t']);
-    ['r0', 'r1', 'r2', 'r3', 'r4', 'r5'].forEach(rk => {
-      const code = IR_CFG[rk];
+    // đối tượng đo bổ sung (cfg.wtgdRows) lưu theo nhãn người dùng nhập
+    ['r0', 'r1', 'r2', 'r3', 'r4', 'r5'].concat((cfg.wtgdRows || []).map(x => x.k)).forEach(rk => {
+      const code = IR_CFG[rk] || `CUSTOM:${str((cfg.wtgdLabels || {})[rk]) || rk}`;
       const kt = `wtgd.meas.${rk}.tgd`, tg = toNum(v[kt]);
       put(mainRef, 'WTGD', 'TGD', { config: code, value: v[kt], unit: '%', temp: tW, norm: ok(tg) && ok(tW) ? QD.convTgd(tg, tW, 20).val : NaN, normT: 20, key: kt });
       put(mainRef, 'WTGD', 'C', { config: code, value: v[`wtgd.meas.${rk}.c`], unit: 'pF', temp: tW, key: `wtgd.meas.${rk}.c` });

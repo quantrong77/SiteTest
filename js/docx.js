@@ -102,6 +102,19 @@
       });
     }
 
+    // Thêm n hàng cuối bảng (sao định dạng hàng cuối, xóa nội dung)
+    appendRows(tblIdx, n) {
+      const tbl = this.tables[tblIdx];
+      const trs = tbl ? kids(tbl, 'tr') : [];
+      const last = trs[trs.length - 1];
+      if (!last) return;
+      for (let i = 0; i < n; i++) {
+        const tr = last.cloneNode(true);
+        kids(tr, 'tc').forEach(tc => this.setCellText(tc, ''));
+        tbl.appendChild(tr);
+      }
+    }
+
     // Chèn hàng tiêu đề (sao định dạng hàng đầu tiên) lên đầu bảng
     insertHeaderRow(tblIdx, labels) {
       const tbl = this.tables[tblIdx];

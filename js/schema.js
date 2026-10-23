@@ -150,8 +150,16 @@
     return { id, title, tables, rows, ex: true, cols: [col('p1', 'Mốc 25 %', 1), col('p2', 'Mốc 50 %', 2), col('p3', 'Mốc 75 %', 3), col('p4', 'Khuỷu (Uk / Ik)', 4)] };
   }
 
+  // Sơ đồ đo tgδ (cột "Sơ đồ đo" mục 6)
+  const TGD_MODES = ['UST', 'GAR', 'GND'];
+
   function build(cfg) {
     const taps = (cfg.taps && cfg.taps.length === 19) ? cfg.taps : DEFAULT_TAPS;
+    // Đề mục cột người dùng sửa (cfg.hdr), đối tượng đo mục 6 sửa/thêm dòng (cfg.wtgdLabels, cfg.wtgdRows)
+    const hdr = (gid, cols) => cols.map(c => Object.assign({}, c, { label: (cfg.hdr || {})[`${gid}.${c.k}`] || c.label, defLabel: c.label }));
+    const wtgdRows = WTGD_ROWS.map(r => Object.assign({}, r, { label: (cfg.wtgdLabels || {})[r.k] || r.label, defLabel: r.label }))
+      .concat((cfg.wtgdRows || []).map(x => ({ k: x.k, label: (cfg.wtgdLabels || {})[x.k] || '', defLabel: '', extra: true })))
+      .map((r, i) => Object.assign(r, { doc: i + 1 }));
     const sections = [
       {
         id: 'visual', no: 1, title: 'Kiểm tra bên ngoài', en: 'Visual inspection',
@@ -268,11 +276,11 @@
         fields: [{ k: 'wtgd.t', label: 'Nhiệt độ cuộn dây/dầu (°C)', num: true, doc: { before: 15, re: /nhiệt độ:(?<v>\s*)oC/ } }],
         grids: [
           {
-            id: 'wtgd.meas', title: 'Số liệu đo', tables: [15], rows: WTGD_ROWS.map((r, i) => Object.assign({ doc: i + 1 }, r)),
-            cols: [col('tgd', 'tgδ (%)', 1), col('c', 'C (pF)', 2), col('u', 'U đo (kV)', 3, { text: true }), col('d', 'Sơ đồ đo', 4, { text: true })],
+            id: 'wtgd.meas', title: 'Số liệu đo', tables: [15], rows: wtgdRows, corner: 'Đối tượng đo', editLabels: true,
+            cols: [col('tgd', 'tgδ (%)', 1), col('c', 'C (pF)', 2), col('u', 'U đo (kV)', 3, { text: true }), col('d', 'Sơ đồ đo', 4, { text: true, options: TGD_MODES })],
           },
           {
-            id: 'wtgd.c20', title: 'Quy đổi về 20 °C (tự tính)', tables: [16], readonly: true, rows: WTGD_ROWS.map((r, i) => Object.assign({ doc: i + 1 }, r)),
+            id: 'wtgd.c20', title: 'Quy đổi về 20 °C (tự tính)', tables: [16], readonly: true, rows: wtgdRows, corner: 'Đối tượng đo', mirrorLabels: true,
             cols: [col('tgd', 'tgδ@20 °C (%)', 1, { calc: true }), col('c', 'C (pF)', 2, { calc: true }), col('u', 'U đo (kV)', 3, { calc: true }), col('d', 'Sơ đồ đo', 4, { calc: true })],
           },
         ],
@@ -315,23 +323,23 @@
         groups: [
           {
             id: 'hm', title: '8.1 Cuộn HV : MV', grids: [{
-              id: 'ratio.hm', title: 'Theo nấc', tables: [21, 22], rows: tapRows(taps),
-              cols: [col('A', 'UAB/UAmBm', 1, { phase: true }), col('dA', 'ΔK_A (%)', 2, { auto: true }), col('B', 'UBC/UBmCm', 3, { phase: true }), col('dB', 'ΔK_B (%)', 4, { auto: true }),
-                col('C', 'UCA/UCmAm', 5, { phase: true }), col('dC', 'ΔK_C (%)', 6, { auto: true }), col('dP', 'ΔK(A,B,C) (%)', 7, { calc: true })],
+              id: 'ratio.hm', title: 'Theo nấc', tables: [21, 22], rows: tapRows(taps), corner: 'Nấc', editHdr: true,
+              cols: hdr('ratio.hm', [col('A', 'UAB/UAmBm', 1, { phase: true }), col('dA', 'ΔK_A (%)', 2, { auto: true }), col('B', 'UBC/UBmCm', 3, { phase: true }), col('dB', 'ΔK_B (%)', 4, { auto: true }),
+                col('C', 'UCA/UCmAm', 5, { phase: true }), col('dC', 'ΔK_C (%)', 6, { auto: true }), col('dP', 'ΔK(A,B,C) (%)', 7, { calc: true })]),
             }],
           },
           {
             id: 'hl', title: '8.2 Cuộn HV : LV', grids: [{
-              id: 'ratio.hl', title: 'Theo nấc', tables: [23], rows: tapRows(taps),
-              cols: [col('A', 'UAB/Uab', 1, { phase: true }), col('dA', 'ΔK_A (%)', 2, { auto: true }), col('B', 'UBC/Ubc', 3, { phase: true }), col('dB', 'ΔK_B (%)', 4, { auto: true }),
-                col('C', 'UCA/Uca', 5, { phase: true }), col('dC', 'ΔK_C (%)', 6, { auto: true }), col('dP', 'ΔK(A,B,C) (%)', 7, { calc: true })],
+              id: 'ratio.hl', title: 'Theo nấc', tables: [23], rows: tapRows(taps), corner: 'Nấc', editHdr: true,
+              cols: hdr('ratio.hl', [col('A', 'UAB/Uab', 1, { phase: true }), col('dA', 'ΔK_A (%)', 2, { auto: true }), col('B', 'UBC/Ubc', 3, { phase: true }), col('dB', 'ΔK_B (%)', 4, { auto: true }),
+                col('C', 'UCA/Uca', 5, { phase: true }), col('dC', 'ΔK_C (%)', 6, { auto: true }), col('dP', 'ΔK(A,B,C) (%)', 7, { calc: true })]),
             }],
           },
           {
             id: 'ml', title: '8.3 Cuộn MV : LV', grids: [{
-              id: 'ratio.ml', title: '', tables: [24], rows: [{ k: 'r', label: 'Giá trị', doc: 1 }],
-              cols: [col('A', 'UAmBm/Uab', 0, { phase: true }), col('dA', 'ΔK (%)', 1, { auto: true }), col('B', 'UBmCm/Ubc', 2, { phase: true }), col('dB', 'ΔK (%)', 3, { auto: true }),
-                col('C', 'UCmAm/Uca', 4, { phase: true }), col('dC', 'ΔK (%)', 5, { auto: true }), col('dP', 'ΔK(A,B,C) (%)', 6, { calc: true })],
+              id: 'ratio.ml', title: '', tables: [24], rows: [{ k: 'r', label: 'Giá trị', doc: 1 }], editHdr: true,
+              cols: hdr('ratio.ml', [col('A', 'UAmBm/Uab', 0, { phase: true }), col('dA', 'ΔK (%)', 1, { auto: true }), col('B', 'UBmCm/Ubc', 2, { phase: true }), col('dB', 'ΔK (%)', 3, { auto: true }),
+                col('C', 'UCmAm/Uca', 4, { phase: true }), col('dC', 'ΔK (%)', 5, { auto: true }), col('dP', 'ΔK(A,B,C) (%)', 6, { calc: true })]),
             }],
           },
         ],

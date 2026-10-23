@@ -354,14 +354,14 @@
             + (tW < 10 || tW > 40 ? ' Khuyến cáo đo khi nhiệt độ dầu 10–40 °C (Điều 9 mục 4).' : '')
             + (ok(rise) ? ` Tham khảo: so với XX cùng nhiệt độ ${sgn(rise, 1)} %.` : '');
         }
-        add({ sec: 'wtgd', item: `tgδ cuộn dây ${row.label}`, loc: unitLabel(main), meas: `${fmt(tg, 3)} % @${ok(tW) ? fmt(tW, 1) : '?'} °C`,
+        add({ sec: 'wtgd', item: `tgδ cuộn dây ${row.label || 'đối tượng bổ sung'}`, loc: unitLabel(main), meas: `${fmt(tg, 3)} % @${ok(tW) ? fmt(tW, 1) : '?'} °C`,
           conv: ok(tg20) ? `${fmt(tg20, 3)} % @20 °C (${tW >= 20 ? '÷' : '×'} K2 = ${fmt(k2.k, 3)})` : '', ref: refStr, dev: ok(rise) ? `${sgn(rise, 1)} % (cùng nhiệt độ)` : '',
           limit: 'tgδ@20 °C ≤ 1 %', status: st, basis: R.wtgd, note, keys: [`${p}.tgd`] });
       }
       if (ok(C)) {
         const fref = F && row.fcfg ? F.ins(row.fcfg, 'c', main) : null;
         const d = devPct(C, fref);
-        add({ sec: 'wtgd', item: `Điện dung cuộn dây ${row.label}`, loc: unitLabel(main), meas: `${fmt(C, 1)} pF`, ref: ok(fref) ? `${fmt(fref, 0)} pF (XX)` : '',
+        add({ sec: 'wtgd', item: `Điện dung cuộn dây ${row.label || 'đối tượng bổ sung'}`, loc: unitLabel(main), meas: `${fmt(C, 1)} pF`, ref: ok(fref) ? `${fmt(fref, 0)} pF (XX)` : '',
           dev: sgn(d), limit: `±${L.WINDING_C_DEV}% so với giá trị khởi đầu`, status: ok(d) ? (Math.abs(d) <= L.WINDING_C_DEV ? 'pass' : 'fail') : 'info',
           basis: R.wtgd, note: ok(fref) ? '' : 'Không có điện dung XX cho sơ đồ đo này → lưu làm giá trị khởi đầu', keys: [`${p}.c`] });
       }

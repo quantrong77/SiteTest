@@ -40,6 +40,7 @@
       template: 'A', ps: { A: '', B: '', C: '' }, taps: Schema.DEFAULT_TAPS.slice(), hvMeas: 'SER+COM', lvMode: 'unit',
       iLV: '', sLV: '', sR: '', i0Ref: '', bC1Dev: '', bTgdMax: '', bctCores: { hv: 4, mv: 4, lv: 4 },
       ctNo: { hv: '1,2,3,4,5,6', mv: '4,5,6,7,8', n: '8,9,10', lv: '11,12,13,14' }, bctErrLimit: '', decSep: ',',
+      hdr: {}, wtgdLabels: {}, wtgdRows: [],
     };
   }
   function applyFactoryDefaults(cfg) {
@@ -188,21 +189,34 @@
   function gridHTML(g) {
     const ro = !!g.readonly;
     const cpcBtn = g.ex ? `<button class="btn small" data-act="cpcSlot" data-grid="${g.id}">Tải XML CPC 100…</button>` : '';
-    let h = `<div class="grid-block">${g.title || cpcBtn ? `<div class="grid-title">${esc(g.title || '')}${cpcBtn}</div>` : ''}<div class="grid-wrap ${ro ? 'readonly' : ''}"><table class="grid" data-grid="${g.id}"><thead><tr><th></th>`;
+    let h = `<div class="grid-block">${g.title || cpcBtn ? `<div class="grid-title">${esc(g.title || '')}${cpcBtn}</div>` : ''}<div class="grid-wrap ${ro ? 'readonly' : ''}"><table class="grid" data-grid="${g.id}"><thead><tr><th>${esc(g.corner || '')}</th>`;
     // cột pha: gắn mã pha để tô vạch màu A vàng · B xanh · C đỏ
     g.cols.forEach(c => {
       const ph = c.phase ? String(c.k).charAt(0).toUpperCase() : '';
-      h += `<th${ph ? ` data-ph="${ph}" title="Pha ${ph}"` : ''}>${esc(c.label)}</th>`;
+      const lbl = g.editHdr
+        ? `<input class="hdr" data-hk="${g.id}.${c.k}" value="${esc(c.label)}" placeholder="${esc(c.defLabel)}" title="Sửa đề mục cột — để trống để dùng lại “${esc(c.defLabel)}”" autocomplete="off">`
+        : esc(c.label);
+      h += `<th${ph ? ` data-ph="${ph}" title="Pha ${ph}"` : ''}>${lbl}</th>`;
     });
     h += '</tr></thead><tbody>';
     g.rows.forEach((r, ri) => {
       const tapLbl = /^bct\.\w+\.ex\./.test(g.id) && state.v[`${g.id}.tap.${r.k.slice(0, -1)}`];
-      h += `<tr><th>${esc(tapLbl ? r.label.replace(/^[^:]+/, tapLbl) : r.label)}</th>`;
+      if (g.editLabels) {
+        h += `<tr><th class="lbl-cell"><input class="lbl" data-lbl="${r.k}" value="${esc(r.label)}" placeholder="${esc(r.defLabel || 'Đối tượng đo')}" autocomplete="off">`
+          + (r.extra ? `<button class="row-del" data-act="delWtgdRow" data-rk="${r.k}" title="Xóa dòng" aria-label="Xóa dòng">×</button>` : '') + '</th>';
+      } else if (g.mirrorLabels) h += `<tr><th data-lblm="${r.k}">${esc(r.label)}</th>`;
+      else h += `<tr><th>${esc(tapLbl ? r.label.replace(/^[^:]+/, tapLbl) : r.label)}</th>`;
       g.cols.forEach((c, ci) => {
         const key = `${g.id}.${r.k}.${c.k}`;
         if (g.skip && g.skip(r.k, c.k)) { h += '<td class="na"></td>'; return; }
         if (ro || c.calc) { h += `<td class="calc"><span class="cv" data-c="${key}"></span></td>`; return; }
         const val = esc(state.v[key] ?? '');
+        if (c.options) {
+          const cur = state.v[key] ?? '';
+          const opts = [''].concat(c.options, cur && !c.options.includes(cur) ? [cur] : []);
+          h += `<td><select data-k="${key}" data-g="${g.id}" data-r="${ri}" data-col="${ci}">${opts.map(o => `<option ${o === cur ? 'selected' : ''}>${esc(o)}</option>`).join('')}</select></td>`;
+          return;
+        }
         if (r.select) {
           h += `<td><select data-k="${key}" data-g="${g.id}" data-r="${ri}" data-col="${ci}">${r.select.map(o => `<option ${o === state.v[key] ? 'selected' : ''}>${esc(o)}</option>`).join('')}</select></td>`;
           return;
@@ -215,7 +229,9 @@
       });
       h += '</tr>';
     });
-    return h + '</tbody></table></div></div>';
+    h += '</tbody></table></div>';
+    if (g.editLabels) h += '<div class="row-actions"><button class="btn small" data-act="addWtgdRow">+ Thêm dòng đối tượng đo</button></div>';
+    return h + '</div>';
   }
 
   function findingsHTML(secId) {
@@ -460,6 +476,15 @@
       if (/\.(kmode|mount)$/.test(el.dataset.k)) { recompute(); renderMain(); persist(); return; }
       if (el.dataset.k === 'meta.serial' && e.type === 'change') onSerialChange();
       scheduleEval();
+    } else if ((el.dataset.hk || el.dataset.lbl) && e.type === 'change') {
+      // đề mục cột (mục 8) / đối tượng đo (mục 6): lưu vào cấu hình, dựng lại schema mà không vẽ lại trang
+      const t = el.value.trim();
+      const map = el.dataset.hk ? state.cfg.hdr : state.cfg.wtgdLabels;
+      const id = el.dataset.hk || el.dataset.lbl;
+      if (t && t !== el.placeholder) map[id] = t; else delete map[id];
+      if (el.dataset.lbl) $$(`[data-lblm="${id}"]`).forEach(x => { x.textContent = t || el.placeholder; });
+      if (!t) el.value = el.dataset.hk ? el.placeholder : '';
+      schema = Schema.build(state.cfg); recompute(); updateComputed(); persist();
     } else if (el.dataset.cfg && e.type === 'change') {
       setCfg(el.dataset.cfg, el.value);
       if (/^(taps|bctCores)/.test(el.dataset.cfg)) {
@@ -545,6 +570,17 @@
         state.v['meta.conclusion'] = Evaluate.autoConclusion(res, schema, state);
         renderMain(); persist();
       } else if (act === 'fillBushingSN') fillBushingSN();
+      else if (act === 'addWtgdRow') {
+        state.cfg.wtgdRows.push({ k: 'x' + Date.now().toString(36) });
+        App.rebuild(true);
+        const ins = $$('[data-grid="wtgd.meas"] input.lbl'); if (ins.length) ins[ins.length - 1].focus();
+      } else if (act === 'delWtgdRow') {
+        const rk = b.dataset.rk;
+        state.cfg.wtgdRows = state.cfg.wtgdRows.filter(x => x.k !== rk);
+        delete state.cfg.wtgdLabels[rk];
+        Object.keys(state.v).filter(k => k.startsWith(`wtgd.meas.${rk}.`)).forEach(k => delete state.v[k]);
+        App.rebuild(true);
+      }
       else if (act && act.startsWith('db')) await DbUI.action(act, b);
     } catch (err) {
       console.error(err);
@@ -578,6 +614,7 @@
     cfg.ps = Object.assign(defaultCfg().ps, st.cfg.ps || {});
     cfg.ctNo = Object.assign(defaultCfg().ctNo, st.cfg.ctNo || {});
     cfg.bctCores = Object.assign(defaultCfg().bctCores, st.cfg.bctCores || {});
+    cfg.hdr = cfg.hdr || {}; cfg.wtgdLabels = cfg.wtgdLabels || {}; cfg.wtgdRows = cfg.wtgdRows || [];
     state = { v: st.v, cfg, sum: st.sum || { tick: {}, ev: {} }, created: st.created, db: st.db || null };
     state.sum.tick = state.sum.tick || {}; state.sum.ev = state.sum.ev || {};
     applyFactoryDefaults(state.cfg);
@@ -636,7 +673,13 @@
     });
     schema.sections.forEach(s => (s.extraDoc || []).forEach(x => write({ doc: x.doc, k: x.k }, (res.notes[x.k] || '').trim())));
     let cells = 0;
+    // Mục 6: thêm hàng cho đối tượng đo bổ sung (bảng số liệu đo và bảng quy đổi 20 °C)
+    const nExtra = (state.cfg.wtgdRows || []).length;
+    if (nExtra) Schema.eachGrid(schema, g => { if (/^wtgd\./.test(g.id)) tpl.appendRows(g.tables[0], nExtra); });
     Schema.eachGrid(schema, g => {
+      // Đối tượng đo đã sửa/thêm → ghi vào cột đầu; đề mục cột đã sửa → ghi vào hàng tiêu đề của template
+      if (/^wtgd\./.test(g.id)) g.rows.forEach(r => { if (r.label && r.label !== r.defLabel) tpl.setCellText(tpl.cell(g.tables, r.doc, 0), r.label); });
+      if (g.editHdr) g.cols.forEach(c => { if (c.label !== c.defLabel) tpl.setCellText(tpl.cell([g.tables[0]], 0, c.doc), c.label); });
       // bảng đặc tính từ hóa có số liệu điểm khuỷu → chèn cột thứ 4 vào bảng của template
       const exWide = g.ex && g.rows.some(r => (v[`${g.id}.${r.k}.p4`] || '').toString().trim());
       if (exWide) tpl.ensureColumns(g.tables, 5);
