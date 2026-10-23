@@ -1,0 +1,47 @@
+name: Triển khai GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      # js/config.js không nằm trong repo. Nếu khai báo biến repo SUPABASE_URL và SUPABASE_ANON_KEY
+      # (Settings → Secrets and variables → Actions → Variables) thì trang tự kết nối CSDL;
+      # không khai báo thì người dùng nhập URL/key ở trang "CSDL".
+      - name: Tạo js/config.js
+        env:
+          SUPABASE_URL: ${{ vars.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ vars.SUPABASE_ANON_KEY }}
+        run: |
+          printf "window.SUPABASE_CONFIG = { url: '%s', key: '%s' };\n" "$SUPABASE_URL" "$SUPABASE_ANON_KEY" > js/config.js
+
+      - name: Chuẩn bị thư mục site
+        run: |
+          mkdir -p _site
+          cp -r index.html css js _site/
+          touch _site/.nojekyll
+
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+      - id: deployment
+        uses: actions/deploy-pages@v4
