@@ -278,10 +278,14 @@
     setStatus('checking');
     const url = new URL(location.href);
     const oauthErr = url.searchParams.get('error_description') || new URLSearchParams(url.hash.slice(1)).get('error_description');
-    const returning = sessionStorage.getItem(OAUTH_FLAG) && url.searchParams.has('code');
+    const hasCode = url.searchParams.has('code');
+    const returning = sessionStorage.getItem(OAUTH_FLAG) && hasCode;
+    let exchangeErr = null;
     const tid = returning ? Notify.show({ type: 'loading', msg: 'Đang hoàn tất đăng nhập Google…' }) : null;
     try {
-      await DB.refreshUser(); // supabase-js tự đổi mã ?code= thành phiên (PKCE) trước khi trả về
+      const ini = await DB.authInit(); // supabase-js đổi mã ?code= thành phiên (PKCE)
+      if (ini && ini.error) { exchangeErr = ini.error; console.warn('Supabase auth init:', ini.error); }
+      await DB.refreshUser();
     } catch (e) {
       if (tid) Notify.dismiss(tid);
       Notify.show({ type: 'error', msg: 'Không kiểm tra được phiên đăng nhập: ' + friendly(e) });
@@ -292,6 +296,14 @@
       history.replaceState(null, '', location.pathname); // xóa mã xác thực khỏi thanh địa chỉ
     }
     setStatus(DB.user ? 'signed-in' : 'signed-out');
+    if (hasCode && !DB.user && !oauthErr) {
+      const m = String(exchangeErr && exchangeErr.message || '');
+      Notify.show({ type: 'error', title: 'Đăng nhập Google chưa hoàn tất', timeout: 20000,
+        msg: /code verifier|both auth code and code verifier/i.test(m)
+          ? 'Trình duyệt không còn mã xác thực của lần bấm đăng nhập. Hãy bấm “Tiếp tục với Google” ngay trên chính trang này (cùng địa chỉ, không dùng cửa sổ khác) rồi thử lại.'
+          : /expired|invalid/i.test(m) ? 'Mã đăng nhập đã hết hạn hoặc đã được dùng. Bấm “Tiếp tục với Google” để thử lại.'
+          : `Máy chủ không trả về phiên đăng nhập${m ? ` (${m})` : ''}. Kiểm tra Supabase → Authentication → URL Configuration: Redirect URLs phải có ${location.origin + location.pathname.replace(/[^/]*$/, '')}**.` });
+    }
     if (returning) { sessionStorage.removeItem(OAUTH_FLAG); if (DB.user) await afterSignIn('google'); }
     else if (booted) document.dispatchEvent(new CustomEvent('auth:changed'));
     booted = true;

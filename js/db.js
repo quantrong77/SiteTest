@@ -377,6 +377,8 @@
   async function resetPassword(email) { authChk(await need().auth.resetPasswordForEmail(email, { redirectTo: appUrl() })); }
   async function updatePassword(password) { authChk(await need().auth.updateUser({ password })); }
   async function signOut() { if (client) authChk(await client.auth.signOut()); user = null; role = 'none'; profile = null; }
+  // Kết quả khởi tạo phiên (gồm đổi mã ?code= → phiên khi quay về từ Google); trả về lỗi nếu có
+  const authInit = async () => (client && client.auth.initialize ? client.auth.initialize() : { error: null });
   const onAuthChange = cb => (client ? client.auth.onAuthStateChange(cb).data.subscription : null);
 
   // Tạo/cập nhật thiết bị theo (loại, số chế tạo); thiết bị cha trước, chỉ ghi các trường có giá trị
@@ -474,7 +476,7 @@
 
   window.DB = {
     fieldRows, factorySessions, kindOf, isoDate, KIND_LABEL,
-    connect, cfgGet, refreshUser, signIn, signUp, signOut, signInWithGoogle, resetPassword, updatePassword, onAuthChange, saveField, importFactory, uploadDoc, downloadDoc,
+    connect, cfgGet, refreshUser, signIn, signUp, signOut, signInWithGoogle, resetPassword, updatePassword, onAuthChange, authInit, saveField, importFactory, uploadDoc, downloadDoc,
     listSessions, loadSession, deleteSession, listDocs, listEquipment, trend, listSubstations, listBays, listClasses, crud,
     get client() { return client; }, get user() { return user; }, get role() { return role; }, get profile() { return profile; },
     get busy() { return inflight; },
