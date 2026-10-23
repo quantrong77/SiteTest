@@ -67,6 +67,7 @@
   // ================================================================ thông báo lỗi dễ hiểu
   function friendly(e) {
     const code = e && (e.code || ''), msg = String((e && e.message) || e || '');
+    if (/Invalid API key/i.test(msg)) return 'Key Supabase đang dùng không hợp lệ. Vào trang CSDL nhập lại key “anon public”, hoặc tải lại trang (Ctrl+F5) nếu trang đã có cấu hình sẵn.';
     if (code === 'google_disabled') return 'Đăng nhập Google chưa được bật trên CSDL. Quản trị viên cần bật Google tại Supabase → Authentication → Sign In / Providers. Tạm thời dùng đăng nhập email.';
     if (code === 'file_protocol') return 'Đăng nhập Google cần mở app qua địa chỉ http(s) — chạy start.bat (localhost) hoặc dùng bản GitHub Pages, không mở trực tiếp file index.html.';
     if (code === 'invalid_credentials' || /Invalid login credentials/i.test(msg)) return 'Email hoặc mật khẩu không đúng.';
@@ -299,7 +300,8 @@
     if (hasCode && !DB.user && !oauthErr) {
       const m = String(exchangeErr && exchangeErr.message || '');
       Notify.show({ type: 'error', title: 'Đăng nhập Google chưa hoàn tất', timeout: 20000,
-        msg: (/code verifier|both auth code and code verifier/i.test(m)
+        msg: (/Invalid API key/i.test(m) ? friendly(exchangeErr)
+          : /code verifier|both auth code and code verifier/i.test(m)
           ? 'Trình duyệt không còn mã xác thực của lần bấm đăng nhập. Hãy bấm “Tiếp tục với Google” ngay trên chính trang này (cùng địa chỉ, không dùng cửa sổ khác) rồi thử lại.'
           : /expired|invalid/i.test(m) ? 'Mã đăng nhập đã hết hạn hoặc đã được dùng. Bấm “Tiếp tục với Google” để thử lại.'
           : `Máy chủ không trả về phiên đăng nhập. Kiểm tra Supabase → Authentication → URL Configuration: Redirect URLs phải có ${location.origin + location.pathname.replace(/[^/]*$/, '')}**.`)

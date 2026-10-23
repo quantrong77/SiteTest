@@ -307,9 +307,23 @@
 
   // ======================================================================= Supabase I/O
   let client = null, user = null, role = 'none', profile = null;
+  // Cấu hình do trang cung cấp (js/config.js, GitHub Pages) luôn được ưu tiên; cấu hình nhập tay chỉ dùng khi trang chưa có
+  const siteCfg = () => { const c = window.SUPABASE_CONFIG || {}; return c.url && c.key ? { url: c.url, key: c.key, fromSite: true } : null; };
   const cfgGet = () => {
-    try { return Object.assign({}, window.SUPABASE_CONFIG || {}, JSON.parse(localStorage.getItem(LS_CFG) || '{}')); } catch (e) { return window.SUPABASE_CONFIG || {}; }
+    const site = siteCfg();
+    if (site) { try { localStorage.removeItem(LS_CFG); } catch (e) { /* bỏ qua */ } return site; }
+    try { return JSON.parse(localStorage.getItem(LS_CFG) || '{}'); } catch (e) { return {}; }
   };
+  // Kiểm tra URL + key với máy chủ trước khi dùng: trả về null nếu hợp lệ, hoặc câu báo lỗi
+  async function checkConfig(url, key) {
+    if (!/^https:\/\/[\w-]+\.supabase\.co\/?$/.test(String(url).trim()) && !/^https?:\/\//.test(String(url).trim())) return 'URL không đúng dạng https://<mã-project>.supabase.co';
+    try {
+      const r = await fetch(String(url).trim().replace(/\/$/, '') + '/auth/v1/settings', { headers: { apikey: String(key).trim() } });
+      if (r.status === 401) return 'Key không hợp lệ cho project này. Chép lại key “anon public” (Project Settings → API Keys), không dùng key service_role.';
+      if (!r.ok) return `Máy chủ trả mã ${r.status}. Kiểm tra lại URL project.`;
+      return null;
+    } catch (e) { return 'Không kết nối được tới URL này. Kiểm tra lại URL và mạng.'; }
+  }
 
   // Đếm số yêu cầu mạng đang chạy để giao diện hiện vạch tiến trình
   let inflight = 0;
@@ -317,7 +331,7 @@
   const trackedFetch = (...args) => { activity(1); return fetch(...args).finally(() => activity(-1)); };
 
   function connect(url, key) {
-    if (url !== undefined) { try { localStorage.setItem(LS_CFG, JSON.stringify({ url, key })); } catch (e) { /* phiên tạm */ } }
+    if (url !== undefined && !siteCfg()) { try { localStorage.setItem(LS_CFG, JSON.stringify({ url: String(url).trim(), key: String(key).trim() })); } catch (e) { /* phiên tạm */ } }
     const c = cfgGet();
     client = null; user = null; role = 'none'; profile = null;
     if (!c.url || !c.key || !window.supabase) return false;
@@ -480,7 +494,7 @@
 
   window.DB = {
     fieldRows, factorySessions, kindOf, isoDate, KIND_LABEL,
-    connect, cfgGet, refreshUser, signIn, signUp, signOut, signInWithGoogle, resetPassword, updatePassword, onAuthChange, authInit, saveField, importFactory, uploadDoc, downloadDoc,
+    connect, cfgGet, checkConfig, siteCfg, refreshUser, signIn, signUp, signOut, signInWithGoogle, resetPassword, updatePassword, onAuthChange, authInit, saveField, importFactory, uploadDoc, downloadDoc,
     listSessions, loadSession, deleteSession, listDocs, listEquipment, trend, listSubstations, listBays, listClasses, crud,
     get client() { return client; }, get user() { return user; }, get role() { return role; }, get profile() { return profile; },
     get busy() { return inflight; },

@@ -20,10 +20,14 @@
     const c = DB.cfgGet();
     const st = App.state;
     let h = `<div class="panel-head"><span class="secno">DB</span><h2>Cơ sở dữ liệu thí nghiệm</h2><span class="en">Supabase</span></div>`;
-    h += '<h3>Kết nối</h3><div class="fields">';
-    h += `<div class="field wide"><label for="dbUrl">Supabase URL</label><input id="dbUrl" value="${esc(c.url || '')}" placeholder="https://xxxx.supabase.co"></div>`;
-    h += `<div class="field wide"><label for="dbKey">Anon (publishable) key</label><input id="dbKey" value="${esc(c.key || '')}" placeholder="eyJhbGciOi…"></div>`;
-    h += `</div><div class="row-actions"><button class="btn" data-act="dbConnect">Kết nối</button><span class="hint-text">${DB.client ? 'Đã cấu hình kết nối.' : 'Chưa kết nối — app vẫn dùng được ở chế độ offline.'}</span></div>`;
+    if (c.fromSite) {
+      h += `<h3>Kết nối</h3><div class="callout">Trang này đã được cấu hình sẵn kết nối tới <b>${esc(c.url)}</b>.</div>`;
+    } else {
+      h += '<h3>Kết nối</h3><div class="fields">';
+      h += `<div class="field wide"><label for="dbUrl">Supabase URL</label><input id="dbUrl" value="${esc(c.url || '')}" placeholder="https://xxxx.supabase.co"></div>`;
+      h += `<div class="field wide"><label for="dbKey">Anon (publishable) key</label><input id="dbKey" value="${esc(c.key || '')}" placeholder="eyJhbGciOi…"></div>`;
+      h += `</div><div class="row-actions"><button class="btn" data-act="dbConnect">Kết nối</button><span class="hint-text">${DB.client ? 'Đã cấu hình kết nối.' : 'Chưa kết nối — app vẫn dùng được ở chế độ offline.'}</span></div>`;
+    }
     if (DB.client && !DB.user) {
       h += `<h3>Tài khoản</h3><div class="callout">Đăng nhập để lưu biên bản, nhập Test report và xem xu hướng.
         <div class="row-actions"><button class="btn primary" data-auth="open">Đăng nhập</button><button class="btn" data-auth="signup">Tạo tài khoản</button></div></div>`;
@@ -236,6 +240,8 @@
     busy = true; btn.disabled = true;
     try {
       if (act === 'dbConnect') {
+        const bad = await DB.checkConfig($('#dbUrl').value, $('#dbKey').value);
+        if (bad) throw new Error(bad);
         DB.connect($('#dbUrl').value, $('#dbKey').value);
         await AuthUI.init();
         sessions = null; T.equipment = null; T.loadedFor = ''; Catalog.reset();
