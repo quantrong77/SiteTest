@@ -14,6 +14,10 @@
   // ∆t lẻ được làm tròn về số nguyên gần nhất; cách phân tích được trả về để hiển thị.
   function tableFactor(table, dt) {
     let rest = Math.round(Math.abs(dt));
+    // Ô có trong bảng thì dùng thẳng; ngoài bảng thì nhân các cột (theo `ruleFor` của từng bảng)
+    const exact = table.find(r => r[0] === rest);
+    if (exact) return { k: exact[1], dt: rest, expr: `K(${rest})` };
+    if (table.composeFrom) table = table.composeFrom(rest);
     const parts = [];
     let k = 1;
     while (rest > 0) {
@@ -34,6 +38,10 @@
   }
 
   // tgδ về 20 °C: đo ở t > 20 °C → tgδ20 = tgδ(t) ÷ K2 (Bảng 7); đo ở t < 20 °C → tgδ20 = tgδ(t) × K2.
+  // Quy ước đơn vị (đã xác nhận): chênh đúng 16 °C dùng K2 = 2,4; chênh > 16 °C tính bằng tích các cột còn lại (1…15),
+  // không dùng cột 16 — vd 18 °C = K(15)×K(3).
+  K2.composeFrom = dt => (dt > 16 ? K2.filter(r => r[0] !== 16) : K2);
+
   function convTgd(v, tFrom, tTo) {
     const f = tableFactor(K2, tTo - tFrom);
     const val = tTo > tFrom ? v * f.k : v / f.k;

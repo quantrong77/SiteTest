@@ -348,7 +348,7 @@
           st = tg20 <= L.WINDING_TGD_OK ? 'pass' : 'fail';
           note = `K2 theo Bảng 7 với ∆t = ${k2.dt} °C (${k2.expr}).`
             // QĐ 1901 chỉ nêu "nhân các hệ số tương ứng" (vd 9 = 5 + 4); với ∆t > 16 °C không quy định cách tách
-            + (k2.dt > 16 ? ' ∆t > 16 °C: QĐ 1901 không quy định cách tách hệ số, app lấy hệ số lớn nhất trước — kết quả quy đổi chỉ để tham khảo.' : '')
+            + (k2.dt > 16 ? ' ∆t > 16 °C: K2 = tích các cột 1…15 của Bảng 7 (không dùng cột 16), theo quy ước đơn vị.' : '')
             // Điều 30: tgδ đo ở nhiệt độ cao, sau hiệu chỉnh lớn bất thường → để MBA nguội và đo lại
             + (st === 'fail' && tW > 20 ? ' QĐ 1901 Điều 30: nếu giá trị sau hiệu chỉnh lớn bất thường khi đo ở nhiệt độ cao, nên để MBA nguội đi rồi đo lại.' : '')
             + (tW < 10 || tW > 40 ? ' Khuyến cáo đo khi nhiệt độ dầu 10–40 °C (Điều 9 mục 4).' : '')
