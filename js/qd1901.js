@@ -6,7 +6,8 @@
 
   // Bảng 4 (Điều 9 mục 4; trùng Bảng 45 Điều 29) — Hệ số quy đổi điện trở cách điện K1 theo độ chênh nhiệt độ
   const K1 = [[1, 1.04], [2, 1.08], [3, 1.13], [4, 1.17], [5, 1.22], [10, 1.5], [15, 1.84], [20, 2.25], [25, 2.75], [30, 3.4]];
-  // Bảng 7 (Điều 9 mục 5; trùng Bảng 47 Điều 30) — Hệ số quy đổi tgδ K2 theo độ chênh nhiệt độ
+  // Bảng 7 (Điều 9 mục 5; trùng Bảng 47 Điều 30) — Hệ số quy đổi tgδ K2 theo độ chênh nhiệt độ.
+  // Cột 16 °C → 2,4 là đúng nguyên văn (đã đối chiếu bản giấy QĐ 1901), không phải lỗi đánh máy.
   const K2 = [[1, 1.05], [2, 1.10], [3, 1.15], [4, 1.20], [5, 1.25], [10, 1.55], [15, 1.95], [16, 2.4]];
 
   // Hiệu nhiệt độ không có trong bảng: nhân các hệ số tương ứng (vd ∆t=9 → K(5)×K(4)).
