@@ -159,9 +159,12 @@
     const sideGroups = schema.sections.find(s => s.id === 'bushing').groups.filter(g => g.term);
     // Ur mặc định khi test report không có sứ (phân nhóm dung sai Bảng 15 Hitachi)
     const UR_DEFAULT = { hv: 550, mv: 252, N: 126, lv: 40.5 };
+    // Cách quy đổi của từng phía: hitachi | table (QĐ 1901 / theo hãng) | manual
+    const kmodeOf = side => (typeof BushingK !== 'undefined' ? BushingK.resolve(txt(`b.${side}.kmode`))
+      : { kind: /Nhập/i.test(txt(`b.${side}.kmode`)) ? 'manual' : 'hitachi' });
     sideGroups.forEach(gr => {
       const side = gr.id, mg = gr.grids[0];
-      if (/Nhập/i.test(txt(`b.${side}.kmode`)) || typeof HitachiBushing === 'undefined') return; // chế độ nhập K: xử lý ở khối dưới
+      if (kmodeOf(side).kind !== 'hitachi' || typeof HitachiBushing === 'undefined') return; // bảng K / nhập K: xử lý ở khối dưới
       const H = HitachiBushing, HK = H.consts;
       const tOil = val(`b.${side}.t`);
       const mount = txt(`b.${side}.mount`) || 'Đã lắp';
@@ -240,24 +243,37 @@
       const side = gr.id, mg = gr.grids[0], cg = gr.grids[1];
       const tOil = val(`b.${side}.t`);
       const btype = txt(`b.${side}.btype`) || 'RIP';
-      const rip = false; // chế độ nhập hệ số K (Hitachi đã xử lý ở khối trên)
-      if (!/Nhập/i.test(txt(`b.${side}.kmode`)) && typeof HitachiBushing !== 'undefined') return;
-      let K = NaN, fc = NaN, tB = NaN;
-      if (rip && ok(tOil)) {
-        tB = ok(amb) ? (2 * amb + tOil) / 3 : tOil;
-        fc = QD.ripFc(tB); K = 1 / fc;
-        calc[`b.${side}.k`] = fmt(K, 3);
-      } else if (!rip) K = val(`b.${side}.k`);
-      const cCorr = c => (rip && ok(tB) ? c * (1 - (tB - 20) * 0.0004) : c);
-      notes[`b.${side}.k`] = ok(K) ? (rip ? ` ${fmt(K, 3)} (fc = ${fmt(fc, 3)} tại T sứ = ${fmt(tB, 1)} °C)` : ` ${fmt(K, 3)}`) : '';
+      const rip = false; // quy đổi C theo HD Hitachi chỉ dùng ở khối trên
+      const mode = kmodeOf(side);
+      if (mode.kind === 'hitachi' && typeof HitachiBushing !== 'undefined') return;
+      const tbl = mode.kind === 'table' ? mode.table : null;
+      const mount = txt(`b.${side}.mount`) || 'Đã lắp';
+      const tAmbS = ok(val(`b.${side}.tamb`)) ? val(`b.${side}.tamb`) : amb;
+      // QĐ 1901 Điều 38: nhiệt độ sứ lấy bằng nhiệt độ dầu MBA; sứ chưa lắp lấy nhiệt độ môi trường
+      const tB = mode.kind === 'table' ? (mount === 'Chưa lắp' ? tAmbS : tOil) : NaN;
+      let K = NaN, kWhy = '';
+      if (mode.kind === 'table') {
+        const lk = BushingK.lookup(tbl, btype, tB);
+        K = lk.k; kWhy = lk.why || (mode.missing ? `Không còn bảng “${mode.missing}”` : '');
+        calc[`b.${side}.tamb`] = ok(amb) ? fmt(amb, 1) : '';
+        if (ok(K)) calc[`b.${side}.k`] = fmt(K, 3);
+        notes[`b.${side}.k`] = ok(K)
+          ? ` ${fmt(K, 3)} (${tbl.name}, sứ ${btype}, t sứ = ${fmt(tB, 1)} °C${lk.interp ? ', nội suy' : ''}; tgδ20 = tgδ ${tbl.formula === 'MUL' ? '×' : '÷'} K)`
+          : (kWhy ? ` — ${kWhy}` : '');
+      } else {
+        K = val(`b.${side}.k`);
+        notes[`b.${side}.k`] = ok(K) ? ` ${fmt(K, 3)}` : '';
+      }
+      const to20 = x => (!ok(K) || !ok(x) ? NaN : tbl ? BushingK.convert(tbl, x, K) : x * K);
+      const cCorr = c => c;
       notes[`b.${side}.btype`] = ' ' + btype;
 
       mg.cols.filter(c => c.phase).forEach(c => {
         const p = `b.${side}.meas`, q = `b.${side}.c20`;
         ['type', 'manuf', 'serial'].forEach(r => { calc[`${q}.${r}.${c.k}`] = txt(`${p}.${r}.${c.k}`); });
         const tgd1 = val(`${p}.tgd1.${c.k}`), c1 = val(`${p}.c1.${c.k}`), tgd2 = val(`${p}.tgd2.${c.k}`), c2 = val(`${p}.c2.${c.k}`);
-        if (ok(tgd1) && ok(K)) calc[`${q}.tgd1.${c.k}`] = fmt(tgd1 * K, 3);
-        if (ok(tgd2) && ok(K)) calc[`${q}.tgd2.${c.k}`] = fmt(tgd2 * K, 3);
+        if (ok(tgd1) && ok(K)) calc[`${q}.tgd1.${c.k}`] = fmt(to20(tgd1), 3);
+        if (ok(tgd2) && ok(K)) calc[`${q}.tgd2.${c.k}`] = fmt(to20(tgd2), 3);
         if (ok(c1)) calc[`${q}.c1.${c.k}`] = fmt(cCorr(c1), 1);
         if (ok(c2)) calc[`${q}.c2.${c.k}`] = fmt(cCorr(c2), 1);
         if (!ok(tgd1) && !ok(c1)) return;
@@ -270,11 +286,13 @@
         const loc = `${gr.title.replace(/^5\.\d\s*/, '').replace('Sứ phía ', '')} – ${c.label}${bs ? ` [${bs}]` : ''}`;
         const keysT = [`${p}.tgd1.${c.k}`], keysC = [`${p}.c1.${c.k}`];
         // Quy đổi giá trị XX về 20 °C cùng phương pháp để so sánh cùng nhiệt độ
-        const fTd20 = fb && ok(fb.td) ? (rip && ok(fb.t) ? fb.td / QD.ripFc(fb.t) : fb.td) : NaN;
+        // bảng K: quy đổi giá trị XX bằng chính bảng đó tại nhiệt độ đo xuất xưởng
+        const fK = tbl && fb && ok(fb.t) ? BushingK.lookup(tbl, btype, fb.t).k : NaN;
+        const fTd20 = fb && ok(fb.td) ? (ok(fK) ? BushingK.convert(tbl, fb.td, fK) : fb.td) : NaN;
         const fC20 = fb && ok(fb.c1) ? (rip && ok(fb.t) ? fb.c1 * (1 - (fb.t - 20) * 0.0004) : fb.c1) : NaN;
 
         if (ok(tgd1)) {
-          const td20 = ok(K) ? tgd1 * K : NaN;
+          const td20 = to20(tgd1);
           const lim52 = QD.BUSHING_TGD_NEW[btype];
           const nsx = toNum(cfg.bTgdMax);
           const st52 = tgd1 < lim52 ? 'pass' : 'fail';
@@ -282,9 +300,10 @@
           const rise = devPct(td20, fTd20);
           let stRise = null;
           if (!isNew && ok(rise)) stRise = rise > L.BUSHING_TGD_RISE_FAIL ? 'fail' : rise >= L.BUSHING_TGD_RISE_WARN ? 'warn' : 'pass';
-          const tWarn = ok(tOil) && (tOil < 10 || tOil > 40) ? ' Nhiệt độ ngoài 10–40 °C (IEC 60137).' : '';
+          const tWarn = (ok(tOil) && (tOil < 10 || tOil > 40) ? ' Nhiệt độ ngoài 10–40 °C (IEC 60137).' : '')
+            + (tbl && ok(K) ? ` K = ${fmt(K, 3)} theo ${tbl.name}.` : '') + (kWhy ? ` Chưa quy đổi: ${kWhy}.` : '');
           add({ sec: 'bushing', item: 'tgδ C1 sứ', loc, meas: `${fmt(tgd1, 3)} %`, conv: ok(td20) ? `${fmt(td20, 3)} % @20 °C` : 'chưa quy đổi',
-            ref: fb ? `${fmt(fb.td, 3)} % @${fmt(fb.t, 1)} °C → ${fmt(fTd20, 3)} % @20 °C (XX)` : '', dev: ok(rise) ? `${sgn(rise, 1)} %` : '',
+            ref: fb ? `${fmt(fb.td, 3)} % @${fmt(fb.t, 1)} °C${ok(fK) ? ` → ${fmt(fTd20, 3)} % @20 °C` : ''} (XX)` : '', dev: ok(rise) ? `${sgn(rise, 1)} %` : '',
             limit: `${ok(nsx) ? `NSX ≤ ${fmt(nsx, 2)} %; ` : ''}Bảng 52 (${btype}) < ${fmt(lim52, 1)} %${isNew ? '' : '; vận hành: tăng ≤100% (70–100% cần đo 15/400 Hz)'}`,
             status: worst(st52, stN, stRise) || 'info', basis: R.bushing, note: (fb ? how : 'Không có số liệu XX của sứ này') + tWarn, keys: keysT });
         }

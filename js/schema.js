@@ -155,6 +155,8 @@
 
   function build(cfg) {
     const taps = (cfg.taps && cfg.taps.length === 19) ? cfg.taps : DEFAULT_TAPS;
+    // Cách quy đổi tgδ sứ: HD Hitachi, bảng QĐ 1901, bảng theo hãng (admin cấu hình), nhập K
+    const KMODES = typeof BushingK !== 'undefined' ? BushingK.modeOptions() : ['Hitachi Energy (RIP) – theo HD hãng', 'Nhập hệ số K'];
     // Đề mục cột người dùng sửa (cfg.hdr), đối tượng đo mục 6 sửa/thêm dòng (cfg.wtgdLabels, cfg.wtgdRows)
     const hdr = (gid, cols) => cols.map(c => Object.assign({}, c, { label: (cfg.hdr || {})[`${gid}.${c.k}`] || c.label, defLabel: c.label }));
     const wtgdRows = WTGD_ROWS.map(r => Object.assign({}, r, { label: (cfg.wtgdLabels || {})[r.k] || r.label, defLabel: r.label }))
@@ -216,7 +218,7 @@
             fields: [
               { k: 'b.hv.t', label: 'Nhiệt độ dầu (°C)', num: true, doc: { before: 7, re: /t=(?<v>\s*)oC/ } },
               { k: 'b.hv.btype', label: 'Loại cách điện sứ', type: 'select', options: ['RIP', 'OIP', 'RIS', 'RBP', 'GIF'], doc: { before: 8, re: /Loại\s*sứ:(?<v>)/ } },
-              { k: 'b.hv.kmode', label: 'Cách quy đổi về 20 °C', type: 'select', options: ['Hitachi Energy (RIP) – theo HD hãng', 'Nhập hệ số K'] },
+              { k: 'b.hv.kmode', label: 'Cách quy đổi về 20 °C', type: 'select', options: KMODES },
               { k: 'b.hv.mount', label: 'Trạng thái sứ khi đo', type: 'select', options: ['Đã lắp', 'Chưa lắp'] },
               { k: 'b.hv.tamb', label: 'Nhiệt độ môi trường khi đo sứ (°C)', num: true, placeholder: 'mặc định: nhiệt độ môi trường ở mục 0' },
               { k: 'b.hv.k', label: 'Hệ số K (tgδ20 = tgδ × K)', num: true, doc: { before: 8, re: /quy đổi K\s*=(?<v>.*)$/ } },
@@ -231,7 +233,7 @@
             fields: [
               { k: 'b.mv.t', label: 'Nhiệt độ dầu (°C)', num: true, doc: { before: 9, re: /t=(?<v>\s*)oC/ } },
               { k: 'b.mv.btype', label: 'Loại cách điện sứ', type: 'select', options: ['RIP', 'OIP', 'RIS', 'RBP', 'GIF'], doc: { before: 11, re: /Loại\s*sứ:(?<v>)/ } },
-              { k: 'b.mv.kmode', label: 'Cách quy đổi về 20 °C', type: 'select', options: ['Hitachi Energy (RIP) – theo HD hãng', 'Nhập hệ số K'] },
+              { k: 'b.mv.kmode', label: 'Cách quy đổi về 20 °C', type: 'select', options: KMODES },
               { k: 'b.mv.mount', label: 'Trạng thái sứ khi đo', type: 'select', options: ['Đã lắp', 'Chưa lắp'] },
               { k: 'b.mv.tamb', label: 'Nhiệt độ môi trường khi đo sứ (°C)', num: true, placeholder: 'mặc định: nhiệt độ môi trường ở mục 0' },
               { k: 'b.mv.k', label: 'Hệ số K (tgδ20 = tgδ × K)', num: true, doc: { before: 11, re: /quy đổi K\s*=(?<v>.*)$/ } },
@@ -247,7 +249,7 @@
             fields: [
               { k: 'b.lv.t', label: 'Nhiệt độ dầu (°C)', num: true, doc: { before: 12, re: /t=(?<v>\s*)oC/ } },
               { k: 'b.lv.btype', label: 'Loại cách điện sứ', type: 'select', options: ['RIP', 'OIP', 'RIS', 'RBP', 'GIF'], doc: { before: 13, re: /Loại\s*sứ:(?<v>)/ } },
-              { k: 'b.lv.kmode', label: 'Cách quy đổi về 20 °C', type: 'select', options: ['Hitachi Energy (RIP) – theo HD hãng', 'Nhập hệ số K'] },
+              { k: 'b.lv.kmode', label: 'Cách quy đổi về 20 °C', type: 'select', options: KMODES },
               { k: 'b.lv.mount', label: 'Trạng thái sứ khi đo', type: 'select', options: ['Đã lắp', 'Chưa lắp'] },
               { k: 'b.lv.tamb', label: 'Nhiệt độ môi trường khi đo sứ (°C)', num: true, placeholder: 'mặc định: nhiệt độ môi trường ở mục 0' },
               { k: 'b.lv.k', label: 'Hệ số K (tgδ20 = tgδ × K)', num: true, doc: { before: 13, re: /quy đổi K\s*=(?<v>.*)$/ } },

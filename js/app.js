@@ -121,7 +121,8 @@
     return [{ id: 'general', no: '0', title: 'Thông tin chung & cấu hình' }]
       .concat(schema.sections.map(s => ({ id: s.id, no: String(s.no), title: s.title })))
       .concat([{ id: 'summary', no: 'Σ', title: 'Tổng hợp & kết luận' }, { id: 'factory', no: 'XX', title: 'Số liệu xuất xưởng' },
-        { id: 'db', no: 'DB', title: 'CSDL – biên bản đã lưu' }, { id: 'catalog', no: '≡', title: 'Trạm – Ngăn – Thiết bị' }, { id: 'trend', no: '↗', title: 'Xu hướng' }]);
+        { id: 'db', no: 'DB', title: 'CSDL – biên bản đã lưu' }, { id: 'catalog', no: '≡', title: 'Trạm – Ngăn – Thiết bị' }, { id: 'trend', no: '↗', title: 'Xu hướng' },
+        { id: 'kconf', no: 'K', title: 'Hệ số quy đổi sứ' }]);
   }
   // Thanh điều hướng vẽ như sơ đồ một sợi: mỗi hạng mục là một ngăn lộ, trạng thái là ký hiệu máy cắt
   const BRK_LABEL = { pass: 'Đạt — máy cắt đóng', warn: 'Cần xem xét', fail: 'Không đạt — máy cắt cắt', missing: 'Thiếu dữ liệu', info: 'Tham khảo' };
@@ -280,7 +281,8 @@
           So với <b>test report của hãng tra theo S/N sứ</b> (${esc(HB && HB.source ? `${HB.source}, ${HB.reports.length} sứ` : 'chưa nạp — nạp ở mục 0')}):
           ${tl ? `Ur ≤ ${HK.urSplit} kV: C1 ±${tl.low.c1 * 100}%, tanδ1 ±${String(tl.low.tgd1).replace('.', ',')}, C2 ±${tl.low.c2 * 100}%, tanδ2 ±${String(tl.low.tgd2).replace('.', ',')} điểm %; Ur > ${HK.urSplit} kV: C1 ±${tl.high.c1 * 100}%` : ''}.
           Sứ không có trong test report thì so với giá trị nhãn trong hồ sơ MBA (${bl.length} sứ của các máy đang chọn; ${ps}).
-          <div class="row-actions"><button class="btn small" data-act="fillBushingSN">Điền S/N sứ theo hồ sơ xuất xưởng (cần đối chiếu thực tế)</button></div></div>`;
+          <br>Chọn <b>Theo QĐ 1901</b> hoặc <b>Theo hãng</b> ở ô “Cách quy đổi về 20 °C”: tra hệ số K theo loại cách điện sứ và nhiệt độ sứ (đã lắp: nhiệt độ dầu; chưa lắp: nhiệt độ môi trường), tgδ20 = tgδ(t) ÷ K. Bảng K do Admin cấu hình ở trang “Hệ số quy đổi sứ”.
+          <div class="row-actions"><button class="btn small" data-nav="kconf">Xem bảng hệ số K</button><button class="btn small" data-act="fillBushingSN">Điền S/N sứ theo hồ sơ xuất xưởng (cần đối chiếu thực tế)</button></div></div>`;
       }
       case 'wtgd': return `<div class="callout">${mainLine}. Quy đổi về 20 °C theo <b>Bảng 7 QĐ 1901</b>: tgδ20 = tgδ(t) ÷ K2 (đo dưới 20 °C thì nhân K2); K2 tự tra theo độ chênh nhiệt độ. Tiêu chuẩn: <b>tgδ@20 °C ≤ 1 %</b>. Số liệu xuất xưởng (đo ${fm(FX.insT(s), 1)} °C) chỉ để tham khảo xu hướng.</div>`;
       case 'dcr': return `<div class="callout">So sánh theo số chế tạo của từng cột pha (${ps}). Xuất xưởng cho R quy đổi ${D.dcr.refT} °C: cuộn SER theo nấc, COM, LV. Phép đo A–N hiện trường được so với <b>${state.cfg.hvMeas === 'SER' ? 'SER' : 'SER + COM'}</b>; cuộn hạ áp: ${state.cfg.lvMode === 'delta' ? 'tam giác đã đấu (×2/3)' : 'từng máy (a–x)'} — đổi ở mục 0. Nấc 9a/9b/9c ứng với nấc 9A xuất xưởng.</div>`;
@@ -316,8 +318,8 @@
     h += cfgField('sLV', 'Công suất cuộn hạ áp S_LV (MVA)', { num: true });
     h += cfgField('sR', 'Công suất định mức S_r (MVA)', { num: true });
     h += cfgField('i0Ref', 'I0 nameplate (%) — để so sánh', { num: true, note: 'vd 0.04 theo nameplate AT1' });
-    h += cfgField('bC1Dev', 'Sứ (chế độ nhập K): lệch C1 tối đa (%)', { num: true, note: 'Chỉ dùng khi chọn “Nhập hệ số K”. Sứ Hitachi dùng dung sai Bảng 15 của hãng' });
-    h += cfgField('bTgdMax', 'Sứ (chế độ nhập K): tgδ C1 @20 °C tối đa (%)', { num: true });
+    h += cfgField('bC1Dev', 'Sứ (bảng K / nhập K): lệch C1 tối đa (%)', { num: true, note: 'Dùng khi quy đổi theo bảng K (QĐ 1901, theo hãng) hoặc nhập K. Sứ Hitachi dùng dung sai Bảng 15 của hãng' });
+    h += cfgField('bTgdMax', 'Sứ (bảng K / nhập K): tgδ C1 @20 °C tối đa (%)', { num: true });
     h += cfgField('bctCores.hv', 'TI chân sứ HV: số cuộn thứ cấp', { options: [4, 5, 6] });
     h += cfgField('bctCores.mv', 'TI chân sứ MV: số cuộn thứ cấp', { options: [4, 5] });
     h += cfgField('ctNo.hv', 'Mã lõi CT phía HV (cuộn 1..n)');
@@ -355,7 +357,9 @@
     const m = f.k.match(/^b\.(\w+)\.k$/);
     if (m) {
       const rip = !/Nhập/i.test(state.v[`b.${m[1]}.kmode`] || '');
-      if (rip) return `<div class="field"><label>${esc(f.label)}</label><div class="calcval" data-n="${f.k}"></div></div>`;
+      const mode = typeof BushingK !== 'undefined' ? BushingK.resolve(state.v[`b.${m[1]}.kmode`]) : null;
+      const label = mode && mode.kind === 'table' ? `Hệ số K tra bảng (tgδ20 = tgδ ${mode.table && mode.table.formula === 'MUL' ? '×' : '÷'} K)` : f.label;
+      if (rip) return `<div class="field"><label>${esc(label)}</label><div class="calcval" data-n="${f.k}"></div></div>`;
     }
     return fieldHTML(f);
   }
@@ -404,12 +408,14 @@
     else if (current === 'db') html = DbUI.renderDb();
     else if (current === 'trend') html = DbUI.renderTrend();
     else if (current === 'catalog') html = Catalog.render();
+    else if (current === 'kconf') html = KConf.render();
     else html = renderSection(schema.sections.find(s => s.id === current));
     const dl = FX ? `<datalist id="dlSerials">${FX.data.order.map(s => `<option value="${esc(s)}">`).join('')}</datalist>` : '';
     main.innerHTML = html + dl;
     updateComputed();
     if (current === 'db' || current === 'trend') DbUI.afterRender(current);
     if (current === 'catalog') Catalog.afterRender();
+    if (current === 'kconf') KConf.afterRender();
   }
 
   // Cập nhật ô tính toán, trạng thái ô, bảng so sánh mà không render lại form (giữ focus)
@@ -758,7 +764,11 @@
     renderMain();
     if (restored && !new URLSearchParams(location.search).has('code')) Notify.show({ type: 'info', msg: 'Đã mở lại biên bản đang nhập dở trên máy này.' });
     // Đăng nhập / đăng xuất / đổi kết nối → làm mới dữ liệu CSDL đang hiển thị
-    document.addEventListener('auth:changed', () => { DbUI.reset(); Catalog.reset(); renderNav(); renderMain(); });
+    document.addEventListener('auth:changed', () => {
+      DbUI.reset(); Catalog.reset(); KConf.reset(); renderNav(); renderMain();
+      // bảng hệ số quy đổi sứ trong CSDL (admin cấu hình) → dựng lại lựa chọn ở mục 5
+      if (DB.user) KConf.load(true);
+    });
     DB.connect();
     AuthUI.init().catch(e => console.warn(e));
 

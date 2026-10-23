@@ -310,3 +310,12 @@ code { font-family: var(--mono); font-size: 12px; }
   .bus::after { display: none; }
   .nav-item.active::before, .brk.flip { animation: none; }
 }
+
+/* ---------- cấu hình hệ số quy đổi sứ ---------- */
+.k-layout { display: grid; grid-template-columns: minmax(240px, 320px) 1fr; gap: 18px; align-items: start; margin-top: 12px; }
+.k-list .cat-list { max-height: 520px; }
+.k-grid { max-height: 460px; overflow: auto; max-width: 560px; }
+.k-grid table.grid td { min-width: 90px; }
+.k-grid table.grid input { padding-bottom: 7px; }
+.k-grid td.k-del { min-width: 34px; width: 34px; position: relative; }
+@media (max-width: 900px) { .k-layout { grid-template-columns: 1fr; } }
