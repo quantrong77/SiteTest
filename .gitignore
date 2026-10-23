@@ -1,0 +1,15 @@
+# Số liệu thật (template đơn vị, Test report xuất xưởng) — sinh trên máy bằng tools/build_embedded.py
+js/embedded.js
+*.docx
+*.xlsx
+*.xlsm
+*.pdf
+~$*
+
+# Cấu hình kết nối riêng của từng máy
+js/config.local.js
+.env*
+
+node_modules/
+.DS_Store
+Thumbs.db
