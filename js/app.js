@@ -194,7 +194,8 @@
     });
     h += '</tr></thead><tbody>';
     g.rows.forEach((r, ri) => {
-      h += `<tr><th>${esc(r.label)}</th>`;
+      const tapLbl = /^bct\.\w+\.ex\./.test(g.id) && state.v[`${g.id}.tap.${r.k.slice(0, -1)}`];
+      h += `<tr><th>${esc(tapLbl ? r.label.replace(/^[^:]+/, tapLbl) : r.label)}</th>`;
       g.cols.forEach((c, ci) => {
         const key = `${g.id}.${r.k}.${c.k}`;
         if (g.skip && g.skip(r.k, c.k)) { h += '<td class="na"></td>'; return; }
@@ -318,6 +319,9 @@
 
   function renderSection(s) {
     let h = headHTML(String(s.no), s.title, s.en, s.id) + refInfo(s.id);
+    if (s.id === 'bct') {
+      h += `<div class="bct-tools"><div class="fields">${cfgField('bctCores.hv', 'Số cuộn thứ cấp TI phía HV', { options: [4, 5, 6] })}${cfgField('bctCores.mv', 'Số cuộn thứ cấp TI phía MV', { options: [4, 5] })}<div class="field"><label>Đặc tính từ hóa từ máy đo</label><button class="btn primary" data-act="loadCpc">Nhập XML CPC 100…</button></div></div><div class="hint-text">Chọn một hoặc nhiều file XML xuất từ CPC 100 (mỗi file một pha/một phía). App lấy 3 điểm (U, I) theo IEC 61869-2 và điền vào bảng đặc tính từ hóa; file có cuộn 5, 6 sẽ tự mở thêm cuộn. Phía LV và trung tính theo template chỉ có 4 và 3 cuộn.</div></div>`;
+    }
     if (s.fields) h += '<div class="fields">' + s.fields.map(f => sectionField(f)).join('') + '</div>';
     (s.grids || []).forEach(g => { h += gridHTML(g); });
     (s.groups || []).forEach(gr => {
@@ -461,7 +465,7 @@
         schema = Schema.build(state.cfg);
       }
       recompute();
-      if (el.dataset.cfg === 'template') renderMain(); else updateComputed();
+      if (/^(template|bctCores|taps)/.test(el.dataset.cfg)) renderMain(); else updateComputed();
       persist();
     } else if (el.dataset.sumtick) {
       state.sum.tick[el.dataset.sumtick] = el.checked; persist();
@@ -526,6 +530,7 @@
       else if (act === 'loadXlsx') $('#fileXlsx').click();
       else if (act === 'loadDocx') $('#fileDocx').click();
       else if (act === 'loadHitachi') $('#fileHitachi').click();
+      else if (act === 'loadCpc') $('#fileCpc').click();
       else if (act === 'resetXlsx') { lsSet(LS_FAC, null); loadFactoryDefault(); applyFactoryDefaults(state.cfg); recompute(); renderMain(); toast('Đã dùng lại file xuất xưởng mặc định'); }
       else if (act === 'docx') await exportDocx();
       else if (act === 'xlsx') exportXlsx();
@@ -633,6 +638,11 @@
         const tc = tpl.cell(g.tables, r.doc, r.cmap && r.cmap[c.k] !== undefined ? r.cmap[c.k] : c.doc);
         if (tpl.setCellText(tc, out(val))) cells++; else miss.push(key);
       }));
+      // Đặc tính từ hóa: ghi đầu cuộn thực đo (vd 2S1-2S5) vào ô nhãn thay cho nhãn mẫu "2S1 - 2S4"
+      if (/^bct\.\w+\.ex\./.test(g.id)) g.rows.filter(r => /i$/.test(r.k)).forEach(r => {
+        const tap = v[`${g.id}.tap.${r.k.slice(0, -1)}`];
+        if (tap) tpl.setCellText(tpl.cell(g.tables, r.doc, 0), tap);
+      });
     });
     schema.sections.forEach(s => {
       const row = Schema.SUMMARY_ROWS[s.id];
@@ -713,6 +723,7 @@
       recompute(); renderMain(); persist();
       toast(`Đã nạp ${f.name}: ${FX.data.order.length} máy${FX.data.warnings.length ? ' — có cảnh báo' : ''}`, FX.data.warnings.length > 0);
     }));
+    $('#fileCpc').addEventListener('change', e => { const fl = Array.from(e.target.files); e.target.value = ''; if (fl.length) CpcImport.open(fl); });
     $('#fileHitachi').addEventListener('change', e => readFile(e.target, async f => {
       const buf = await f.arrayBuffer();
       const info = HitachiBushing.fromArrayBuffer(buf, f.name);
@@ -734,6 +745,7 @@
   window.App = {
     get state() { return state; }, get res() { return res; }, get schema() { return schema; }, get FX() { return FX; }, EMB,
     exportDocx, exportXlsx, toast, esc, download, safeName, persist, recompute,
+    rebuild(schemaChanged) { if (schemaChanged) schema = Schema.build(state.cfg); recompute(); renderNav(); renderMain(); persist(); },
     render() { renderNav(); renderMain(); },
     go(id) { current = id; renderNav(); renderMain(); window.scrollTo(0, 0); },
     openState(st, db) { loadState(st); state.db = db; recompute(); current = 'general'; renderMain(); persist(); },

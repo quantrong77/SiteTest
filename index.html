@@ -44,10 +44,16 @@
       <button class="ad-x" data-auth="close" aria-label="Đóng">×</button></div>
     <div id="adPanel"></div>
   </dialog>
+  <dialog class="auth-dialog cpc-dialog" id="cpcDialog" aria-labelledby="cpcTitle">
+    <div class="ad-band"><span>Đặc tính từ hóa TI chân sứ — CPC 100</span>
+      <button class="ad-x" onclick="this.closest('dialog').close()" aria-label="Đóng">×</button></div>
+    <div id="cpcPanel"></div>
+  </dialog>
   <input type="file" id="fileJson" accept=".json,application/json" hidden>
   <input type="file" id="fileXlsx" accept=".xlsx,.xlsm" hidden>
   <input type="file" id="fileDocx" accept=".docx" hidden>
   <input type="file" id="fileHitachi" accept=".xlsx,.xlsm" hidden>
+  <input type="file" id="fileCpc" accept=".xml" multiple hidden>
 
   <script src="js/vendor/jszip.min.js"></script>
   <script src="js/vendor/xlsx.full.min.js"></script>
@@ -57,6 +63,7 @@
   <script src="js/qd1901.js"></script>
   <script src="js/factory.js"></script>
   <script src="js/bushing-hitachi.js"></script>
+  <script src="js/cpc-import.js"></script>
   <script src="js/schema.js"></script>
   <script src="js/evaluate.js"></script>
   <script src="js/docx.js"></script>

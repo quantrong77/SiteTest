@@ -234,6 +234,20 @@ code { font-family: var(--mono); font-size: 12px; }
 .btn.danger:hover { border-color: var(--fail); }
 @media (max-width: 900px) { .cat-cols { grid-template-columns: 1fr; } }
 
+/* ---------- nhập CPC 100 ---------- */
+.bct-tools { border: 1px dashed #b9c3cc; border-radius: var(--radius); padding: 10px 12px 4px; margin: 4px 0 14px; background: #f8fafb; }
+.auth-dialog.cpc-dialog { width: min(1040px, calc(100vw - 32px)); max-width: none; }
+.cpc-tbl td:nth-child(2) { white-space: nowrap; }
+.cpc-tbl td.note { max-width: none; min-width: 260px; }
+.ad-body.cpc { max-height: calc(100vh - 140px); overflow: auto; }
+.cpc-file { border: 1px solid var(--line); border-radius: var(--radius); margin: 12px 0; overflow: hidden; }
+.cpc-file-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; padding: 8px 12px; background: #f4f6f7; border-bottom: 1px solid var(--line); font-size: 13px; }
+.cpc-file-head span { color: var(--muted); font-size: 12px; }
+.cpc-file-head label { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); }
+.cpc-file-head select { border: 1px solid #c4cad0; border-radius: 6px; padding: 3px 6px; }
+.cpc-tbl td.num span, .cpc-tbl td span { color: var(--muted); font-size: 12px; }
+.cpc-tbl tr.muted { opacity: .55; }
+
 /* ---------- misc ---------- */
 .callout { border: 1px solid #cfe0f2; background: #f2f7fc; border-radius: var(--radius); padding: 10px 12px; font-size: 12.5px; color: #2c4157; margin: 8px 0 14px; }
 .callout.warn { border-color: #efd9a4; background: #fdf8ea; color: #5d4504; }

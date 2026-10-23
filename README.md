@@ -52,6 +52,11 @@ Dữ liệu đang nhập được tự lưu trong trình duyệt; dùng **Lưu .
 - Tỷ số biến lệch ≤ 0,5 % so với nameplate và giữa các pha.
 - P0 (MBA 1 pha ≥ 110 kV) lệch ≤ 10 % sau lắp đặt/sửa chữa, ≤ 15 % vận hành; độ ẩm cách điện cứng theo Điều 28;
   TI chân sứ ≥ 200 MΩ.
+- Biến dòng chân sứ — **Nhập XML CPC 100** (mục 11): chọn một hoặc nhiều file XML xuất từ OMICRON CPC 100 (card đặc tính từ hóa).
+  App lấy 3 điểm (U, I) theo **IEC 61869-2**: 0,5·E_k · E_k (điểm gối: +10 % áp → +50 % dòng) · 1,1·E_k, dòng nội suy log–log
+  trên đường cong đo. Ưu tiên điểm gối do CPC 100 tính; máy không báo thì app tính theo định nghĩa IEC (đánh dấu "kiểm tra");
+  chưa tới vùng gối thì lấy 1/3, 2/3, 100 % U lớn nhất. Phía/pha đoán từ tên file (vd "PHA A 220", "PHA a 22", "PHA N"), sửa được;
+  file có cuộn 5, 6 tự mở thêm cuộn (HV tối đa 6, MV 5 theo template). Đầu cuộn thực đo (vd 2S1-2S5) ghi vào BBTN.
 - Chỗ QĐ 1901 không nêu ngưỡng (đặc tính V-A, R một chiều TI chân sứ, C2 sứ, đo không tải ở điện áp thấp)
   được ghi “Tham khảo” để lưu làm giá trị khởi đầu, không tự đặt ngưỡng.
 
