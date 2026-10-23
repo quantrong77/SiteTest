@@ -37,9 +37,10 @@ Dữ liệu đang nhập được tự lưu trong trình duyệt; dùng **Lưu .
 
 ## Tiêu chí áp dụng (QĐ 1901)
 
-- R60 ≥ Bảng 5 tại nhiệt độ đo (file xuất xưởng không có R60 tuyệt đối nên chưa áp được tiêu chí “giảm ≤30%”);
-  PI theo Điều 29; lõi/gông > 500 MΩ (mới) / > 100 MΩ (đã vận hành).
-- tgδ cuộn dây ≤ 1 % ở 20 °C (K2 – Bảng 47), nếu lớn hơn thì xét mức tăng ≤ 30 % so với xuất xưởng cùng nhiệt độ; điện dung ±5 %.
+- Điện trở cách điện: **R60@20 = R60(t) × K1**, K1 tra **Bảng 4** QĐ 1901 theo độ chênh nhiệt độ (đo dưới 20 °C thì chia K1);
+  tiêu chuẩn **R60@20 ≥ Bảng 5 tại 20 °C** (MBA ≥110 kV: 600 MΩ). PI theo Điều 29; lõi/gông > 500 MΩ (mới) / > 100 MΩ (đã vận hành).
+- tgδ cuộn dây: **tgδ@20 = tgδ(t) ÷ K2**, K2 tra **Bảng 7** QĐ 1901 (đo dưới 20 °C thì nhân K2); tiêu chuẩn **tgδ@20 °C ≤ 1 %**; điện dung ±5 %.
+- Độ chênh không có trong bảng: nhân các hệ số (vd 9 °C = K(5)×K(4), như ví dụ trong QĐ 1901).
 - Sứ RIP Hitachi Energy — theo HD vận hành sứ của hãng mục 19.6–19.8, đúng nghiệp vụ file `SuRIP_Hitachi_QuyDoi20C.xlsx`:
   - T sứ = T môi trường khi **chưa lắp**; = (2·T môi trường + T dầu)/3 khi **đã lắp** (chọn trạng thái ở từng phía sứ).
   - tanδ20 = tanδ/fc (fc nội suy Bảng 13, 0–80 °C); C20 = C·(1 − ΔT·0,0004); sứ đã lắp: C1 relative = C1@20 + ΔC (Bảng 14).
@@ -53,9 +54,6 @@ Dữ liệu đang nhập được tự lưu trong trình duyệt; dùng **Lưu .
   TI chân sứ ≥ 200 MΩ.
 - Chỗ QĐ 1901 không nêu ngưỡng (đặc tính V-A, R một chiều TI chân sứ, C2 sứ, đo không tải ở điện áp thấp)
   được ghi “Tham khảo” để lưu làm giá trị khởi đầu, không tự đặt ngưỡng.
-
-Lưu ý: ghi chú cuối Bảng 45 viết R(t2) = R(t1)/K1 khi t2 < t1, ngược với chiều vật lý của điện trở cách điện.
-App quy đổi theo chiều vật lý (nhiệt độ giảm thì R tăng) và hiển thị rõ hệ số K1 trong biên bản để người đánh giá kiểm tra.
 
 ## Cơ sở dữ liệu Supabase (lưu trữ & xu hướng)
 

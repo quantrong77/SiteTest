@@ -4,9 +4,9 @@
 (function () {
   'use strict';
 
-  // Bảng 45 — Hệ số quy đổi điện trở cách điện K1 theo hiệu nhiệt độ (Điều 29)
+  // Bảng 4 (Điều 9 mục 4; trùng Bảng 45 Điều 29) — Hệ số quy đổi điện trở cách điện K1 theo độ chênh nhiệt độ
   const K1 = [[1, 1.04], [2, 1.08], [3, 1.13], [4, 1.17], [5, 1.22], [10, 1.5], [15, 1.84], [20, 2.25], [25, 2.75], [30, 3.4]];
-  // Bảng 47 (≡ Bảng 7) — Hệ số quy đổi tgδ K2 theo hiệu nhiệt độ (Điều 30)
+  // Bảng 7 (Điều 9 mục 5; trùng Bảng 47 Điều 30) — Hệ số quy đổi tgδ K2 theo độ chênh nhiệt độ
   const K2 = [[1, 1.05], [2, 1.10], [3, 1.15], [4, 1.20], [5, 1.25], [10, 1.55], [15, 1.95], [16, 2.4]];
 
   // Hiệu nhiệt độ không có trong bảng: nhân các hệ số tương ứng (vd ∆t=9 → K(5)×K(4)).
@@ -25,16 +25,14 @@
     return { k, dt: Math.round(Math.abs(dt)), expr: parts.length ? parts.map(p => `K(${p})`).join('×') : '1' };
   }
 
-  // Điện trở cách điện: giảm khi nhiệt độ tăng. Quy về nhiệt độ thấp hơn → nhân K1.
-  // (Ghi chú cuối Bảng 45 viết R(t2)=R(t1)/K1 khi t2<t1 — ngược chiều vật lý của điện trở
-  //  cách điện; app áp dụng chiều vật lý và hiển thị rõ K1 để người đánh giá kiểm tra.)
+  // Điện trở cách điện về 20 °C: đo ở t > 20 °C → R20 = R(t) × K1 (Bảng 4); đo ở t < 20 °C → R20 = R(t) ÷ K1.
   function convIR(r, tFrom, tTo) {
     const f = tableFactor(K1, tTo - tFrom);
     const val = tTo < tFrom ? r * f.k : r / f.k;
     return { val, k: f.k, expr: f.expr, dt: f.dt };
   }
 
-  // tgδ: tgδ(t2) = K2 × tgδ(t1) khi t2>t1; tgδ(t2) = tgδ(t1)/K2 khi t2<t1 (Điều 30).
+  // tgδ về 20 °C: đo ở t > 20 °C → tgδ20 = tgδ(t) ÷ K2 (Bảng 7); đo ở t < 20 °C → tgδ20 = tgδ(t) × K2.
   function convTgd(v, tFrom, tTo) {
     const f = tableFactor(K2, tTo - tFrom);
     const val = tTo > tFrom ? v * f.k : v / f.k;
@@ -116,13 +114,13 @@
     REF: {
       visual: 'Điều 9 Bảng 1',
       noload: 'Điều 34 mục 3',
-      ir: 'Điều 9 mục 4, Bảng 5; Điều 29',
+      ir: 'Điều 9 mục 4, Bảng 4 (K1), Bảng 5',
       core: 'Điều 9 Bảng 1 ghi chú a',
       pi: 'Điều 29 (PI); Điều 9 ghi chú d',
       vector: 'Điều 32 mục 3',
       bushing: 'Điều 38 mục 3, Bảng 52',
       bushingAC: 'Điều 38 mục 2, Bảng 50',
-      wtgd: 'Điều 9 mục 5; Điều 30 mục 3, Bảng 46–47',
+      wtgd: 'Điều 9 mục 5, Bảng 7 (K2); tgδ@20 °C ≤ 1 %',
       dcr: 'Điều 9 mục 7; Điều 31',
       ratio: 'Điều 9 mục 6; Điều 33 mục 3',
       oltc: 'Điều 37 mục 3',

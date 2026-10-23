@@ -251,7 +251,7 @@
     const ps = `Cột pha A/B/C ↔ ${['A', 'B', 'C'].map(p => esc(state.cfg.ps[p] || '—')).join(' / ')}`;
     switch (id) {
       case 'noload': return `<div class="callout">${mainLine}: P0 xuất xưởng = <b>${u ? fm(u.noLoadLoss, 1) : '—'} kW</b> (đo ${fm(cond.noload, 1)} °C). P0 = Pm(1+d), d=(U′−U)/U′; I0% = Io/I<sub>LV</sub> × S<sub>LV</sub>/S<sub>r</sub> × 100 với I<sub>LV</sub>=${esc(state.cfg.iLV)} A, S<sub>LV</sub>=${esc(state.cfg.sLV)} MVA, S<sub>r</sub>=${esc(state.cfg.sR)} MVA (sửa ở mục 0).</div>`;
-      case 'ir': return `<div class="callout">${mainLine}. Xuất xưởng (đo ${fm(cond.ins, 1)} °C) chỉ có Kht, PI và R lõi/gông — không có R60 tuyệt đối, nên R60 được đánh giá theo Bảng 5. Quy đổi R về 20 °C bằng K1 (Bảng 45) theo chiều vật lý: R giảm khi nhiệt độ tăng.</div>`;
+      case 'ir': return `<div class="callout">${mainLine}. Quy đổi về 20 °C theo <b>Bảng 4 QĐ 1901</b>: R20 = R(t) × K1 (đo dưới 20 °C thì chia K1); K1 tự tra theo độ chênh nhiệt độ, độ chênh không có trong bảng thì nhân các hệ số (vd 12 °C = K(10)×K(2)). Tiêu chuẩn: <b>R60@20 ≥ Bảng 5 tại 20 °C</b> (MBA ≥110 kV: 600 MΩ). Xuất xưởng (đo ${fm(cond.ins, 1)} °C) chỉ có Kht, PI và R lõi/gông.</div>`;
       case 'bushing': {
         const bl = D.bushings.filter(b => Object.values(state.cfg.ps).includes(b.mba));
         const HB = window.HitachiBushing, HK = HB && HB.consts, tl = HK && HK.tol;
@@ -263,7 +263,7 @@
           Sứ không có trong test report thì so với giá trị nhãn trong hồ sơ MBA (${bl.length} sứ của các máy đang chọn; ${ps}).
           <div class="row-actions"><button class="btn small" data-act="fillBushingSN">Điền S/N sứ theo hồ sơ xuất xưởng (cần đối chiếu thực tế)</button></div></div>`;
       }
-      case 'wtgd': return `<div class="callout">${mainLine}. tgδ/C xuất xưởng đo ở ${fm(FX.insT(s), 1)} °C cho 2 sơ đồ: HV+MV+N–LV+Tank và LV–HV+MV+N+Tank. Quy đổi tgδ bằng K2 (Bảng 47).</div>`;
+      case 'wtgd': return `<div class="callout">${mainLine}. Quy đổi về 20 °C theo <b>Bảng 7 QĐ 1901</b>: tgδ20 = tgδ(t) ÷ K2 (đo dưới 20 °C thì nhân K2); K2 tự tra theo độ chênh nhiệt độ. Tiêu chuẩn: <b>tgδ@20 °C ≤ 1 %</b>. Số liệu xuất xưởng (đo ${fm(FX.insT(s), 1)} °C) chỉ để tham khảo xu hướng.</div>`;
       case 'dcr': return `<div class="callout">So sánh theo số chế tạo của từng cột pha (${ps}). Xuất xưởng cho R quy đổi ${D.dcr.refT} °C: cuộn SER theo nấc, COM, LV. Phép đo A–N hiện trường được so với <b>${state.cfg.hvMeas === 'SER' ? 'SER' : 'SER + COM'}</b>; cuộn hạ áp: ${state.cfg.lvMode === 'delta' ? 'tam giác đã đấu (×2/3)' : 'từng máy (a–x)'} — đổi ở mục 0. Nấc 9a/9b/9c ứng với nấc 9A xuất xưởng.</div>`;
       case 'ratio': return `<div class="callout">Tỷ số định mức lấy từ bảng xuất xưởng theo nấc (HV:MV), HV:LV = (U<sub>HV</sub>/√3)/U<sub>LV</sub>${state.cfg.lvMode === 'delta' ? ' × √3 (tổ đã đấu tam giác)' : ''}. ΔK tự tính nếu để trống; có thể nhập ΔK đọc từ máy đo. ${ps}.</div>`;
       case 'oltc': return `<div class="callout">OLTC theo hồ sơ xuất xưởng: <b>${esc(D.specs.oltc || '—')}</b>.</div>`;

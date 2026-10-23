@@ -115,11 +115,13 @@
         return;
       }
       if (ok(tIR)) {
-        const min = QD.irMin(tIR);
-        const r20 = toNum(calc[`ir.c20.${row.k}.r60`]?.replace(',', '.'));
-        add({ sec: 'ir', item: `R60 ${row.label}`, loc: unitLabel(main), meas: `${fmt(r60, 0)} MΩ @${fmt(tIR, 1)} °C`, conv: ok(r20) ? `${fmt(r20, 0)} MΩ @20 °C` : '',
-          ref: `${fmt(min, 0)} MΩ (Bảng 5 @${fmt(tIR, 1)} °C)`, limit: `≥ ${fmt(min, 0)} MΩ`, status: r60 >= min ? 'pass' : 'fail', basis: R.ir,
-          note: 'XX không cung cấp R60 tuyệt đối → không áp được tiêu chí “giảm ≤30%”, dùng Bảng 5. Lần thí nghiệm này là giá trị khởi đầu.', keys: [`${p}.r60`] });
+        const min = QD.irMin(20); // Bảng 5 tại 20 °C
+        const cv = QD.convIR(r60, tIR, 20);
+        const r20 = cv.val;
+        add({ sec: 'ir', item: `R60 ${row.label}`, loc: unitLabel(main), meas: `${fmt(r60, 0)} MΩ @${fmt(tIR, 1)} °C`,
+          conv: `${fmt(r20, 0)} MΩ @20 °C (${tIR >= 20 ? '×' : '÷'} K1 = ${fmt(cv.k, 3)})`,
+          ref: `${fmt(min, 0)} MΩ (Bảng 5 @20 °C)`, limit: `R60@20 ≥ ${fmt(min, 0)} MΩ`, status: r20 >= min ? 'pass' : 'fail', basis: R.ir,
+          note: `K1 theo Bảng 4 với ∆t = ${cv.dt} °C (${cv.expr}). XX không có R60 tuyệt đối → chưa áp tiêu chí “giảm ≤30%”; lần đo này là giá trị khởi đầu.`, keys: [`${p}.r60`] });
       } else {
         add({ sec: 'ir', item: `R60 ${row.label}`, meas: `${fmt(r60, 0)} MΩ`, status: 'missing', basis: R.ir, note: 'Thiếu nhiệt độ đo → chưa quy đổi/so Bảng 5', keys: ['ir.t'] });
       }
@@ -138,7 +140,7 @@
           dev: sgn(devPct(pi, ref), 1), limit: 'PI ≥ 1,25 (IEEE C57.152)', status: c.status, basis: R.pi, note: c.text, keys: [`${p}.pi`] });
       }
     });
-    if (k1info) notes['ir.k1'] = ` ${fmt(k1info.k, 3)} (∆t = ${k1info.dt} °C; ${k1info.expr})`;
+    if (k1info) notes['ir.k1'] = ` ${fmt(k1info.k, 3)} (Bảng 4 QĐ 1901, ∆t = ${k1info.dt} °C; ${k1info.expr}; R20 = R${ok(tIR) && tIR < 20 ? ' ÷ ' : ' × '}K1)`;
 
     // ================= 4. Tổ đấu dây =================
     const vg = txt('vector.result');
@@ -337,13 +339,15 @@
           refStr = `${fmt(fref, 3)} % @${fmt(tF, 1)} °C (XX)`;
         }
         let st, note;
+        const k2 = ok(tW) ? QD.convTgd(tg, tW, 20) : null;
         if (!ok(tW)) { st = 'missing'; note = 'Thiếu nhiệt độ đo'; }
-        else if (tg20 <= L.WINDING_TGD_OK) { st = 'pass'; note = 'tgδ@20 °C ≤ 1% → đạt, không bắt buộc so giá trị khởi đầu'; }
-        else if (ok(rise)) { st = rise > L.WINDING_TGD_RISE ? 'fail' : 'pass'; note = 'tgδ@20 °C > 1% → xét mức tăng so với XX cùng nhiệt độ'; }
-        else { const mx = QD.tgdMax(tW, '330-500'); st = tg <= mx ? 'pass' : 'fail'; note = `Không có giá trị khởi đầu → Bảng 46: ${fmt(mx, 2)} % @${fmt(tW, 1)} °C`; }
+        else {
+          st = tg20 <= L.WINDING_TGD_OK ? 'pass' : 'fail';
+          note = `K2 theo Bảng 7 với ∆t = ${k2.dt} °C (${k2.expr}).` + (ok(rise) ? ` Tham khảo: so với XX cùng nhiệt độ ${sgn(rise, 1)} %.` : '');
+        }
         add({ sec: 'wtgd', item: `tgδ cuộn dây ${row.label}`, loc: unitLabel(main), meas: `${fmt(tg, 3)} % @${ok(tW) ? fmt(tW, 1) : '?'} °C`,
-          conv: ok(tg20) ? `${fmt(tg20, 3)} % @20 °C` : '', ref: refStr, dev: ok(rise) ? `${sgn(rise, 1)} % (cùng nhiệt độ)` : '',
-          limit: '≤1% @20 °C; hoặc tăng ≤30% so với XX', status: st, basis: R.wtgd, note, keys: [`${p}.tgd`] });
+          conv: ok(tg20) ? `${fmt(tg20, 3)} % @20 °C (${tW >= 20 ? '÷' : '×'} K2 = ${fmt(k2.k, 3)})` : '', ref: refStr, dev: ok(rise) ? `${sgn(rise, 1)} % (cùng nhiệt độ)` : '',
+          limit: 'tgδ@20 °C ≤ 1 %', status: st, basis: R.wtgd, note, keys: [`${p}.tgd`] });
       }
       if (ok(C)) {
         const fref = F && row.fcfg ? F.ins(row.fcfg, 'c', main) : null;
@@ -353,7 +357,7 @@
           basis: R.wtgd, note: ok(fref) ? '' : 'Không có điện dung XX cho sơ đồ đo này → lưu làm giá trị khởi đầu', keys: [`${p}.c`] });
       }
     });
-    if (k2info) notes['wtgd.k2'] = ` ${fmt(k2info.k, 3)} (∆t = ${k2info.dt} °C; ${k2info.expr})`;
+    if (k2info) notes['wtgd.k2'] = ` ${fmt(k2info.k, 3)} (Bảng 7 QĐ 1901, ∆t = ${k2info.dt} °C; ${k2info.expr}; tgδ20 = tgδ${ok(tW) && tW < 20 ? ' × ' : ' ÷ '}K2)`;
 
     // ================= 7. Điện trở một chiều =================
     const dcrGroups = [
