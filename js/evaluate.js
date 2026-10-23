@@ -121,7 +121,10 @@
         add({ sec: 'ir', item: `R60 ${row.label}`, loc: unitLabel(main), meas: `${fmt(r60, 0)} MΩ @${fmt(tIR, 1)} °C`,
           conv: `${fmt(r20, 0)} MΩ @20 °C (${tIR >= 20 ? '×' : '÷'} K1 = ${fmt(cv.k, 3)})`,
           ref: `${fmt(min, 0)} MΩ (Bảng 5 @20 °C)`, limit: `R60@20 ≥ ${fmt(min, 0)} MΩ`, status: r20 >= min ? 'pass' : 'fail', basis: R.ir,
-          note: `K1 theo Bảng 4 với ∆t = ${cv.dt} °C (${cv.expr}). XX không có R60 tuyệt đối → chưa áp tiêu chí “giảm ≤30%”; lần đo này là giá trị khởi đầu.`, keys: [`${p}.r60`] });
+          note: `K1 theo Bảng 4 với ∆t = ${cv.dt} °C (${cv.expr}).`
+            + (cv.dt > 30 ? ' ∆t > 30 °C: vượt Bảng 4, QĐ 1901 không quy định cách tách hệ số — kết quả quy đổi chỉ để tham khảo.' : '')
+            + (tIR < 10 || tIR > 40 ? ' Khuyến cáo đo khi nhiệt độ dầu 10–40 °C (Điều 9 mục 4).' : '')
+            + ' XX không có R60 tuyệt đối → chưa áp tiêu chí “giảm ≤30%”; lần đo này là giá trị khởi đầu.', keys: [`${p}.r60`] });
       } else {
         add({ sec: 'ir', item: `R60 ${row.label}`, meas: `${fmt(r60, 0)} MΩ`, status: 'missing', basis: R.ir, note: 'Thiếu nhiệt độ đo → chưa quy đổi/so Bảng 5', keys: ['ir.t'] });
       }
@@ -343,7 +346,13 @@
         if (!ok(tW)) { st = 'missing'; note = 'Thiếu nhiệt độ đo'; }
         else {
           st = tg20 <= L.WINDING_TGD_OK ? 'pass' : 'fail';
-          note = `K2 theo Bảng 7 với ∆t = ${k2.dt} °C (${k2.expr}).` + (ok(rise) ? ` Tham khảo: so với XX cùng nhiệt độ ${sgn(rise, 1)} %.` : '');
+          note = `K2 theo Bảng 7 với ∆t = ${k2.dt} °C (${k2.expr}).`
+            // QĐ 1901 chỉ nêu "nhân các hệ số tương ứng" (vd 9 = 5 + 4); với ∆t > 16 °C không quy định cách tách
+            + (k2.dt > 16 ? ' ∆t > 16 °C: QĐ 1901 không quy định cách tách hệ số, app lấy hệ số lớn nhất trước — kết quả quy đổi chỉ để tham khảo.' : '')
+            // Điều 30: tgδ đo ở nhiệt độ cao, sau hiệu chỉnh lớn bất thường → để MBA nguội và đo lại
+            + (st === 'fail' && tW > 20 ? ' QĐ 1901 Điều 30: nếu giá trị sau hiệu chỉnh lớn bất thường khi đo ở nhiệt độ cao, nên để MBA nguội đi rồi đo lại.' : '')
+            + (tW < 10 || tW > 40 ? ' Khuyến cáo đo khi nhiệt độ dầu 10–40 °C (Điều 9 mục 4).' : '')
+            + (ok(rise) ? ` Tham khảo: so với XX cùng nhiệt độ ${sgn(rise, 1)} %.` : '');
         }
         add({ sec: 'wtgd', item: `tgδ cuộn dây ${row.label}`, loc: unitLabel(main), meas: `${fmt(tg, 3)} % @${ok(tW) ? fmt(tW, 1) : '?'} °C`,
           conv: ok(tg20) ? `${fmt(tg20, 3)} % @20 °C (${tW >= 20 ? '÷' : '×'} K2 = ${fmt(k2.k, 3)})` : '', ref: refStr, dev: ok(rise) ? `${sgn(rise, 1)} % (cùng nhiệt độ)` : '',
