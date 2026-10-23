@@ -366,7 +366,10 @@
     // Hỏi trước máy chủ xem Google đã bật chưa — nếu chưa, Supabase chỉ trả trang JSON lỗi sau khi đã chuyển trang
     try {
       const c = cfgGet();
-      const r = await fetch(c.url.trim().replace(/\/$/, '') + '/auth/v1/settings', { headers: { apikey: c.key.trim() } });
+      const ctl = new AbortController();
+      const timer = setTimeout(() => ctl.abort(), 4000); // mạng chậm: bỏ qua bước kiểm tra, không giữ người dùng chờ
+      const r = await fetch(c.url.trim().replace(/\/$/, '') + '/auth/v1/settings', { headers: { apikey: c.key.trim() }, signal: ctl.signal })
+        .finally(() => clearTimeout(timer));
       if (r.ok) {
         const s = await r.json();
         if (s.external && s.external.google === false) throw Object.assign(new Error('google-disabled'), { code: 'google_disabled' });
