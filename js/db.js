@@ -306,35 +306,69 @@
   }
 
   // ======================================================================= Supabase I/O
-  let client = null, user = null, role = 'none';
+  let client = null, user = null, role = 'none', profile = null;
   const cfgGet = () => {
     try { return Object.assign({}, window.SUPABASE_CONFIG || {}, JSON.parse(localStorage.getItem(LS_CFG) || '{}')); } catch (e) { return window.SUPABASE_CONFIG || {}; }
   };
+
+  // Đếm số yêu cầu mạng đang chạy để giao diện hiện vạch tiến trình
+  let inflight = 0;
+  const activity = n => { inflight = Math.max(0, inflight + n); document.dispatchEvent(new CustomEvent('db:activity', { detail: inflight })); };
+  const trackedFetch = (...args) => { activity(1); return fetch(...args).finally(() => activity(-1)); };
+
   function connect(url, key) {
     if (url !== undefined) { try { localStorage.setItem(LS_CFG, JSON.stringify({ url, key })); } catch (e) { /* phiên tạm */ } }
     const c = cfgGet();
-    client = null; user = null; role = 'none';
+    client = null; user = null; role = 'none'; profile = null;
     if (!c.url || !c.key || !window.supabase) return false;
-    client = window.supabase.createClient(c.url.trim(), c.key.trim(), { auth: { persistSession: true, storageKey: 'bbtn-mba-auth' } });
+    client = window.supabase.createClient(c.url.trim(), c.key.trim(), {
+      auth: { persistSession: true, storageKey: 'bbtn-mba-auth', flowType: 'pkce', detectSessionInUrl: true, autoRefreshToken: true },
+      global: { fetch: trackedFetch },
+    });
     return true;
   }
   const need = () => { if (!client) throw new Error('Chưa cấu hình kết nối Supabase (URL + anon key)'); return client; };
   const chk = ({ data, error }) => { if (error) throw new Error(error.message); return data; };
+  // Giữ mã lỗi của Supabase Auth để giao diện diễn giải thành thông báo dễ hiểu
+  const authChk = ({ data, error }) => { if (error) throw Object.assign(new Error(error.message), { code: error.code, status: error.status }); return data; };
 
   async function refreshUser() {
     if (!client) return null;
-    const { data } = await client.auth.getUser();
-    user = data && data.user ? data.user : null;
-    role = 'none';
+    const { data } = await client.auth.getSession();
+    user = data && data.session ? data.session.user : null;
+    role = 'none'; profile = null;
     if (user) {
-      const r = await client.from('app_users').select('role').eq('user_id', user.id).maybeSingle();
-      role = r.data ? r.data.role : 'none';
+      const meta = user.user_metadata || {};
+      const r = await client.from('app_users').select('role, full_name, avatar_url').eq('user_id', user.id).maybeSingle();
+      const row = r.data || {};
+      role = row.role || 'none';
+      profile = {
+        email: user.email,
+        name: row.full_name || meta.full_name || meta.name || (user.email || '').split('@')[0],
+        avatar: row.avatar_url || meta.avatar_url || meta.picture || null,
+        provider: (user.app_metadata && user.app_metadata.provider) || 'email',
+      };
     }
     return user;
   }
-  async function signIn(email, password) { chk(await need().auth.signInWithPassword({ email, password })); return refreshUser(); }
-  async function signUp(email, password) { chk(await need().auth.signUp({ email, password })); return refreshUser(); }
-  async function signOut() { if (client) await client.auth.signOut(); user = null; role = 'none'; }
+  async function signIn(email, password) { authChk(await need().auth.signInWithPassword({ email, password })); return refreshUser(); }
+  // Trả về true nếu cần xác nhận email trước khi đăng nhập
+  async function signUp(email, password) {
+    const d = authChk(await need().auth.signUp({ email, password, options: { emailRedirectTo: appUrl() } }));
+    await refreshUser();
+    return !d.session;
+  }
+  const appUrl = () => location.origin + location.pathname;
+  async function signInWithGoogle() {
+    if (location.protocol === 'file:') {
+      throw Object.assign(new Error('file-protocol'), { code: 'file_protocol' });
+    }
+    authChk(await need().auth.signInWithOAuth({ provider: 'google', options: { redirectTo: appUrl(), queryParams: { prompt: 'select_account' } } }));
+  }
+  async function resetPassword(email) { authChk(await need().auth.resetPasswordForEmail(email, { redirectTo: appUrl() })); }
+  async function updatePassword(password) { authChk(await need().auth.updateUser({ password })); }
+  async function signOut() { if (client) authChk(await client.auth.signOut()); user = null; role = 'none'; profile = null; }
+  const onAuthChange = cb => (client ? client.auth.onAuthStateChange(cb).data.subscription : null);
 
   // Tạo/cập nhật thiết bị theo (loại, số chế tạo); thiết bị cha trước, chỉ ghi các trường có giá trị
   // bayId: ngăn lộ gắn cho thiết bị chính (không có cha) nếu thiết bị chưa thuộc ngăn nào
@@ -431,9 +465,10 @@
 
   window.DB = {
     fieldRows, factorySessions, kindOf, isoDate, KIND_LABEL,
-    connect, cfgGet, refreshUser, signIn, signUp, signOut, saveField, importFactory, uploadDoc, downloadDoc,
+    connect, cfgGet, refreshUser, signIn, signUp, signOut, signInWithGoogle, resetPassword, updatePassword, onAuthChange, saveField, importFactory, uploadDoc, downloadDoc,
     listSessions, loadSession, deleteSession, listDocs, listEquipment, trend, listSubstations, listBays, listClasses, crud,
-    get client() { return client; }, get user() { return user; }, get role() { return role; },
+    get client() { return client; }, get user() { return user; }, get role() { return role; }, get profile() { return profile; },
+    get busy() { return inflight; },
     canEdit: () => role === 'editor' || role === 'admin',
   };
 })();

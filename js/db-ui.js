@@ -24,16 +24,11 @@
     h += `<div class="field wide"><label for="dbUrl">Supabase URL</label><input id="dbUrl" value="${esc(c.url || '')}" placeholder="https://xxxx.supabase.co"></div>`;
     h += `<div class="field wide"><label for="dbKey">Anon (publishable) key</label><input id="dbKey" value="${esc(c.key || '')}" placeholder="eyJhbGciOi…"></div>`;
     h += `</div><div class="row-actions"><button class="btn" data-act="dbConnect">Kết nối</button><span class="hint-text">${DB.client ? 'Đã cấu hình kết nối.' : 'Chưa kết nối — app vẫn dùng được ở chế độ offline.'}</span></div>`;
-    if (DB.client) {
-      h += '<h3>Tài khoản</h3>';
-      if (DB.user) {
-        h += `<div class="callout">Đăng nhập: <b>${esc(DB.user.email)}</b> · quyền <b>${esc(DB.role)}</b>${DB.canEdit() ? '' : ' — chỉ xem; liên hệ admin để được cấp quyền <i>editor</i>.'}
-          <div class="row-actions"><button class="btn small" data-act="dbSignOut">Đăng xuất</button></div></div>`;
-      } else {
-        h += `<div class="fields"><div class="field"><label for="dbEmail">Email</label><input id="dbEmail" type="email" autocomplete="username"></div>
-          <div class="field"><label for="dbPass">Mật khẩu</label><input id="dbPass" type="password" autocomplete="current-password"></div></div>
-          <div class="row-actions"><button class="btn primary" data-act="dbSignIn">Đăng nhập</button><button class="btn" data-act="dbSignUp">Đăng ký</button></div>`;
-      }
+    if (DB.client && !DB.user) {
+      h += `<h3>Tài khoản</h3><div class="callout">Đăng nhập để lưu biên bản, nhập Test report và xem xu hướng.
+        <div class="row-actions"><button class="btn primary" data-auth="open">Đăng nhập</button><button class="btn" data-auth="signup">Tạo tài khoản</button></div></div>`;
+    } else if (DB.user && !DB.canEdit()) {
+      h += `<div class="callout warn">Tài khoản <b>${esc(DB.user.email)}</b> đang ở quyền chỉ xem — xem được số liệu nhưng chưa lưu được. Đề nghị quản trị viên cấp quyền Nhập liệu.</div>`;
     }
     if (DB.user) {
       const saved = st.db && st.db.sessionId;
@@ -229,23 +224,26 @@
   // ------------------------------------------------------------------ hành động
   async function action(act, btn) {
     if (busy) return;
-    if (/^dbSave/.test(act) && !DB.user) { App.toast('Cần kết nối và đăng nhập CSDL trước khi lưu', true); App.go('db'); return; }
+    if (/^dbSave/.test(act) && !DB.user) {
+      if (DB.client) { Notify.show({ type: 'info', msg: 'Đăng nhập để lưu biên bản lên CSDL.' }); AuthUI.openDialog('signin'); }
+      else { Notify.show({ type: 'info', msg: 'Nhập URL và key Supabase để kết nối CSDL trước.' }); App.go('db'); }
+      return;
+    }
+    if (/^(dbSave|dbImport)/.test(act) && !DB.canEdit()) {
+      Notify.show({ type: 'info', title: 'Tài khoản chỉ xem', msg: 'Bạn chưa lưu được lên CSDL. Đề nghị quản trị viên cấp quyền Nhập liệu.' });
+      return;
+    }
     busy = true; btn.disabled = true;
     try {
       if (act === 'dbConnect') {
         DB.connect($('#dbUrl').value, $('#dbKey').value);
-        await DB.refreshUser();
+        await AuthUI.init();
         sessions = null; T.equipment = null; T.loadedFor = ''; Catalog.reset();
         App.toast(DB.client ? 'Đã lưu cấu hình kết nối' : 'Thiếu URL hoặc key', !DB.client);
-      } else if (act === 'dbSignIn' || act === 'dbSignUp') {
-        const email = $('#dbEmail').value.trim(), pass = $('#dbPass').value;
-        if (act === 'dbSignIn') await DB.signIn(email, pass); else await DB.signUp(email, pass);
-        sessions = null; T.equipment = null; Catalog.reset();
-        App.toast(DB.user ? `Xin chào ${DB.user.email} (quyền ${DB.role})` : 'Đã gửi email xác nhận — mở email rồi đăng nhập lại');
       } else if (act === 'dbGoCatalog') {
         busy = false; App.go('catalog'); return;
       } else if (act === 'dbSignOut') {
-        await DB.signOut(); sessions = null; T.equipment = null; T.data = null; T.loadedFor = ''; Catalog.reset();
+        busy = false; await AuthUI.signOut(); return;
       } else if (act === 'dbSave' || act === 'dbSaveFinal' || act === 'dbSaveAsNew') {
         const st = App.state;
         if (act === 'dbSaveAsNew') st.db = null;
@@ -305,5 +303,6 @@
     try { App.download(await DB.downloadDoc(a.dataset.dl), a.dataset.name); } catch (err) { App.toast('Lỗi tải tài liệu: ' + err.message, true); }
   });
 
-  window.DbUI = { renderDb, renderTrend, afterRender, action };
+  function reset() { sessions = null; docs = {}; T.equipment = null; T.data = null; T.loadedFor = ''; T.eqId = ''; }
+  window.DbUI = { renderDb, renderTrend, afterRender, action, reset };
 })();

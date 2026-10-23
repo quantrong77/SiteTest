@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>BBTN MBA – Nhập liệu hiện trường</title>
   <link rel="stylesheet" href="css/app.css">
+  <link rel="stylesheet" href="css/auth.css">
 </head>
 <body>
   <header class="topbar">
@@ -25,12 +26,19 @@
       <button class="btn" data-act="xlsx" title="Xuất bảng so sánh – đánh giá (.xlsx)">Xuất so sánh .xlsx</button>
       <button class="btn primary" data-act="docx" title="Điền dữ liệu vào template và tải BBTN (.docx)">Xuất BBTN .docx</button>
     </div>
+    <div class="account" id="account"></div>
+    <div class="netbar" id="netbar" aria-hidden="true"></div>
   </header>
   <div class="layout">
     <nav class="sidenav" id="nav" aria-label="Hạng mục"></nav>
     <main id="main" tabindex="-1"></main>
   </div>
-  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  <div class="toasts" id="toasts" aria-live="polite"></div>
+  <dialog class="auth-dialog" id="authDialog" aria-labelledby="adTitle">
+    <div class="ad-band"><span class="brand-mark" aria-hidden="true">⚡</span><span>BBTN Máy biến áp</span>
+      <button class="ad-x" data-auth="close" aria-label="Đóng">×</button></div>
+    <div id="adPanel"></div>
+  </dialog>
   <input type="file" id="fileJson" accept=".json,application/json" hidden>
   <input type="file" id="fileXlsx" accept=".xlsx,.xlsm" hidden>
   <input type="file" id="fileDocx" accept=".docx" hidden>
@@ -46,6 +54,7 @@
   <script src="js/evaluate.js"></script>
   <script src="js/docx.js"></script>
   <script src="js/db.js"></script>
+  <script src="js/auth-ui.js"></script>
   <script src="js/db-ui.js"></script>
   <script src="js/catalog-ui.js"></script>
   <script src="js/app.js"></script>

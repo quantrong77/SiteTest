@@ -205,13 +205,6 @@ code { font-family: var(--mono); font-size: 12px; }
 .raw table { border-collapse: collapse; font-size: 12px; }
 .raw td { border: 1px solid var(--line-soft); padding: 3px 6px; white-space: nowrap; max-width: 360px; overflow: hidden; text-overflow: ellipsis; }
 .row-actions { display: flex; gap: 8px; flex-wrap: wrap; margin: 10px 0; }
-.toast {
-  position: fixed; bottom: 18px; left: 50%; transform: translateX(-50%) translateY(20px); opacity: 0;
-  background: var(--top); color: #fff; padding: 9px 16px; border-radius: 8px; font-size: 13px; transition: .2s; pointer-events: none; z-index: 50; max-width: 90vw;
-}
-.toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
-.toast.err { background: var(--fail); }
-
 @media (max-width: 900px) {
   .layout { grid-template-columns: 1fr; }
   .sidenav { position: static; height: auto; display: flex; overflow-x: auto; gap: 4px; padding: 8px; border-right: 0; border-bottom: 1px solid var(--line); }

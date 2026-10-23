@@ -18,11 +18,7 @@
   const filters = {};
 
   // ---------------------------------------------------------------- helpers
-  function toast(msg, err) {
-    const t = $('#toast');
-    t.textContent = msg; t.className = 'toast show' + (err ? ' err' : '');
-    clearTimeout(toast._t); toast._t = setTimeout(() => { t.className = 'toast'; }, err ? 6000 : 2600);
-  }
+  function toast(msg, err) { Notify.show({ type: err ? 'error' : 'success', msg }); }
   function abToB64(buf) {
     const bytes = new Uint8Array(buf); let s = '';
     for (let i = 0; i < bytes.length; i += 0x8000) s += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));
@@ -144,8 +140,6 @@
       `<span class="chip">S/N <b>${esc(v['meta.serial'] || '—')}</b>${u ? ` · pha ${esc(u.phase)}` : ''}</span>`,
       `<span class="chip">${esc(v['meta.date'] || 'chưa có ngày')}</span>`,
       `<span class="chip">${esc(v['meta.reason'] || '')}</span>`,
-      `<span class="chip" title="Template xuất BBTN">📄 ${esc(templateName())}</span>`,
-      `<span class="chip" title="Số liệu xuất xưởng">XX: ${FX ? esc(FX.data.fileName) : 'chưa nạp'}</span>`,
     ].join('');
   }
 
@@ -660,8 +654,11 @@
     if (!restored) { state = { cfg: defaultCfg() }; await newRecord(false); }
     recompute();
     renderMain();
-    if (restored) toast('Đã khôi phục dữ liệu đang nhập dở');
-    if (DB.connect()) DB.refreshUser().then(() => { renderRecordChip(); if (current === 'db') renderMain(); }).catch(e => console.warn(e));
+    if (restored && !new URLSearchParams(location.search).has('code')) Notify.show({ type: 'info', msg: 'Đã mở lại biên bản đang nhập dở trên máy này.' });
+    // Đăng nhập / đăng xuất / đổi kết nối → làm mới dữ liệu CSDL đang hiển thị
+    document.addEventListener('auth:changed', () => { DbUI.reset(); Catalog.reset(); renderNav(); renderMain(); });
+    DB.connect();
+    AuthUI.init().catch(e => console.warn(e));
 
     document.addEventListener('click', onClick);
     $('#main').addEventListener('input', onInput);

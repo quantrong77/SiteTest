@@ -56,8 +56,8 @@ App quy đổi theo chiều vật lý (nhiệt độ giảm thì R tăng) và hi
 
 ### Cài đặt một lần
 1. Tạo project trên supabase.com (hoặc Supabase tự host).
-2. Mở **SQL Editor**, chạy lần lượt hai file trong `supabase/migrations/`:
-   `20261023000100_field_test_db.sql` rồi `20261023000200_substation_bay_hierarchy.sql`
+2. Mở **SQL Editor**, chạy lần lượt các file trong `supabase/migrations/` theo thứ tự tên:
+   `…000100_field_test_db.sql`, `…000200_substation_bay_hierarchy.sql`, `…000300_auth_profile.sql`
    (hoặc dùng Supabase CLI: `supabase link` rồi `supabase db push`).
 3. Trong app: trang **CSDL** → nhập *Project URL* và *anon/publishable key* (Settings → API) → **Kết nối**.
    Muốn điền sẵn trên máy: chép `js/config.example.js` thành `js/config.js` rồi điền URL + key
@@ -67,6 +67,28 @@ App quy đổi theo chiều vật lý (nhiệt độ giảm thì R tăng) và hi
    update public.app_users set role = 'admin'  where email = 'ban@donvi.vn';   -- người quản trị đầu tiên
    update public.app_users set role = 'editor' where email = 'thinghiem@donvi.vn';
    ```
+
+### Đăng nhập bằng Google
+
+Đăng nhập Google cần mở app qua địa chỉ `http(s)`, không mở trực tiếp file `index.html`:
+chạy **`start.bat`** (mở `http://localhost:8000`) hoặc bật GitHub Pages cho repo (Settings → Pages → Branch `main`, thư mục `/root`).
+
+Cấu hình một lần:
+
+1. **Google Cloud Console** (console.cloud.google.com) → *APIs & Services*:
+   - *OAuth consent screen*: chọn *External*, điền tên app và email hỗ trợ.
+   - *Credentials* → *Create credentials* → *OAuth client ID* → loại *Web application*.
+     Mục *Authorized redirect URIs* thêm: `https://<project-ref>.supabase.co/auth/v1/callback`
+     (lấy đúng địa chỉ ở Supabase → Authentication → Providers → Google → *Callback URL*).
+   - Chép *Client ID* và *Client secret*.
+2. **Supabase** → *Authentication* → *Sign In / Providers* → **Google**: bật, dán Client ID + Client secret, Save.
+3. **Supabase** → *Authentication* → *URL Configuration*:
+   - *Site URL*: địa chỉ chính của app (vd `https://quantrong77.github.io/SiteTest/`).
+   - *Redirect URLs*: thêm `http://localhost:8000/**` và `https://quantrong77.github.io/SiteTest/**`.
+4. Chạy thêm migration `20261023000300_auth_profile.sql` để lưu tên & ảnh đại diện Google.
+
+Người đăng nhập Google lần đầu được tạo tài khoản quyền **viewer**; admin cấp quyền như trên.
+Đèn trên nút tài khoản: xanh = được nhập liệu, hổ phách = chỉ xem, xám = chưa đăng nhập, nhấp nháy = đang xử lý.
 
 ### Dữ liệu lưu trữ
 | Bảng | Nội dung |
@@ -108,4 +130,5 @@ Phân quyền (RLS): viewer xem; editor nhập/sửa và xóa bản nháp của 
 | `js/db.js` | Chuyển biểu mẫu / Test report thành dòng số liệu; đọc ghi Supabase |
 | `js/db-ui.js` | Trang CSDL và trang Xu hướng |
 | `js/catalog-ui.js` | Trang danh mục Trạm – Ngăn lộ – Thiết bị (CRUD) |
+| `js/auth-ui.js`, `css/auth.css` | Đăng nhập Google/email, trạng thái phiên, thông báo, vạch tiến trình |
 | `supabase/migrations/` | Lược đồ CSDL, view xu hướng, RLS, Storage |
