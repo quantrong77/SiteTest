@@ -4,13 +4,16 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>BBTN MBA – Nhập liệu hiện trường</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&display=swap">
   <link rel="stylesheet" href="css/app.css">
   <link rel="stylesheet" href="css/auth.css">
 </head>
 <body>
   <header class="topbar">
     <div class="brand">
-      <span class="brand-mark" aria-hidden="true">⚡</span>
+      <span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="12" r="5.6" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="15" cy="12" r="5.6" fill="none" stroke="currentColor" stroke-width="1.8"/></svg></span>
       <div>
         <div class="brand-title">BBTN Máy biến áp</div>
         <div class="brand-sub">Nhập liệu thí nghiệm hiện trường · so sánh xuất xưởng · QĐ 1901/QĐ-EVNNPT</div>
@@ -30,12 +33,14 @@
     <div class="netbar" id="netbar" aria-hidden="true"></div>
   </header>
   <div class="layout">
-    <nav class="sidenav" id="nav" aria-label="Hạng mục"></nav>
+    <nav class="sidenav" id="nav" aria-label="Hạng mục">
+      <div class="sld"><span class="bus" aria-hidden="true"></span><div id="navItems"></div></div>
+    </nav>
     <main id="main" tabindex="-1"></main>
   </div>
   <div class="toasts" id="toasts" aria-live="polite"></div>
   <dialog class="auth-dialog" id="authDialog" aria-labelledby="adTitle">
-    <div class="ad-band"><span class="brand-mark" aria-hidden="true">⚡</span><span>BBTN Máy biến áp</span>
+    <div class="ad-band"><span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="12" r="5.6" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="15" cy="12" r="5.6" fill="none" stroke="currentColor" stroke-width="1.8"/></svg></span><span>BBTN Máy biến áp</span>
       <button class="ad-x" data-auth="close" aria-label="Đóng">×</button></div>
     <div id="adPanel"></div>
   </dialog>

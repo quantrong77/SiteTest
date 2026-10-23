@@ -120,19 +120,33 @@
       .concat([{ id: 'summary', no: 'Σ', title: 'Tổng hợp & kết luận' }, { id: 'factory', no: 'XX', title: 'Số liệu xuất xưởng' },
         { id: 'db', no: 'DB', title: 'CSDL – biên bản đã lưu' }, { id: 'catalog', no: '≡', title: 'Trạm – Ngăn – Thiết bị' }, { id: 'trend', no: '↗', title: 'Xu hướng' }]);
   }
+  // Thanh điều hướng vẽ như sơ đồ một sợi: mỗi hạng mục là một ngăn lộ, trạng thái là ký hiệu máy cắt
+  const BRK_LABEL = { pass: 'Đạt — máy cắt đóng', warn: 'Cần xem xét', fail: 'Không đạt — máy cắt cắt', missing: 'Thiếu dữ liệu', info: 'Tham khảo' };
+  let navPrev = null;
+  const navChangedAt = {};
   function renderNav() {
     const items = navItems();
+    const first = !navPrev;
+    navPrev = navPrev || {};
     let html = '';
     items.forEach((it, i) => {
       if (i === 1) html += '<div class="nav-group">Hạng mục thí nghiệm</div>';
       if (it.id === 'summary') html += '<div class="nav-group">Kết quả</div>';
       if (it.id === 'db') html += '<div class="nav-group">Cơ sở dữ liệu</div>';
       const S = res && res.sec[it.id];
-      const st = S && S.status ? 'st-' + S.status : '';
-      const fails = S && S.counts.fail ? `<span class="cnt">${S.counts.fail}✕</span>` : '';
-      html += `<button class="nav-item ${current === it.id ? 'active' : ''}" data-nav="${it.id}"><span class="nav-no">${esc(it.no)}</span><span>${esc(it.title)}${fails}</span><span class="dot ${st}" title="${S && S.text ? esc(S.text) : 'Chưa nhập'}"></span></button>`;
+      const st = S && S.status ? S.status : '';
+      // máy cắt "đóng/cắt" có hiệu ứng khi trạng thái vừa đổi (giữ 0,6 s vì thanh điều hướng có thể vẽ lại liên tiếp)
+      if (!first && navPrev[it.id] !== st) navChangedAt[it.id] = Date.now();
+      navPrev[it.id] = st;
+      const flip = st && Date.now() - (navChangedAt[it.id] || 0) < 600 ? ' flip' : '';
+      const fails = S && S.counts.fail ? `<span class="cnt">${S.counts.fail} lỗi</span>` : '';
+      const tip = st ? BRK_LABEL[st] : (S ? 'Chưa nhập' : '');
+      html += `<button class="nav-item ${current === it.id ? 'active' : ''}" data-nav="${it.id}" ${current === it.id ? 'aria-current="page"' : ''}>`
+        + `<span class="brk ${st ? 'st-' + st : ''}${flip}" ${tip ? `title="${esc(tip)}"` : ''} aria-hidden="true"></span>`
+        + `<span class="nav-no">${esc(it.no)}</span><span class="nav-t">${esc(it.title)}${fails}</span>`
+        + `${tip ? `<span class="sr-only">${esc(tip)}</span>` : ''}</button>`;
     });
-    $('#nav').innerHTML = html;
+    ($('#navItems') || $('#nav')).innerHTML = html;
   }
   function renderRecordChip() {
     const v = state.v, u = FX && FX.unit(v['meta.serial']);
@@ -172,7 +186,11 @@
   function gridHTML(g) {
     const ro = !!g.readonly;
     let h = `<div class="grid-block">${g.title ? `<div class="grid-title">${esc(g.title)}</div>` : ''}<div class="grid-wrap ${ro ? 'readonly' : ''}"><table class="grid" data-grid="${g.id}"><thead><tr><th></th>`;
-    g.cols.forEach(c => { h += `<th>${esc(c.label)}</th>`; });
+    // cột pha: gắn mã pha để tô vạch màu A vàng · B xanh · C đỏ
+    g.cols.forEach(c => {
+      const ph = c.phase ? String(c.k).charAt(0).toUpperCase() : '';
+      h += `<th${ph ? ` data-ph="${ph}" title="Pha ${ph}"` : ''}>${esc(c.label)}</th>`;
+    });
     h += '</tr></thead><tbody>';
     g.rows.forEach((r, ri) => {
       h += `<tr><th>${esc(r.label)}</th>`;
