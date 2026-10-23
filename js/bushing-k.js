@@ -1,5 +1,5 @@
 // Bảng hệ số quy đổi tgδ sứ xuyên về 20 °C: bảng QĐ 1901 có sẵn + bảng theo hãng do admin cấu hình trong CSDL.
-// Tra theo loại cách điện (cột) và nhiệt độ sứ; tgδ20 = tgδ(t) ÷ K (hoặc × K nếu bảng khai báo như vậy).
+// Tra theo loại cách điện (cột) và nhiệt độ sứ; tgδ20 = tgδ(t) × K (QĐ 1901), bảng theo hãng có thể khai báo ÷ K.
 (function () {
   'use strict';
   const LS_KEY = 'bbtn-mba.bushingK';
@@ -13,7 +13,7 @@
       [42, 1.2, 1.27], [43, 1.25, 1.33], [44, 1.25, 1.33], [45, 1.25, 1.33], [46, 1.25, 1.33], [47, 1.25, 1.33], [48, 1.25, 1.33], [49, 1.3, 1.37],
       [50, 1.3, 1.37], [51, 1.3, 1.37], [52, 1.3, 1.37], [53, 1.34, 1.41], [54, 1.34, 1.41], [55, 1.34, 1.41], [56, 1.34, 1.41], [57, 1.34, 1.41],
       [58, 1.35, 1.43], [59, 1.35, 1.43], [60, 1.35, 1.43]],
-    formula: 'DIV', lookup: 'NEAREST', note: 'tgδ20 = tgδ(t) ÷ K; t = nhiệt độ sứ (lấy bằng nhiệt độ dầu MBA – Điều 38)', active: true, builtin: true,
+    formula: 'MUL', lookup: 'NEAREST', note: 'tgδ20 = tgδ(t) × K; t = nhiệt độ sứ (lấy bằng nhiệt độ dầu MBA – Điều 38)', active: true, builtin: true,
   };
 
   const MODE_HITACHI = 'Hitachi Energy (RIP) – theo HD hãng';

@@ -54,7 +54,7 @@
         <datalist id="dlKMfr">${['Hitachi Energy', 'ABB', 'Siemens Energy', 'GE Vernova', 'Trench', 'HSP', 'Nanjing Electric', 'Xi\'an XD', 'Passoni & Villa', 'Hyosung'].map(x => `<option value="${esc(x)}">`).join('')}</datalist></div>
       <div class="field"><label for="kf_cols">Loại cách điện (thứ tự cột K)</label><input id="kf_cols" value="${esc(F.columns.join(', '))}" list="dlKTypes" ${ro}>
         <datalist id="dlKTypes">${TYPES.map(x => `<option value="${x}">`).join('')}</datalist></div>
-      <div class="field"><label for="kf_formula">Công thức quy đổi</label>${sel('kf_formula', [['DIV', 'tgδ20 = tgδ(t) ÷ K'], ['MUL', 'tgδ20 = tgδ(t) × K']], F.formula)}</div>
+      <div class="field"><label for="kf_formula">Công thức quy đổi</label>${sel('kf_formula', [['MUL', 'tgδ20 = tgδ(t) × K'], ['DIV', 'tgδ20 = tgδ(t) ÷ K']], F.formula)}</div>
       <div class="field"><label for="kf_lookup">Cách tra nhiệt độ</label>${sel('kf_lookup', [['NEAREST', 'Dòng gần nhất (bảng theo từng °C)'], ['LINEAR', 'Nội suy tuyến tính giữa hai dòng']], F.lookup)}</div>
       <div class="field"><label for="kf_active">Trạng thái</label>${sel('kf_active', [['1', 'Đang dùng'], ['0', 'Tắt (không hiện ở mục 5)']], F.active === false ? '0' : '1')}</div>
       <div class="field wide"><label for="kf_note">Ghi chú / nguồn</label><input id="kf_note" value="${esc(F.note || '')}" ${ro}></div></div>`;
@@ -144,7 +144,7 @@
         K.sel = t.id; K.form = clone(t);
       } else if (act === 'add') {
         K.sel = null;
-        K.form = { id: null, name: '', basis: 'MANUFACTURER', manufacturer: '', columns: ['OIP', 'RIP'], rows: [[20, 1, 1]], formula: 'DIV', lookup: 'LINEAR', active: true, note: '' };
+        K.form = { id: null, name: '', basis: 'MANUFACTURER', manufacturer: '', columns: ['OIP', 'RIP'], rows: [[20, 1, 1]], formula: 'MUL', lookup: 'LINEAR', active: true, note: '' };
       } else if (act === 'cancel') {
         K.form = K.sel ? clone(BushingK.all().find(x => x.id === K.sel)) : null;
       } else if (act === 'addRow') {

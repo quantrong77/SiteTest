@@ -53,7 +53,7 @@ Dữ liệu đang nhập được tự lưu trong trình duyệt; dùng **Lưu .
     cột 1 nhiệt độ, các cột sau K, tên loại sứ lấy từ tiêu đề cột).
   - Mục 5, ô *Cách quy đổi về 20 °C*: HD Hitachi · Theo QĐ 1901 · Theo hãng – <tên bảng> · Nhập hệ số K.
   - Tra K theo loại cách điện sứ và nhiệt độ sứ (đã lắp: nhiệt độ dầu MBA – Điều 38; chưa lắp: nhiệt độ môi trường);
-    tgδ20 = tgδ(t) ÷ K (bảng có thể khai báo × K). Cách tra: dòng gần nhất (bảng theo từng °C) hoặc nội suy. Giá trị XX quy đổi bằng cùng bảng.
+    tgδ20 = tgδ(t) × K (bảng theo hãng có thể khai báo ÷ K). Cách tra: dòng gần nhất (bảng theo từng °C) hoặc nội suy. Giá trị XX quy đổi bằng cùng bảng.
 - R một chiều quy về 75 °C: R2 = R1·(235+t2)/(235+t1), lệch ≤ 2 % so với NSX và giữa các pha.
 - Tỷ số biến lệch ≤ 0,5 % so với nameplate và giữa các pha.
 - P0 (MBA 1 pha ≥ 110 kV) lệch ≤ 10 % sau lắp đặt/sửa chữa, ≤ 15 % vận hành; độ ẩm cách điện cứng theo Điều 28;
@@ -72,7 +72,7 @@ Dữ liệu đang nhập được tự lưu trong trình duyệt; dùng **Lưu .
 ### Cài đặt một lần
 1. Tạo project trên supabase.com (hoặc Supabase tự host).
 2. Mở **SQL Editor**, chạy lần lượt các file trong `supabase/migrations/` theo thứ tự tên:
-   `…000100_field_test_db.sql`, `…000200_substation_bay_hierarchy.sql`, `…000300_auth_profile.sql`, `…000400_bushing_k_tables.sql`
+   `…000100_field_test_db.sql`, `…000200_substation_bay_hierarchy.sql`, `…000300_auth_profile.sql`, `…000400_bushing_k_tables.sql`, `…000500_bushing_k_formula_mul.sql`
    (hoặc dùng Supabase CLI: `supabase link` rồi `supabase db push`).
 3. Trong app: trang **CSDL** → nhập *Project URL* và *anon/publishable key* (Settings → API) → **Kết nối**.
    Muốn điền sẵn trên máy: chép `js/config.example.js` thành `js/config.js` rồi điền URL + key

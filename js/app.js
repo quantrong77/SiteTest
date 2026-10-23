@@ -281,7 +281,7 @@
           So với <b>test report của hãng tra theo S/N sứ</b> (${esc(HB && HB.source ? `${HB.source}, ${HB.reports.length} sứ` : 'chưa nạp — nạp ở mục 0')}):
           ${tl ? `Ur ≤ ${HK.urSplit} kV: C1 ±${tl.low.c1 * 100}%, tanδ1 ±${String(tl.low.tgd1).replace('.', ',')}, C2 ±${tl.low.c2 * 100}%, tanδ2 ±${String(tl.low.tgd2).replace('.', ',')} điểm %; Ur > ${HK.urSplit} kV: C1 ±${tl.high.c1 * 100}%` : ''}.
           Sứ không có trong test report thì so với giá trị nhãn trong hồ sơ MBA (${bl.length} sứ của các máy đang chọn; ${ps}).
-          <br>Chọn <b>Theo QĐ 1901</b> hoặc <b>Theo hãng</b> ở ô “Cách quy đổi về 20 °C”: tra hệ số K theo loại cách điện sứ và nhiệt độ sứ (đã lắp: nhiệt độ dầu; chưa lắp: nhiệt độ môi trường), tgδ20 = tgδ(t) ÷ K. Bảng K do Admin cấu hình ở trang “Hệ số quy đổi sứ”.
+          <br>Chọn <b>Theo QĐ 1901</b> hoặc <b>Theo hãng</b> ở ô “Cách quy đổi về 20 °C”: tra hệ số K theo loại cách điện sứ và nhiệt độ sứ (đã lắp: nhiệt độ dầu; chưa lắp: nhiệt độ môi trường), tgδ20 = tgδ(t) × K. Bảng K do Admin cấu hình ở trang “Hệ số quy đổi sứ”.
           <div class="row-actions"><button class="btn small" data-nav="kconf">Xem bảng hệ số K</button><button class="btn small" data-act="fillBushingSN">Điền S/N sứ theo hồ sơ xuất xưởng (cần đối chiếu thực tế)</button></div></div>`;
       }
       case 'wtgd': return `<div class="callout">${mainLine}. Quy đổi về 20 °C theo <b>Bảng 7 QĐ 1901</b>: tgδ20 = tgδ(t) ÷ K2 (đo dưới 20 °C thì nhân K2); K2 tự tra theo độ chênh nhiệt độ. Tiêu chuẩn: <b>tgδ@20 °C ≤ 1 %</b>. Số liệu xuất xưởng (đo ${fm(FX.insT(s), 1)} °C) chỉ để tham khảo xu hướng.</div>`;
