@@ -278,7 +278,8 @@
         fields: [{ k: 'wtgd.t', label: 'Nhiệt độ cuộn dây/dầu (°C)', num: true, doc: { before: 15, re: /nhiệt độ:(?<v>\s*)oC/ } }],
         grids: [
           {
-            id: 'wtgd.meas', title: 'Số liệu đo', tables: [15], rows: wtgdRows, corner: 'Đối tượng đo', editLabels: true,
+            id: 'wtgd.meas', title: 'Số liệu đo', tables: [15], rows: wtgdRows, corner: 'Đối tượng đo', editLabels: true, labelCfg: 'wtgdLabels',
+            addRow: { act: 'addWtgdRow', del: 'delWtgdRow', label: '+ Thêm dòng đối tượng đo' },
             cols: [col('tgd', 'tgδ (%)', 1), col('c', 'C (pF)', 2), col('u', 'U đo (kV)', 3, { text: true }), col('d', 'Sơ đồ đo', 4, { text: true, options: TGD_MODES })],
           },
           {
@@ -385,23 +386,12 @@
           .concat([{ id: 'n', title: 'Phía trung tính — đặc tính từ hóa', grids: [exGrid('bct.n.ex.N', 'Đặc tính từ hóa — Trung tính', [50], 3, 4)] }]),
       },
     ];
-    return { sections, taps };
+    return { sections, taps, head: META, tail: CLOSING };
   }
 
   // Duyệt mọi grid/field của schema
-  function eachGrid(schema, fn) {
-    schema.sections.forEach(s => {
-      (s.grids || []).forEach(g => fn(g, s, null));
-      (s.groups || []).forEach(gr => (gr.grids || []).forEach(g => fn(g, s, gr)));
-    });
-  }
-  function eachField(schema, fn) {
-    META.concat(CLOSING).forEach(f => fn(f, null));
-    schema.sections.forEach(s => {
-      (s.fields || []).forEach(f => fn(f, s));
-      (s.groups || []).forEach(gr => (gr.fields || []).forEach(f => fn(f, s)));
-    });
-  }
+  // Duyệt biểu mẫu: hàm chung ở js/domain/common.js (trường đầu/cuối biên bản lấy từ schema.head/tail)
+  const { eachGrid, eachField } = Common;
 
   window.Schema = { build, eachGrid, eachField, META, CLOSING, SUMMARY_ROWS, DEFAULT_TAPS, BCT_SIDES, BCT_TABLES };
 })();

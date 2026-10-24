@@ -7,7 +7,7 @@ const { load, CORE } = require('./harness');
 // Đối tượng tạo trong ngữ cảnh vm có prototype khác, nên so qua JSON
 const same = (a, b) => assert.deepEqual(JSON.parse(JSON.stringify(a)), b);
 const close = (a, b, eps = 1e-9) => assert.ok(Math.abs(a - b) <= eps, `${a} ≠ ${b}`);
-const { QD, BushingK, HitachiBushing: H, CpcImport } = load(CORE);
+const { QD, BushingK, HitachiBushing: H, Cpc100 } = load(CORE);
 
 test('K1 Bảng 4: ô có trong bảng dùng thẳng, ngoài bảng nhân các cột', () => {
   same(QD.tableFactor(QD.K1, 10), { k: 1.5, dt: 10, expr: 'K(10)' });
@@ -91,7 +91,7 @@ test('Hệ số K sứ: chọn cách quy đổi theo ô "Cách quy đổi về 2
 
 test('Hệ số K sứ: bảng đã lưu trong trình duyệt được dùng thay bảng có sẵn', () => {
   const cached = { tables: [{ name: 'Hãng Y', basis: 'MANUFACTURER', columns: ['RIP'], rows: [[20, 1]], formula: 'MUL', lookup: 'NEAREST', active: true }] };
-  const { BushingK: K } = load(['js/bushing-k.js'], { localStorage: { 'bbtn-mba.bushingK': JSON.stringify(cached) } });
+  const { BushingK: K } = load(['js/domain/bushing-k.js', 'js/data/bushing-k-repo.js'], { localStorage: { 'bbtn-mba.bushingK': JSON.stringify(cached) } });
   assert.equal(K.source, 'cache');
   assert.ok(K.modeOptions().includes(K.MODE_MFR + 'Hãng Y'));
   assert.equal(K.qd1901().id, 'builtin-qd1901'); // không có bảng QĐ 1901 trong bộ đệm → dùng bảng có sẵn
@@ -108,12 +108,12 @@ test('Sứ RIP Hitachi: nhiệt độ thân sứ và hệ số fc Bảng 13', ()
 
 test('Đặc tính từ hóa: nội suy log–log và điểm khuỷu theo IEC 61869-2', () => {
   const pts = [10, 20, 40, 60, 80, 100, 110, 120, 130].map(v => ({ v, i: v <= 80 ? v * 1e-4 : 0.008 * Math.pow(v / 80, 8) }));
-  close(CpcImport.iAt(pts, 40), 0.004);
-  close(CpcImport.iAt(pts, 30), 0.003, 1e-12); // I ∝ U trên đoạn này nên nội suy log–log cho đúng 3 mA
-  const knee = CpcImport.kneeIEC(pts);
+  close(Cpc100.iAt(pts, 40), 0.004);
+  close(Cpc100.iAt(pts, 30), 0.003, 1e-12); // I ∝ U trên đoạn này nên nội suy log–log cho đúng 3 mA
+  const knee = Cpc100.kneeIEC(pts);
   assert.ok(knee && knee.v > 70 && knee.v < 100, `khuỷu ${knee && knee.v}`);
-  close(CpcImport.iAt(pts, 1.1 * knee.v) / knee.i, 1.5, 1e-6);
-  const p = CpcImport.pick({ points: pts });
+  close(Cpc100.iAt(pts, 1.1 * knee.v) / knee.i, 1.5, 1e-6);
+  const p = Cpc100.pick({ points: pts });
   assert.equal(p.status, 'app');
   assert.equal(p.picks.length, 4);
   close(p.picks[1].v, knee.v / 2);
@@ -121,14 +121,14 @@ test('Đặc tính từ hóa: nội suy log–log và điểm khuỷu theo IEC 6
 
 test('Đặc tính từ hóa: không có khuỷu thì mốc theo U lớn nhất đã đo', () => {
   const pts = [10, 20, 40, 80].map(v => ({ v, i: v * 1e-4 }));
-  const p = CpcImport.pick({ points: pts });
+  const p = Cpc100.pick({ points: pts });
   assert.equal(p.status, 'noknee');
   close(p.picks[2].v, 60);
 });
 
 test('Đoán phía/pha từ tên file XML CPC 100', () => {
-  same(CpcImport.guess('PHA A 220.xml'), { phase: 'A', kv: 220 });
-  const files = ['PHA A 500.xml', 'PHA B 220.xml', 'PHA a 22.xml', 'PHA N.xml'].map(f => ({ guess: CpcImport.guess(f) }));
-  CpcImport.assignSides(files);
+  same(Cpc100.guess('PHA A 220.xml'), { phase: 'A', kv: 220 });
+  const files = ['PHA A 500.xml', 'PHA B 220.xml', 'PHA a 22.xml', 'PHA N.xml'].map(f => ({ guess: Cpc100.guess(f) }));
+  Cpc100.assignSides(files);
   assert.deepEqual(files.map(f => `${f.side}/${f.phase}`), ['hv/A', 'mv/B', 'lv/a', 'n/N']);
 });

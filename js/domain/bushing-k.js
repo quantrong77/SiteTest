@@ -2,7 +2,6 @@
 // Tra theo loại cách điện (cột) và nhiệt độ sứ; tgδ20 = tgδ(t) × K (QĐ 1901), bảng theo hãng có thể khai báo ÷ K.
 (function () {
   'use strict';
-  const LS_KEY = 'bbtn-mba.bushingK';
 
   // QĐ 1901 (Cauhinh/Kquidoi_1901.xlsx) — dùng khi chưa đăng nhập/chưa tải được bảng từ CSDL
   const BUILTIN = {
@@ -22,7 +21,6 @@
   const MODE_MFR = 'Theo hãng – ';
 
   let tables = null, source = 'builtin';
-  try { const c = JSON.parse(localStorage.getItem(LS_KEY) || 'null'); if (c && Array.isArray(c.tables)) { tables = c.tables; source = 'cache'; } } catch (e) { /* bỏ qua */ }
 
   const all = () => tables || [BUILTIN];
   const active = () => all().filter(t => t.active !== false);
@@ -96,20 +94,15 @@
     return fromSheet(wb.Sheets[wb.SheetNames[0]]);
   }
 
-  // Tải bảng từ CSDL (đã đăng nhập) và lưu bản sao cục bộ để dùng khi offline
-  async function load() {
-    if (typeof DB === 'undefined' || !DB.user || !DB.client) return false;
-    const { data, error } = await DB.client.from('bushing_k_tables').select('*').order('basis', { ascending: false }).order('name');
-    if (error) throw new Error(error.message);
-    tables = data.length ? data : null;
-    source = data.length ? 'db' : 'builtin';
-    try { localStorage.setItem(LS_KEY, JSON.stringify({ at: new Date().toISOString(), tables })); } catch (e) { /* bỏ qua */ }
-    return true;
+  // Bảng đang dùng do lớp dữ liệu nạp vào (CSDL hoặc bản sao lưu trên máy); null = dùng bảng QĐ 1901 có sẵn
+  function setTables(list, src) {
+    tables = Array.isArray(list) && list.length ? list : null;
+    source = tables ? src : 'builtin';
   }
 
   window.BushingK = {
     BUILTIN, MODE_HITACHI, MODE_1901, MODE_MANUAL, MODE_MFR,
-    all, active, qd1901, byManufacturer, modeOptions, resolve, lookup, convert, fromArrayBuffer, fromSheet, load,
+    all, active, qd1901, byManufacturer, modeOptions, resolve, lookup, convert, fromArrayBuffer, fromSheet, setTables,
     get source() { return source; },
   };
 })();

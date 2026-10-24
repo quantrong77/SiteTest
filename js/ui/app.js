@@ -1,11 +1,15 @@
-// Giao diện nhập liệu BBTN MBA: render theo schema, đánh giá tức thời, lưu/mở, xuất DOCX/XLSX.
+// Lõi giao diện Site Test Report: vẽ biểu mẫu theo schema của loại thiết bị, đánh giá tức thời, lưu/mở, xuất DOCX/XLSX.
+// Phép tính, đánh giá, dòng CSDL và cách ghi BBTN do loại thiết bị khai báo (EquipmentTypes, js/domain/);
+// phần giao diện riêng của từng loại ở TypeUI (js/ui/types/<loại>/ui.js).
 (function () {
   'use strict';
   const LS_STATE = 'bbtn-mba.state.v1';
   const LS_TPL = 'bbtn-mba.customTemplate';
   const LS_FAC = 'bbtn-mba.customFactory';
-  const LS_HIT = 'bbtn-mba.customHitachi';
-  const ST_TEXT = { pass: 'Đạt', warn: 'Cần xem xét', fail: 'Không đạt', missing: 'Thiếu dữ liệu', info: 'Tham khảo' };
+  const ST_TEXT = Common.ST_TEXT;
+  // Loại thiết bị sẽ thêm sau (đã có trong danh mục CSDL); nút Mới hiện để người dùng biết lộ trình
+  const PLANNED = [['TI', 'Biến dòng điện (TI)'], ['TU', 'Biến điện áp (TU)'], ['KH', 'Kháng điện'], ['MC', 'Máy cắt'], ['DCL', 'Dao cách ly'],
+    ['CSV', 'Chống sét van'], ['TD', 'Tụ điện'], ['CAP', 'Cáp'], ['GIS', 'GIS']];
 
   // Template & Test report nhúng sẵn (js/embedded.js, tự sinh, không đưa lên Git). Thiếu thì người dùng nạp file ở mục 0.
   const EMB = window.EMBEDDED || { templates: {}, factory: null };
@@ -16,7 +20,6 @@
   const lsSet = (k, v) => { try { v === null ? localStorage.removeItem(k) : localStorage.setItem(k, v); return true; } catch (e) { return false; } };
 
   let FX = null, state = null, schema = null, res = null, current = 'general';
-  let cpcTarget = null; // ô pha/phía đang tải XML CPC 100
   const filters = {};
 
   // ---------------------------------------------------------------- helpers
@@ -33,26 +36,11 @@
     setTimeout(() => URL.revokeObjectURL(a.href), 4000);
   }
   const safeName = s => String(s || '').replace(/[\\/:*?"<>|\s]+/g, '_').replace(/_+/g, '_').replace(/^_|_$/g, '');
-  const lastNum = s => { const m = String(s || '').match(/[\d.]+(?=\s*$)/); return m ? m[0] : ''; };
 
-  function defaultCfg() {
-    return {
-      template: 'A', ps: { A: '', B: '', C: '' }, taps: Schema.DEFAULT_TAPS.slice(), hvMeas: 'SER+COM', lvMode: 'unit',
-      iLV: '', sLV: '', sR: '', i0Ref: '', bC1Dev: '', bTgdMax: '', bctCores: { hv: 4, mv: 4, lv: 4 },
-      ctNo: { hv: '1,2,3,4,5,6', mv: '4,5,6,7,8', n: '8,9,10', lv: '11,12,13,14' }, bctErrLimit: '', decSep: ',',
-      hdr: {}, wtgdLabels: {}, wtgdRows: [],
-    };
-  }
-  function applyFactoryDefaults(cfg) {
-    if (!FX) return;
-    const D = FX.data;
-    D.order.forEach(s => { const ph = D.units[s].phase; if (ph && !cfg.ps[ph]) cfg.ps[ph] = s; });
-    if (!cfg.iLV && D.specs.current) cfg.iLV = lastNum(D.specs.current.LV);
-    if (!cfg.sLV && D.specs.power) cfg.sLV = lastNum(D.specs.power.LV);
-    if (!cfg.sR && D.specs.power) cfg.sR = lastNum(D.specs.power.HV);
-    if (!cfg.bC1Dev && D.bushingCriteria.c1) cfg.bC1Dev = String(D.bushingCriteria.c1);
-    if (!cfg.bTgdMax && D.bushingCriteria.tgd) cfg.bTgdMax = String(D.bushingCriteria.tgd);
-  }
+  // Loại thiết bị của biên bản đang mở và phần giao diện riêng của loại đó
+  const T = () => EquipmentTypes.get(EquipmentTypes.codeOf(state));
+  const TU = () => (window.TypeUI || {})[EquipmentTypes.codeOf(state)] || {};
+  const applyFactoryDefaults = cfg => { if (T().applyFactoryDefaults) T().applyFactoryDefaults(cfg, FX); };
 
   function templateData() {
     if (state.cfg.template === 'custom') {
@@ -70,40 +58,28 @@
   }
 
   // ---------------------------------------------------------------- state
-  async function newRecord(keepCfg) {
-    const cfg = keepCfg ? JSON.parse(JSON.stringify(state.cfg)) : defaultCfg();
+  // keepCfg: giữ cấu hình của biên bản đang mở (cùng loại thiết bị)
+  async function newRecord(keepCfg, type) {
+    const code = type || EquipmentTypes.codeOf(state);
+    const cfg = keepCfg ? JSON.parse(JSON.stringify(state.cfg)) : EquipmentTypes.get(code).defaultCfg();
+    state = { type: code, v: {}, cfg, sum: { tick: {}, ev: {} }, created: new Date().toISOString() };
     applyFactoryDefaults(cfg);
-    state = { v: {}, cfg, sum: { tick: {}, ev: {} }, created: new Date().toISOString() };
-    schema = Schema.build(state.cfg);
+    schema = T().buildSchema(state.cfg);
     await readTemplateDefaults();
-    const u = FX && FX.unit(state.v['meta.serial']);
-    if (u && u.phase && state.cfg.template !== 'custom' && u.phase !== state.cfg.template && EMB.templates[u.phase]) {
-      state.cfg.template = u.phase;
+    const key = T().templateKeyFor ? T().templateKeyFor(state, FX) : null;
+    if (key && state.cfg.template !== 'custom' && key !== state.cfg.template && EMB.templates[key]) {
+      state.cfg.template = key;
       state.v = {};
       await readTemplateDefaults();
     }
-    if (!state.v['meta.reason']) state.v['meta.reason'] = 'Sau lắp đặt';
+    if (!state.v['meta.reason']) state.v['meta.reason'] = T().report.defaultReason || '';
   }
 
   // Lấy giá trị sẵn có trong template (thông tin chung, Uo = 10 kV…) làm mặc định
   async function readTemplateDefaults() {
     const data = templateData();
     if (!data) return;
-    const tpl = await DocxTemplate.load(data);
-    Schema.eachField(schema, f => {
-      if (!f.doc || /remark|conclusion/.test(f.k)) return;
-      const val = tpl.readField(f.doc);
-      if (val && val.replace(/[\s.]/g, '')) state.v[f.k] = val;
-    });
-    Schema.eachGrid(schema, g => {
-      if (g.readonly) return;
-      g.rows.forEach(r => g.cols.forEach(c => {
-        if (r.nodoc || c.calc || c.auto || (g.skip && g.skip(r.k, c.k))) return;
-        const tc = tpl.cell(g.tables, r.doc, r.cmap && r.cmap[c.k] !== undefined ? r.cmap[c.k] : c.doc);
-        const t = tc ? tc.textContent.trim() : '';
-        if (t && t !== '/') state.v[`${g.id}.${r.k}.${c.k}`] = t;
-      }));
-    });
+    Object.assign(state.v, Report.readDefaults(await DocxTemplate.load(data), schema));
   }
 
   let saveT = null;
@@ -113,7 +89,7 @@
   }
 
   function recompute() {
-    res = Evaluate.evaluate(state, FX, schema);
+    res = T().evaluate(state, FX, schema);
   }
 
   // ---------------------------------------------------------------- nav
@@ -132,7 +108,7 @@
     const items = navItems();
     const first = !navPrev;
     navPrev = navPrev || {};
-    let html = '';
+    let html = Workflow.progressHTML(schema.sections, res ? res.sec : {}, esc);
     items.forEach((it, i) => {
       if (i === 1) html += '<div class="nav-group">Hạng mục thí nghiệm</div>';
       if (it.id === 'summary') html += '<div class="nav-group">Kết quả</div>';
@@ -145,9 +121,10 @@
       const flip = st && Date.now() - (navChangedAt[it.id] || 0) < 600 ? ' flip' : '';
       const fails = S && S.counts.fail ? `<span class="cnt">${S.counts.fail} lỗi</span>` : '';
       const tip = st ? BRK_LABEL[st] : (S ? 'Chưa nhập' : '');
+      const wf = S ? Workflow.stateOf(S, current === it.id) : '';
       html += `<button class="nav-item ${current === it.id ? 'active' : ''}" data-nav="${it.id}" ${current === it.id ? 'aria-current="page"' : ''}>`
         + `<span class="brk ${st ? 'st-' + st : ''}${flip}" ${tip ? `title="${esc(tip)}"` : ''} aria-hidden="true"></span>`
-        + `<span class="nav-no">${esc(it.no)}</span><span class="nav-t">${esc(it.title)}${fails}</span>`
+        + `<span class="nav-no">${esc(it.no)}</span><span class="nav-t">${esc(it.title)}${fails}${wf ? `<span class="nav-st st-${wf}">${Workflow.STATE[wf]}</span>` : ''}</span>`
         + `${tip ? `<span class="sr-only">${esc(tip)}</span>` : ''}</button>`;
     });
     ($('#navItems') || $('#nav')).innerHTML = html;
@@ -155,6 +132,7 @@
   function renderRecordChip() {
     const v = state.v, u = FX && FX.unit(v['meta.serial']);
     $('#recordChip').innerHTML = [
+      `<span class="chip chip-type">${esc(T().label)}</span>`,
       `<span class="chip">S/N <b>${esc(v['meta.serial'] || '—')}</b>${u ? ` · pha ${esc(u.phase)}` : ''}</span>`,
       `<span class="chip">${esc(v['meta.date'] || 'chưa có ngày')}</span>`,
       `<span class="chip">${esc(v['meta.reason'] || '')}</span>`,
@@ -189,7 +167,7 @@
 
   function gridHTML(g) {
     const ro = !!g.readonly;
-    const cpcBtn = g.ex ? `<button class="btn small" data-act="cpcSlot" data-grid="${g.id}">Tải XML CPC 100…</button>` : '';
+    const cpcBtn = TU().gridTools ? TU().gridTools(g, App) : '';
     let h = `<div class="grid-block">${g.title || cpcBtn ? `<div class="grid-title">${esc(g.title || '')}${cpcBtn}</div>` : ''}<div class="grid-wrap ${ro ? 'readonly' : ''}"><table class="grid" data-grid="${g.id}"><thead><tr><th>${esc(g.corner || '')}</th>`;
     // cột pha: gắn mã pha để tô vạch màu A vàng · B xanh · C đỏ
     g.cols.forEach(c => {
@@ -201,12 +179,12 @@
     });
     h += '</tr></thead><tbody>';
     g.rows.forEach((r, ri) => {
-      const tapLbl = /^bct\.\w+\.ex\./.test(g.id) && state.v[`${g.id}.tap.${r.k.slice(0, -1)}`];
+      const typeLbl = TU().rowLabel ? TU().rowLabel(g, r, App) : null;
       if (g.editLabels) {
-        h += `<tr><th class="lbl-cell"><input class="lbl" data-lbl="${r.k}" value="${esc(r.label)}" placeholder="${esc(r.defLabel || 'Đối tượng đo')}" autocomplete="off">`
-          + (r.extra ? `<button class="row-del" data-act="delWtgdRow" data-rk="${r.k}" title="Xóa dòng" aria-label="Xóa dòng">×</button>` : '') + '</th>';
+        h += `<tr><th class="lbl-cell"><input class="lbl" data-lbl="${r.k}" data-lblcfg="${g.labelCfg}" value="${esc(r.label)}" placeholder="${esc(r.defLabel || g.corner || '')}" autocomplete="off">`
+          + (r.extra && g.addRow ? `<button class="row-del" data-act="${g.addRow.del}" data-rk="${r.k}" title="Xóa dòng" aria-label="Xóa dòng">×</button>` : '') + '</th>';
       } else if (g.mirrorLabels) h += `<tr><th data-lblm="${r.k}">${esc(r.label)}</th>`;
-      else h += `<tr><th>${esc(tapLbl ? r.label.replace(/^[^:]+/, tapLbl) : r.label)}</th>`;
+      else h += `<tr><th>${esc(typeLbl || r.label)}</th>`;
       g.cols.forEach((c, ci) => {
         const key = `${g.id}.${r.k}.${c.k}`;
         if (g.skip && g.skip(r.k, c.k)) { h += '<td class="na"></td>'; return; }
@@ -231,7 +209,7 @@
       h += '</tr>';
     });
     h += '</tbody></table></div>';
-    if (g.editLabels) h += '<div class="row-actions"><button class="btn small" data-act="addWtgdRow">+ Thêm dòng đối tượng đo</button></div>';
+    if (g.addRow) h += `<div class="row-actions"><button class="btn small" data-act="${g.addRow.act}">${esc(g.addRow.label)}</button></div>`;
     return h + '</div>';
   }
 
@@ -262,106 +240,56 @@
     return `<div class="panel-head"><span class="secno">${esc(no)}</span><h2>${esc(title)}</h2><span class="en">${esc(en || '')}</span><span class="spacer"></span>${badge}</div>`;
   }
 
-  // ---------------------------------------------------------------- reference callouts
-  function refInfo(id) {
-    if (!FX) return '<div class="callout warn">Chưa nạp số liệu xuất xưởng — chỉ đánh giá theo ngưỡng QĐ 1901.</div>';
-    const D = FX.data, s = state.v['meta.serial'], u = FX.unit(s), fm = Evaluate.fmt;
-    const mainLine = u ? `Máy chính <b>${esc(s)}</b> (pha ${esc(u.phase)})` : `<b>Số chế tạo “${esc(s || '')}” không có trong file xuất xưởng</b> — kiểm tra lại mục 0`;
-    const cond = (D.conditions[s] || {});
-    const ps = `Cột pha A/B/C ↔ ${['A', 'B', 'C'].map(p => esc(state.cfg.ps[p] || '—')).join(' / ')}`;
-    switch (id) {
-      case 'noload': return `<div class="callout">${mainLine}: P0 xuất xưởng = <b>${u ? fm(u.noLoadLoss, 1) : '—'} kW</b> (đo ${fm(cond.noload, 1)} °C). P0 = Pm(1+d), d=(U′−U)/U′; I0% = Io/I<sub>LV</sub> × S<sub>LV</sub>/S<sub>r</sub> × 100 với I<sub>LV</sub>=${esc(state.cfg.iLV)} A, S<sub>LV</sub>=${esc(state.cfg.sLV)} MVA, S<sub>r</sub>=${esc(state.cfg.sR)} MVA (sửa ở mục 0).</div>`;
-      case 'ir': return `<div class="callout">${mainLine}. Quy đổi về 20 °C theo <b>Bảng 4 QĐ 1901</b>: R20 = R(t) × K1 (đo dưới 20 °C thì chia K1); K1 tự tra theo độ chênh nhiệt độ, độ chênh không có trong bảng thì nhân các hệ số (vd 12 °C = K(10)×K(2)). Tiêu chuẩn: <b>R60@20 ≥ Bảng 5 tại 20 °C</b> (MBA ≥110 kV: 600 MΩ). Xuất xưởng (đo ${fm(cond.ins, 1)} °C) chỉ có Kht, PI và R lõi/gông.</div>`;
-      case 'bushing': {
-        const bl = D.bushings.filter(b => Object.values(state.cfg.ps).includes(b.mba));
-        const HB = window.HitachiBushing, HK = HB && HB.consts, tl = HK && HK.tol;
-        return `<div class="callout"><b>Sứ RIP Hitachi Energy</b> quy đổi theo HD vận hành sứ của hãng (mục 19.6–19.8):
-          T sứ = T môi trường khi <b>chưa lắp</b>, = (2·T môi trường + T dầu)/3 khi <b>đã lắp</b>; tanδ20 = tanδ/fc; C20 = C·(1 − ∆T·${HK ? String(HK.cCoef).replace('.', ',') : '0,0004'});
-          sứ đã lắp cộng ΔC lắp đặt vào C1 (${HK ? HK.dC.map(r => `Ur ≤ ${r.ur} kV: ${r.pf} pF`).join('; ') : ''}).
-          So với <b>test report của hãng tra theo S/N sứ</b> (${esc(HB && HB.source ? `${HB.source}, ${HB.reports.length} sứ` : 'chưa nạp — nạp ở mục 0')}):
-          ${tl ? `Ur ≤ ${HK.urSplit} kV: C1 ±${tl.low.c1 * 100}%, tanδ1 ±${String(tl.low.tgd1).replace('.', ',')}, C2 ±${tl.low.c2 * 100}%, tanδ2 ±${String(tl.low.tgd2).replace('.', ',')} điểm %; Ur > ${HK.urSplit} kV: C1 ±${tl.high.c1 * 100}%` : ''}.
-          Sứ không có trong test report thì so với giá trị nhãn trong hồ sơ MBA (${bl.length} sứ của các máy đang chọn; ${ps}).
-          <br>Chọn <b>Theo QĐ 1901</b> hoặc <b>Theo hãng</b> ở ô “Cách quy đổi về 20 °C”: tra hệ số K theo loại cách điện sứ và nhiệt độ sứ (đã lắp: nhiệt độ dầu; chưa lắp: nhiệt độ môi trường), tgδ20 = tgδ(t) × K. Bảng K do Admin cấu hình ở trang “Hệ số quy đổi sứ”.
-          <div class="row-actions"><button class="btn small" data-nav="kconf">Xem bảng hệ số K</button><button class="btn small" data-act="fillBushingSN">Điền S/N sứ theo hồ sơ xuất xưởng (cần đối chiếu thực tế)</button></div></div>`;
-      }
-      case 'wtgd': return `<div class="callout">${mainLine}. Quy đổi về 20 °C theo <b>Bảng 7 QĐ 1901</b>: tgδ20 = tgδ(t) ÷ K2 (đo dưới 20 °C thì nhân K2); K2 tự tra theo độ chênh nhiệt độ. Tiêu chuẩn: <b>tgδ@20 °C ≤ 1 %</b>. Số liệu xuất xưởng (đo ${fm(FX.insT(s), 1)} °C) chỉ để tham khảo xu hướng.</div>`;
-      case 'dcr': return `<div class="callout">So sánh theo số chế tạo của từng cột pha (${ps}). Xuất xưởng cho R quy đổi ${D.dcr.refT} °C: cuộn SER theo nấc, COM, LV. Phép đo A–N hiện trường được so với <b>${state.cfg.hvMeas === 'SER' ? 'SER' : 'SER + COM'}</b>; cuộn hạ áp: ${state.cfg.lvMode === 'delta' ? 'tam giác đã đấu (×2/3)' : 'từng máy (a–x)'} — đổi ở mục 0. Nấc 9a/9b/9c ứng với nấc 9A xuất xưởng.</div>`;
-      case 'ratio': return `<div class="callout">Tỷ số định mức lấy từ bảng xuất xưởng theo nấc (HV:MV), HV:LV = (U<sub>HV</sub>/√3)/U<sub>LV</sub>${state.cfg.lvMode === 'delta' ? ' × √3 (tổ đã đấu tam giác)' : ''}. ΔK tự tính nếu để trống; có thể nhập ΔK đọc từ máy đo. ${ps}.</div>`;
-      case 'oltc': return `<div class="callout">OLTC theo hồ sơ xuất xưởng: <b>${esc(D.specs.oltc || '—')}</b>.</div>`;
-      case 'moisture': return `<div class="callout">${mainLine}: độ ẩm cách điện cứng theo DFR xuất xưởng = <b>${fm(FX.moisture(s), 2)} %</b>. Phân loại theo Điều 28.</div>`;
-      case 'bct': return `<div class="callout">Tra số liệu BCT theo <b>số chế tạo MBA (cột pha) + ký hiệu đầu cuộn</b> (vd 2S1-2S3). Mã lõi CT ứng với “cuộn 1..n” của từng phía đặt ở mục 0 (HV: ${esc(state.cfg.ctNo.hv)}; MV: ${esc(state.cfg.ctNo.mv)}; N: ${esc(state.cfg.ctNo.n)}; LV: ${esc(state.cfg.ctNo.lv)}). Hồ sơ có ${D.bct.length} cuộn BCT. R một chiều quy về 75 °C.</div>`;
-      default: return '';
-    }
-  }
-
   // ---------------------------------------------------------------- pages
   function renderGeneral() {
-    const D = FX && FX.data;
-    const serialOpts = D ? D.order.map(s => [s, `${s} — pha ${D.units[s].phase}`]) : [];
+    const D = FX && FX.data, U = TU();
     let h = headHTML('0', 'Thông tin chung & cấu hình', 'General & settings');
-    h += '<h3>Thông tin thiết bị (điền vào đầu biên bản)</h3><div class="fields">' + Schema.META.map(f => fieldHTML(f)).join('') + '</div>';
+    h += `<h3>Thông tin thiết bị (điền vào đầu biên bản)</h3><div class="fields">${schema.head.map(f => fieldHTML(f)).join('')}</div>`;
     h += '<h3>Template & số liệu xuất xưởng</h3><div class="fields">';
     h += cfgField('template', 'Template BBTN dùng để xuất', { options: (Object.keys(EMB.templates).length ? Object.keys(EMB.templates).map(k => [k, EMB.templates[k].name]) : [['A', '(chưa có — nạp template .docx)']]).concat(lsGet(LS_TPL) ? [['custom', 'Tùy chỉnh: ' + JSON.parse(lsGet(LS_TPL)).name]] : []) });
     h += `<div class="field"><label>Nạp template khác (.docx cùng cấu trúc)</label><button class="btn" data-act="loadDocx">Chọn file template…</button></div>`;
     h += `<div class="field"><label>File số liệu xuất xưởng</label><div class="calcval file" title="${esc(D ? D.fileName : '')}">${esc(D ? D.fileName : 'chưa nạp')}</div></div>`;
     h += `<div class="field"><label>Nạp file xuất xưởng khác (.xlsx)</label><button class="btn" data-act="loadXlsx">Chọn file .xlsx…</button></div>`;
-    h += `<div class="field"><label>Test report sứ Hitachi (quy đổi 20 °C)</label><div class="calcval file" title="${esc(HitachiBushing.source || '')}">${esc(HitachiBushing.source || 'chưa nạp')}${HitachiBushing.source ? ` · ${HitachiBushing.reports.length} sứ` : ''}</div></div>`;
-    h += `<div class="field"><label>Nạp test report sứ khác (.xlsx, sheet TestReport + TraCuu)</label><button class="btn" data-act="loadHitachi">Chọn file .xlsx…</button></div></div>`;
+    h += (U.generalFiles ? U.generalFiles(App) : '') + '</div>';
     if (D && D.warnings.length) h += `<div class="callout warn">${D.warnings.map(esc).join('<br>')}</div>`;
-    h += '<h3>Ánh xạ cột pha ↔ số chế tạo (để so sánh từng cột với đúng máy)</h3><div class="hint-text">Template có cột A/B/C. Với tổ 3 máy 1 pha, mỗi cột ứng với một máy; nếu chỉ thí nghiệm một máy, đặt cả ba cột về cùng số chế tạo hoặc chỉ nhập cột của máy đó. Cột N (trung tính) dùng số chế tạo máy chính.</div><div class="fields">';
-    ['A', 'B', 'C'].forEach(p => { h += cfgField(`ps.${p}`, `Cột pha ${p} (a)`, serialOpts.length ? { options: [['', '—']].concat(serialOpts) } : {}); });
-    h += '</div><h3>Thông số tính toán & quy ước so sánh</h3><div class="fields">';
-    h += cfgField('taps', 'Nhãn 19 nấc (thứ tự hàng 1..19 của template)', { wide: true, note: 'Ngăn cách bằng dấu phẩy. Nhãn 9a/9b/9c được so với nấc 9A của xuất xưởng.' });
-    h += cfgField('hvMeas', 'Phép đo R một chiều cao áp (AN) so với', { options: [['SER+COM', 'Cuộn nối tiếp + cuộn chung (A–N)'], ['SER', 'Chỉ cuộn nối tiếp (A–Am)']] });
-    h += cfgField('lvMode', 'Cuộn hạ áp khi đo', { options: [['unit', 'Từng máy 1 pha (chưa đấu tam giác)'], ['delta', 'Tổ 3 pha đã đấu tam giác']] });
-    h += cfgField('iLV', 'Dòng định mức cuộn hạ áp I_LV (A)', { num: true });
-    h += cfgField('sLV', 'Công suất cuộn hạ áp S_LV (MVA)', { num: true });
-    h += cfgField('sR', 'Công suất định mức S_r (MVA)', { num: true });
-    h += cfgField('i0Ref', 'I0 nameplate (%) — để so sánh', { num: true, note: 'vd 0.04 theo nameplate AT1' });
-    h += cfgField('bC1Dev', 'Sứ (bảng K / nhập K): lệch C1 tối đa (%)', { num: true, note: 'Dùng khi quy đổi theo bảng K (QĐ 1901, theo hãng) hoặc nhập K. Sứ Hitachi dùng dung sai Bảng 15 của hãng' });
-    h += cfgField('bTgdMax', 'Sứ (bảng K / nhập K): tgδ C1 @20 °C tối đa (%)', { num: true });
-    h += cfgField('bctCores.hv', 'TI chân sứ HV: số cuộn thứ cấp', { options: [4, 5, 6] });
-    h += cfgField('bctCores.mv', 'TI chân sứ MV: số cuộn thứ cấp', { options: [4, 5] });
-    h += cfgField('ctNo.hv', 'Mã lõi CT phía HV (cuộn 1..n)');
-    h += cfgField('ctNo.mv', 'Mã lõi CT phía MV (cuộn 1..n)');
-    h += cfgField('ctNo.n', 'Mã lõi CT trung tính');
-    h += cfgField('ctNo.lv', 'Mã lõi CT phía LV');
-    h += cfgField('bctErrLimit', 'Giới hạn sai số tỷ số TI chân sứ (%)', { num: true, note: 'QĐ 1901 không nêu số — nhập theo cấp chính xác nếu muốn tự đánh giá Đạt/Không đạt' });
-    h += cfgField('decSep', 'Dấu thập phân trong BBTN xuất ra', { options: [[',', 'Dấu phẩy (12,5)'], ['.', 'Dấu chấm (12.5)']] });
-    h += '</div>';
-    if (D) {
-      h += '<h3>Các máy trong file xuất xưởng</h3><div class="grid-wrap"><table class="grid"><thead><tr><th>Số chế tạo</th><th>Pha</th><th>Job No.</th><th>P0 (kW)</th><th>T đo cách điện (°C)</th><th>T đo R 1 chiều (°C)</th><th>Độ ẩm DFR (%)</th></tr></thead><tbody>';
-      D.order.forEach(s => { const u = D.units[s], c = D.conditions[s] || {}; h += `<tr><th>${esc(s)}</th><td class="calc"><span class="cv">${esc(u.phase)}</span></td><td class="calc"><span class="cv">${esc(u.jobNo || '')}</span></td><td class="calc"><span class="cv">${Evaluate.fmt(u.noLoadLoss, 1)}</span></td><td class="calc"><span class="cv">${Evaluate.fmt(c.ins, 1)}</span></td><td class="calc"><span class="cv">${Evaluate.fmt(c.dcr, 1)}</span></td><td class="calc"><span class="cv">${Evaluate.fmt(c.moisture, 2)}</span></td></tr>`; });
-      h += '</tbody></table></div>';
-    }
+    h += U.generalConfig ? U.generalConfig(App) : '';
+    h += U.factoryUnits ? U.factoryUnits(App) : '';
     return `<section class="panel">${h}</section>`;
   }
 
+  // Hạng mục thí nghiệm theo 4 bước; khung Tài liệu tham khảo bên phải
   function renderSection(s) {
-    let h = headHTML(String(s.no), s.title, s.en, s.id) + refInfo(s.id);
-    if (s.id === 'bct') {
-      h += `<div class="bct-tools"><div class="fields">${cfgField('bctCores.hv', 'Số cuộn thứ cấp TI phía HV', { options: [4, 5, 6] })}${cfgField('bctCores.mv', 'Số cuộn thứ cấp TI phía MV', { options: [4, 5] })}<div class="field"><label>Đặc tính từ hóa từ máy đo</label><button class="btn primary" data-act="loadCpc">Nhập XML CPC 100…</button></div></div><div class="hint-text">Chọn một hoặc nhiều file XML xuất từ CPC 100 (mỗi file một pha/một phía). App lấy 3 điểm (U, I) theo IEC 61869-2 và điền vào bảng đặc tính từ hóa; file có cuộn 5, 6 sẽ tự mở thêm cuộn. Phía LV và trung tính theo template chỉ có 4 và 3 cuộn.</div></div>`;
+    const U = TU(), step = Workflow.stepOf(s.id), S = res.sec[s.id];
+    let body = '';
+    if (step === 'prep' || step === 'guide') body = Workflow.procedureHTML(T(), s.id, step, esc, DB.role === 'admin');
+    else if (step === 'eval') body = findingsHTML(s.id);
+    else {
+      body = (U.intro ? U.intro(s.id, App) : '') + (U.sectionTools ? U.sectionTools(s.id, App) : '');
+      if (s.fields) body += '<div class="fields">' + s.fields.map(f => sectionField(f)).join('') + '</div>';
+      (s.grids || []).forEach(g => { body += gridHTML(g); });
+      (s.groups || []).forEach(gr => {
+        body += `<h3>${esc(gr.title)}</h3>`;
+        if (gr.fields) body += '<div class="fields">' + gr.fields.map(f => sectionField(f)).join('') + '</div>';
+        gr.grids.forEach(g => { body += gridHTML(g); });
+      });
+      if (s.extraDoc) body += '<div class="fields">' + s.extraDoc.map(x => `<div class="field"><label>${x.k === 'ir.k1' ? 'Hệ số quy đổi K1 (ghi vào BBTN)' : 'Hệ số quy đổi K2 (ghi vào BBTN)'}</label><div class="calcval" data-n="${x.k}"></div></div>`).join('') + '</div>';
+      body += `<div class="wf-sum" data-fsum="${s.id}"></div>`;
     }
-    if (s.fields) h += '<div class="fields">' + s.fields.map(f => sectionField(f)).join('') + '</div>';
-    (s.grids || []).forEach(g => { h += gridHTML(g); });
-    (s.groups || []).forEach(gr => {
-      h += `<h3>${esc(gr.title)}</h3>`;
-      if (gr.fields) h += '<div class="fields">' + gr.fields.map(f => sectionField(f)).join('') + '</div>';
-      gr.grids.forEach(g => { h += gridHTML(g); });
-    });
-    if (s.extraDoc) h += '<div class="fields">' + s.extraDoc.map(x => `<div class="field"><label>${x.k === 'ir.k1' ? 'Hệ số quy đổi K1 (ghi vào BBTN)' : 'Hệ số quy đổi K2 (ghi vào BBTN)'}</label><div class="calcval" data-n="${x.k}"></div></div>`).join('') + '</div>';
-    h += findingsHTML(s.id);
+    const h = headHTML(String(s.no), s.title, s.en, s.id) + Workflow.stepsHTML(s.id, S)
+      + `<div class="wf-layout"><div class="wf-main" data-step="${step}">${body}</div>${Workflow.referencesHTML(T(), s.id, esc)}</div>`;
     return `<section class="panel" data-sec="${s.id}">${h}</section>`;
   }
+  // Tóm tắt kết quả cuối bước Nhập số liệu (chi tiết ở bước Đánh giá)
+  function findingsSummary(secId) {
+    const S = res.sec[secId];
+    if (!S || !S.status) return '';
+    const c = S.counts, parts = [['pass', c.pass], ['warn', c.warn], ['fail', c.fail], ['missing', c.missing]].filter(([, n]) => n);
+    return `<span>Kết quả: ${parts.map(([k, n]) => `<span class="badge st-${k}">${ST_TEXT[k]} · ${n}</span>`).join(' ')}</span>`
+      + `<button class="btn small" data-wfstep="eval" data-sec="${secId}">Xem đánh giá chi tiết</button>`;
+  }
   function sectionField(f) {
-    const m = f.k.match(/^b\.(\w+)\.k$/);
-    if (m) {
-      const rip = !/Nhập/i.test(state.v[`b.${m[1]}.kmode`] || '');
-      const mode = typeof BushingK !== 'undefined' ? BushingK.resolve(state.v[`b.${m[1]}.kmode`]) : null;
-      const label = mode && mode.kind === 'table' ? `Hệ số K tra bảng (tgδ20 = tgδ ${mode.table && mode.table.formula === 'MUL' ? '×' : '÷'} K)` : f.label;
-      if (rip) return `<div class="field"><label>${esc(label)}</label><div class="calcval" data-n="${f.k}"></div></div>`;
-    }
-    return fieldHTML(f);
+    const custom = TU().field ? TU().field(f, App) : null;
+    return custom || fieldHTML(f);
   }
 
   function renderSummary() {
@@ -380,7 +308,7 @@
         <td><select data-sumev="${s.id}">${[['', 'Tự động'], ['Đạt', 'Đạt'], ['Không đạt', 'Không đạt'], ['Cần xem xét', 'Cần xem xét'], ['—', '(để trống)']].map(([v, t]) => `<option value="${v}" ${v === ev ? 'selected' : ''}>${t}</option>`).join('')}</select></td></tr>`;
     });
     h += '</tbody></table></div>';
-    h += '<h3>Ghi chú & kết luận (điền vào BBTN)</h3><div class="fields">' + Schema.CLOSING.map(f => fieldHTML(f)).join('') + '</div>';
+    h += '<h3>Ghi chú & kết luận (điền vào BBTN)</h3><div class="fields">' + schema.tail.map(f => fieldHTML(f)).join('') + '</div>';
     h += `<div class="row-actions"><button class="btn" data-act="autoConclusion">Điền kết luận tự động</button><button class="btn" data-act="xlsx">Xuất so sánh .xlsx</button><button class="btn primary" data-act="docx">Xuất BBTN .docx</button></div>`;
     h += `<div class="callout">Kết luận tự động chỉ tổng hợp kết quả so sánh; quyết định đóng điện thuộc người có thẩm quyền (QĐ 1901 Điều 3, Điều 9 mục 4). Gợi ý hiện tại: <i data-autoconc></i></div>`;
     h += findingsHTML('*');
@@ -429,7 +357,7 @@
     $$('input.auto', main).forEach(el => { el.placeholder = res.calc[el.dataset.k] || ''; });
     const byKey = {};
     res.findings.forEach(f => (f.keys || []).forEach(k => {
-      if (!byKey[k] || Evaluate.RANK[f.status] > Evaluate.RANK[byKey[k].status]) byKey[k] = f;
+      if (!byKey[k] || Common.RANK[f.status] > Common.RANK[byKey[k].status]) byKey[k] = f;
     }));
     $$('[data-k]', main).forEach(el => {
       el.classList.remove('st-pass', 'st-warn', 'st-fail', 'st-missing', 'st-info');
@@ -450,10 +378,13 @@
     });
     $$('[data-findings]', main).forEach(el => { el.outerHTML = findingsHTML(el.dataset.findings); });
     const ac = $('[data-autoconc]', main);
-    if (ac) ac.textContent = Evaluate.autoConclusion(res, schema, state) || '(chưa có dữ liệu)';
+    if (ac) ac.textContent = T().autoConclusion(res, schema, state) || '(chưa có dữ liệu)';
+    $$('[data-fsum]', main).forEach(el => { el.innerHTML = findingsSummary(el.dataset.fsum); });
     const head = $('.panel[data-sec] .panel-head .badge', main);
     const secEl = $('.panel[data-sec]', main);
     if (head && secEl) { const S = res.sec[secEl.dataset.sec]; head.className = `badge ${S.status ? 'st-' + S.status : 'st-none'}`; head.textContent = S.text || 'Chưa nhập'; }
+    const flag = $('[data-wfflag]', main);
+    if (flag && secEl) { const c = res.sec[secEl.dataset.sec].counts, n = c.fail + c.warn; flag.textContent = n || ''; flag.hidden = !n; }
     renderNav();
     renderRecordChip();
   }
@@ -479,23 +410,23 @@
     const el = e.target;
     if (el.dataset.k) {
       state.v[el.dataset.k] = el.value;
-      if (/\.(kmode|mount)$/.test(el.dataset.k)) { recompute(); renderMain(); persist(); return; }
+      if (TU().rerenderOn && TU().rerenderOn.test(el.dataset.k)) { recompute(); renderMain(); persist(); return; }
       if (el.dataset.k === 'meta.serial' && e.type === 'change') onSerialChange();
       scheduleEval();
     } else if ((el.dataset.hk || el.dataset.lbl) && e.type === 'change') {
-      // đề mục cột (mục 8) / đối tượng đo (mục 6): lưu vào cấu hình, dựng lại schema mà không vẽ lại trang
+      // đề mục cột / nhãn hàng sửa được (vd mục 6, 8 MBA): lưu vào cấu hình, dựng lại schema mà không vẽ lại trang
       const t = el.value.trim();
-      const map = el.dataset.hk ? state.cfg.hdr : state.cfg.wtgdLabels;
+      const map = el.dataset.hk ? (state.cfg.hdr = state.cfg.hdr || {}) : (state.cfg[el.dataset.lblcfg] = state.cfg[el.dataset.lblcfg] || {});
       const id = el.dataset.hk || el.dataset.lbl;
       if (t && t !== el.placeholder) map[id] = t; else delete map[id];
       if (el.dataset.lbl) $$(`[data-lblm="${id}"]`).forEach(x => { x.textContent = t || el.placeholder; });
       if (!t) el.value = el.dataset.hk ? el.placeholder : '';
-      schema = Schema.build(state.cfg); recompute(); updateComputed(); persist();
+      schema = T().buildSchema(state.cfg); recompute(); updateComputed(); persist();
     } else if (el.dataset.cfg && e.type === 'change') {
       setCfg(el.dataset.cfg, el.value);
       if (/^(taps|bctCores)/.test(el.dataset.cfg)) {
         if (el.dataset.cfg === 'taps' && state.cfg.taps.length !== 19) toast(`Cần đúng 19 nhãn nấc (đang có ${state.cfg.taps.length}) — tạm dùng mặc định`, true);
-        schema = Schema.build(state.cfg);
+        schema = T().buildSchema(state.cfg);
       }
       recompute();
       if (/^(template|bctCores|taps)/.test(el.dataset.cfg)) renderMain(); else updateComputed();
@@ -509,9 +440,10 @@
   function onSerialChange() {
     const u = FX && FX.unit(state.v['meta.serial']);
     if (!u) { toast('Số chế tạo không có trong file xuất xưởng — các so sánh với máy chính sẽ thiếu tham chiếu', true); return; }
-    if (state.cfg.template !== 'custom' && EMB.templates[u.phase] && state.cfg.template !== u.phase) {
-      state.cfg.template = u.phase;
-      toast(`Đã chọn template ${EMB.templates[u.phase].name} theo pha ${u.phase}`);
+    const key = T().templateKeyFor ? T().templateKeyFor(state, FX) : null;
+    if (key && state.cfg.template !== 'custom' && EMB.templates[key] && state.cfg.template !== key) {
+      state.cfg.template = key;
+      toast(`Đã chọn template ${EMB.templates[key].name} theo pha ${key}`);
     }
   }
 
@@ -553,78 +485,73 @@
     if (b.dataset.nav) { current = b.dataset.nav; renderNav(); renderMain(); $('#main').scrollTop = 0; window.scrollTo(0, 0); return; }
     if (b.dataset.filter) { filters[b.dataset.fsec] = b.dataset.filter; updateComputed(); return; }
     if (b.dataset.ftab !== undefined) { factoryTab = +b.dataset.ftab; renderMain(); return; }
+    if (b.dataset.wfstep) { Workflow.setStep(b.dataset.sec, b.dataset.wfstep); renderMain(); return; }
+    if (b.dataset.newtype) { chooseTypeDone(b.dataset.newtype); return; }
     const act = b.dataset.act;
     try {
-      if (act === 'new') {
-        if (!confirm('Tạo biên bản mới? Dữ liệu đang nhập chưa lưu file .json sẽ bị thay thế.')) return;
-        await newRecord(true); recompute(); renderMain(); persist(); toast('Đã tạo biên bản mới từ template');
-      } else if (act === 'save') saveJson();
+      if (act === 'new') openTypeDialog();
+      else if (act === 'save') saveJson();
       else if (act === 'open') $('#fileJson').click();
       else if (act === 'loadXlsx') $('#fileXlsx').click();
       else if (act === 'loadDocx') $('#fileDocx').click();
-      else if (act === 'loadHitachi') $('#fileHitachi').click();
-      else if (act === 'loadCpc') { cpcTarget = null; $('#fileCpc').multiple = true; $('#fileCpc').click(); }
-      else if (act === 'cpcSlot') {
-        const m = b.dataset.grid.match(/^bct\.(\w+)\.ex\.(\w)$/);
-        cpcTarget = { side: m[1], phase: m[2] };
-        $('#fileCpc').multiple = false; $('#fileCpc').click();
-      }
       else if (act === 'resetXlsx') { lsSet(LS_FAC, null); loadFactoryDefault(); applyFactoryDefaults(state.cfg); recompute(); renderMain(); toast('Đã dùng lại file xuất xưởng mặc định'); }
       else if (act === 'docx') await exportDocx();
       else if (act === 'xlsx') exportXlsx();
       else if (act === 'autoConclusion') {
-        state.v['meta.conclusion'] = Evaluate.autoConclusion(res, schema, state);
+        state.v['meta.conclusion'] = T().autoConclusion(res, schema, state);
         renderMain(); persist();
-      } else if (act === 'fillBushingSN') fillBushingSN();
-      else if (act === 'addWtgdRow') {
-        state.cfg.wtgdRows.push({ k: 'x' + Date.now().toString(36) });
-        App.rebuild(true);
-        const ins = $$('[data-grid="wtgd.meas"] input.lbl'); if (ins.length) ins[ins.length - 1].focus();
-      } else if (act === 'delWtgdRow') {
-        const rk = b.dataset.rk;
-        state.cfg.wtgdRows = state.cfg.wtgdRows.filter(x => x.k !== rk);
-        delete state.cfg.wtgdLabels[rk];
-        Object.keys(state.v).filter(k => k.startsWith(`wtgd.meas.${rk}.`)).forEach(k => delete state.v[k]);
-        App.rebuild(true);
-      }
-      else if (act && act.startsWith('db')) await DbUI.action(act, b);
+      } else if (act && act.startsWith('db')) await DbUI.action(act, b);
+      else if (act && TU().actions && TU().actions[act]) await TU().actions[act](b, App);
     } catch (err) {
       console.error(err);
       toast('Lỗi: ' + err.message, true);
     }
   }
 
-  function fillBushingSN() {
-    let n = 0;
-    const put = (k, val) => { if (val && !state.v[k]) { state.v[k] = val; n++; } };
-    [['hv', '1.1', ['A', 'B', 'C']], ['mv', '2.1', ['A', 'B', 'C']], ['lv', '3.1', ['a', 'b', 'c']]].forEach(([side, term, cols]) => {
-      cols.forEach(c => { const b = FX.bushingByUnit(state.cfg.ps[c.toUpperCase()], term); put(`b.${side}.meas.serial.${c}`, b && b.serial); });
-    });
-    const bn = FX.bushingByUnit(state.v['meta.serial'], '2');
-    put('b.mv.meas.serial.N', bn && bn.serial);
-    recompute(); renderMain(); persist();
-    toast(n ? `Đã điền ${n} số chế tạo sứ — hãy đối chiếu với nameplate thực tế` : 'Không có ô trống cần điền');
+  // ---------------------------------------------------------------- biên bản mới: chọn loại thiết bị
+  function openTypeDialog() {
+    let dlg = $('#typeDialog');
+    if (!dlg) {
+      dlg = document.createElement('dialog');
+      dlg.id = 'typeDialog'; dlg.className = 'auth-dialog type-dialog'; dlg.setAttribute('aria-labelledby', 'tdTitle');
+      document.body.appendChild(dlg);
+    }
+    const cur = EquipmentTypes.codeOf(state);
+    const ready = EquipmentTypes.list().map(t => `<button class="type-opt" data-newtype="${esc(t.code)}"><b>${esc(t.label)}</b><span>${t.code === cur ? 'Giữ cấu hình của biên bản đang mở' : 'Cấu hình mặc định'}</span></button>`).join('');
+    const later = PLANNED.filter(([c]) => !EquipmentTypes.has(c)).map(([, l]) => `<span class="type-opt off" aria-disabled="true"><b>${esc(l)}</b><span>Chưa hỗ trợ</span></span>`).join('');
+    dlg.innerHTML = `<div class="ad-band"><span>Biên bản mới</span><button class="ad-x" data-tdclose aria-label="Đóng">×</button></div>
+      <div class="ad-body"><h2 id="tdTitle">Chọn loại thiết bị</h2><p class="ad-lead">Biên bản đang nhập chưa lưu file .json hoặc CSDL sẽ bị thay thế.</p>
+      <div class="type-grid">${ready}${later}</div></div>`;
+    dlg.querySelector('[data-tdclose]').onclick = () => dlg.close();
+    dlg.showModal();
+  }
+  async function chooseTypeDone(code) {
+    $('#typeDialog').close();
+    try {
+      await newRecord(code === EquipmentTypes.codeOf(state), code);
+      current = 'general'; recompute(); renderNav(); renderMain(); persist();
+      toast(`Đã tạo biên bản ${T().label} mới từ template`);
+    } catch (err) { console.error(err); toast('Lỗi: ' + err.message, true); }
   }
 
   // ---------------------------------------------------------------- files
   function saveJson() {
     const data = { app: 'bbtn-mba', version: 1, savedAt: new Date().toISOString(), factoryFile: FX ? FX.data.fileName : null, state };
-    const name = `BBTN_MBA_${safeName(state.v['meta.serial'])}_${safeName(state.v['meta.date'])}.json`;
+    const name = `BBTN_${T().report.filePrefix}_${safeName(state.v['meta.serial'])}_${safeName(state.v['meta.date'])}.json`;
     download(new Blob([JSON.stringify(data, null, 1)], { type: 'application/json' }), name);
     toast('Đã lưu ' + name);
   }
+  // Biên bản cũ (trước khi có nhiều loại thiết bị) không ghi loại → MBA
   function loadState(obj) {
     const st = obj.state || obj;
     if (!st || !st.v || !st.cfg) throw new Error('File không đúng định dạng dữ liệu BBTN');
-    const cfg = Object.assign(defaultCfg(), st.cfg);
-    cfg.ps = Object.assign(defaultCfg().ps, st.cfg.ps || {});
-    cfg.ctNo = Object.assign(defaultCfg().ctNo, st.cfg.ctNo || {});
-    cfg.bctCores = Object.assign(defaultCfg().bctCores, st.cfg.bctCores || {});
-    cfg.hdr = cfg.hdr || {}; cfg.wtgdLabels = cfg.wtgdLabels || {}; cfg.wtgdRows = cfg.wtgdRows || [];
-    state = { v: st.v, cfg, sum: st.sum || { tick: {}, ev: {} }, created: st.created, db: st.db || null };
+    const type = EquipmentTypes.codeOf(st);
+    if (!EquipmentTypes.has(type)) throw new Error(`Biên bản loại “${type}” chưa được hỗ trợ trong phiên bản này`);
+    const cfg = EquipmentTypes.get(type).normalizeCfg(st.cfg);
+    state = { type, v: st.v, cfg, sum: st.sum || { tick: {}, ev: {} }, created: st.created, db: st.db || null };
     state.sum.tick = state.sum.tick || {}; state.sum.ev = state.sum.ev || {};
     applyFactoryDefaults(state.cfg);
-    schema = Schema.build(state.cfg);
+    schema = T().buildSchema(state.cfg);
   }
   async function readFile(input, fn) {
     const f = input.files[0];
@@ -636,85 +563,23 @@
   function loadFactoryDefault() {
     const custom = lsGet(LS_FAC);
     try {
-      if (custom) { const o = JSON.parse(custom); FX = Factory.fromBase64(o.b64, o.name); return; }
+      if (custom) { const o = JSON.parse(custom); FX = factoryReader().fromBase64(o.b64, o.name); return; }
     } catch (e) { console.warn('custom factory invalid', e); }
-    FX = EMB.factory ? Factory.fromBase64(EMB.factory.b64, EMB.factory.name) : null;
+    FX = EMB.factory ? factoryReader().fromBase64(EMB.factory.b64, EMB.factory.name) : null;
   }
-  // Test report sứ Hitachi + hằng số quy đổi: file nạp tay (lưu trình duyệt) ưu tiên hơn file nhúng sẵn
-  function loadHitachiDefault() {
-    try {
-      const custom = lsGet(LS_HIT);
-      if (custom) { const o = JSON.parse(custom); HitachiBushing.fromBase64(o.b64, o.name); return; }
-      if (EMB.bushingTR) HitachiBushing.fromBase64(EMB.bushingTR.b64, EMB.bushingTR.name);
-    } catch (e) { console.warn('Hitachi test report:', e); toast('Không đọc được file test report sứ: ' + e.message, true); }
-  }
-
+  // Bộ đọc Test report xuất xưởng của loại thiết bị (trước khi có biên bản: loại mặc định)
+  const factoryReader = () => EquipmentTypes.get(EquipmentTypes.codeOf(state)).factory;
   // ---------------------------------------------------------------- export
   async function exportDocx() {
     recompute();
     const data = templateData();
     if (!data) { toast('Chưa có template BBTN — nạp file .docx ở mục 0 “Thông tin chung & cấu hình”', true); return; }
-    const tpl = await DocxTemplate.load(data);
-    if (tpl.tables.length < 72) toast(`Cảnh báo: template có ${tpl.tables.length} bảng (mẫu chuẩn 73) — vị trí điền có thể lệch`, true);
-    const miss = [];
-    // Thống nhất dấu thập phân cho các giá trị thuần số (giá trị nhập và giá trị tính)
-    const dec = state.cfg.decSep === '.' ? '.' : ',';
-    const out = s => {
-      const t = String(s).trim();
-      return /^[-+]?\d+([.,]\d+)?$/.test(t) ? t.replace(/[.,]/, dec) : t;
-    };
-    const write = (f, value) => {
-      if (value === undefined || value === null || String(value).trim() === '') return;
-      if (!tpl.writeField(f.doc, out(value))) miss.push(f.label || f.k);
-    };
+    const tpl = await DocxTemplate.load(data), R = T().report;
+    if (tpl.tables.length < R.minTables) toast(`Cảnh báo: template có ${tpl.tables.length} bảng (mẫu chuẩn ${R.stdTables}) — vị trí điền có thể lệch`, true);
+    const { cells, miss } = R.fill(tpl, { state, res, schema });
     const v = state.v;
-    Schema.eachField(schema, f => {
-      if (!f.doc) return;
-      let val = v[f.k];
-      if (f.k === 'meta.conclusion' && !val) val = Evaluate.autoConclusion(res, schema, state);
-      const m = f.k.match(/^b\.(\w+)\.k$/);
-      if (m && !/Nhập/i.test(v[`b.${m[1]}.kmode`] || '')) val = (res.notes[f.k] || '').trim();
-      if (/\.btype$/.test(f.k)) val = val || 'RIP';
-      write(f, val);
-    });
-    schema.sections.forEach(s => (s.extraDoc || []).forEach(x => write({ doc: x.doc, k: x.k }, (res.notes[x.k] || '').trim())));
-    let cells = 0;
-    // Mục 6: thêm hàng cho đối tượng đo bổ sung (bảng số liệu đo và bảng quy đổi 20 °C)
-    const nExtra = (state.cfg.wtgdRows || []).length;
-    if (nExtra) Schema.eachGrid(schema, g => { if (/^wtgd\./.test(g.id)) tpl.appendRows(g.tables[0], nExtra); });
-    Schema.eachGrid(schema, g => {
-      // Đối tượng đo đã sửa/thêm → ghi vào cột đầu; đề mục cột đã sửa → ghi vào hàng tiêu đề của template
-      if (/^wtgd\./.test(g.id)) g.rows.forEach(r => { if (r.label && r.label !== r.defLabel) tpl.setCellText(tpl.cell(g.tables, r.doc, 0), r.label); });
-      if (g.editHdr) g.cols.forEach(c => { if (c.label !== c.defLabel) tpl.setCellText(tpl.cell([g.tables[0]], 0, c.doc), c.label); });
-      // bảng đặc tính từ hóa có số liệu điểm khuỷu → chèn cột thứ 4 vào bảng của template
-      const exWide = g.ex && g.rows.some(r => (v[`${g.id}.${r.k}.p4`] || '').toString().trim());
-      if (exWide) tpl.ensureColumns(g.tables, 5);
-      g.rows.forEach(r => g.cols.forEach(c => {
-        if (r.nodoc || (g.skip && g.skip(r.k, c.k))) return;
-        const key = `${g.id}.${r.k}.${c.k}`;
-        const val = (g.readonly || c.calc) ? res.calc[key] : ((v[key] ?? '').toString().trim() || res.calc[key]);
-        if (val === undefined || val === null || String(val).trim() === '') return;
-        const tc = tpl.cell(g.tables, r.doc, r.cmap && r.cmap[c.k] !== undefined ? r.cmap[c.k] : c.doc);
-        if (tpl.setCellText(tc, out(val))) cells++; else miss.push(key);
-      }));
-      // Đặc tính từ hóa: ghi đầu cuộn thực đo (vd 2S1-2S5) vào ô nhãn thay cho nhãn mẫu "2S1 - 2S4"
-      if (/^bct\.\w+\.ex\./.test(g.id)) g.rows.filter(r => /i$/.test(r.k)).forEach(r => {
-        const tap = v[`${g.id}.tap.${r.k.slice(0, -1)}`];
-        if (tap) tpl.setCellText(tpl.cell(g.tables, r.doc, 0), tap);
-      });
-      // Bảng đã chèn cột khuỷu: thêm hàng tiêu đề (làm sau cùng vì làm lệch chỉ số hàng)
-      if (exWide) tpl.insertHeaderRow(g.tables[0], ['Đầu cuộn', 'Mốc 25 %', 'Mốc 50 %', 'Mốc 75 %', 'Điểm khuỷu']);
-    });
-    schema.sections.forEach(s => {
-      const row = Schema.SUMMARY_ROWS[s.id];
-      const S = res.sec[s.id];
-      const tick = state.sum.tick[s.id] ?? !!S.status;
-      const ev = state.sum.ev[s.id];
-      tpl.setCellText(tpl.cell([0], row, 3), tick ? '✓' : '');
-      tpl.setCellText(tpl.cell([0], row, 4), ev === '—' ? '' : (ev || (tick ? S.text : '')));
-    });
     const blob = await tpl.toBlob();
-    const name = `BBTN_MBA_${safeName(v['meta.serial'])}_${safeName(v['meta.date'])}.docx`;
+    const name = `BBTN_${R.filePrefix}_${safeName(v['meta.serial'])}_${safeName(v['meta.date'])}.docx`;
     download(blob, name);
     toast(`Đã xuất ${name} (${cells} ô số liệu)${miss.length ? ` — không định vị được: ${miss.slice(0, 4).join(', ')}${miss.length > 4 ? '…' : ''}` : ''}`, miss.length > 0);
     // Biên bản đã lưu CSDL → lưu kèm file BBTN vào Storage
@@ -739,27 +604,28 @@
       const S = res.sec[s.id];
       return [s.no, s.title, S.text || 'Chưa nhập', S.counts.pass, S.counts.warn, S.counts.fail, S.counts.missing, S.counts.info];
     }));
-    sum.push([], ['Kết luận gợi ý', Evaluate.autoConclusion(res, schema, state)], ['Thiết bị', `${v['meta.site'] || ''} — S/N ${v['meta.serial'] || ''}`], ['File xuất xưởng', FX ? FX.data.fileName : '']);
+    sum.push([], ['Kết luận gợi ý', T().autoConclusion(res, schema, state)], ['Thiết bị', `${v['meta.site'] || ''} — S/N ${v['meta.serial'] || ''}`], ['File xuất xưởng', FX ? FX.data.fileName : '']);
     const ws2 = XLSX.utils.aoa_to_sheet(sum);
     ws2['!cols'] = [{ wch: 14 }, { wch: 46 }, { wch: 16 }, { wch: 8 }, { wch: 12 }, { wch: 10 }, { wch: 13 }, { wch: 10 }];
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws2, 'Tổng hợp');
     XLSX.utils.book_append_sheet(wb, ws, 'So sánh chi tiết');
-    const name = `SoSanh_MBA_${safeName(v['meta.serial'])}_${safeName(v['meta.date'])}.xlsx`;
+    const name = `SoSanh_${T().report.filePrefix}_${safeName(v['meta.serial'])}_${safeName(v['meta.date'])}.xlsx`;
     XLSX.writeFile(wb, name);
     toast('Đã xuất ' + name);
   }
 
   // ---------------------------------------------------------------- boot
   async function boot() {
+    Records.setRepo(DB);
     loadFactoryDefault();
-    loadHitachiDefault();
+    Object.values(window.TypeUI || {}).forEach(u => { if (u.init) u.init(App); });
     const saved = lsGet(LS_STATE);
     let restored = false;
     if (saved) {
       try { loadState(JSON.parse(saved)); restored = true; } catch (e) { console.warn('saved state invalid', e); }
     }
-    if (!restored) { state = { cfg: defaultCfg() }; await newRecord(false); }
+    if (!restored) { state = null; await newRecord(false, EquipmentTypes.DEFAULT); }
     recompute();
     renderMain();
     if (restored && !new URLSearchParams(location.search).has('code')) Notify.show({ type: 'info', msg: 'Đã mở lại biên bản đang nhập dở trên máy này.' });
@@ -782,23 +648,16 @@
     }));
     $('#fileXlsx').addEventListener('change', e => readFile(e.target, async f => {
       const buf = await f.arrayBuffer();
-      FX = Factory.fromArrayBuffer(buf, f.name);
+      FX = factoryReader().fromArrayBuffer(buf, f.name);
       if (!lsSet(LS_FAC, JSON.stringify({ name: f.name, b64: abToB64(buf) }))) toast('File lớn — chỉ dùng trong phiên này', true);
       applyFactoryDefaults(state.cfg);
       recompute(); renderMain(); persist();
       toast(`Đã nạp ${f.name}: ${FX.data.order.length} máy${FX.data.warnings.length ? ' — có cảnh báo' : ''}`, FX.data.warnings.length > 0);
     }));
-    $('#fileCpc').addEventListener('change', e => { const fl = Array.from(e.target.files); e.target.value = ''; if (fl.length) CpcImport.open(fl, cpcTarget); });
-    $('#fileHitachi').addEventListener('change', e => readFile(e.target, async f => {
-      const buf = await f.arrayBuffer();
-      const info = HitachiBushing.fromArrayBuffer(buf, f.name);
-      if (!lsSet(LS_HIT, JSON.stringify({ name: f.name, b64: abToB64(buf) }))) toast('File lớn — chỉ dùng trong phiên này', true);
-      recompute(); renderMain(); toast(`Đã nạp test report sứ ${f.name}: ${info.count} sứ`);
-    }));
     $('#fileDocx').addEventListener('change', e => readFile(e.target, async f => {
       const buf = await f.arrayBuffer();
       const t = await DocxTemplate.load(buf);
-      if (t.tables.length < 72) toast(`Template có ${t.tables.length} bảng, khác mẫu chuẩn (73) — kiểm tra kỹ file xuất`, true);
+      if (t.tables.length < T().report.minTables) toast(`Template có ${t.tables.length} bảng, khác mẫu chuẩn (${T().report.stdTables}) — kiểm tra kỹ file xuất`, true);
       lsSet(LS_TPL, JSON.stringify({ name: f.name, b64: abToB64(buf) }));
       state.cfg.template = 'custom';
       renderMain(); persist(); toast('Đã nạp template ' + f.name);
@@ -806,11 +665,11 @@
     window.addEventListener('beforeunload', () => lsSet(LS_STATE, JSON.stringify(state)));
   }
 
-  // API cho js/db-ui.js
-  window.App = {
-    get state() { return state; }, get res() { return res; }, get schema() { return schema; }, get FX() { return FX; }, EMB,
-    exportDocx, exportXlsx, toast, esc, download, safeName, persist, recompute,
-    rebuild(schemaChanged) { if (schemaChanged) schema = Schema.build(state.cfg); recompute(); renderNav(); renderMain(); persist(); },
+  // API cho các trang khác (js/ui/*.js) và phần giao diện riêng của loại thiết bị (TypeUI)
+  const App = window.App = {
+    get state() { return state; }, get res() { return res; }, get schema() { return schema; }, get FX() { return FX; }, get type() { return T(); }, EMB,
+    exportDocx, exportXlsx, toast, esc, download, safeName, persist, recompute, renderMain, fieldHTML, cfgField, readFile, lsGet, lsSet, abToB64,
+    rebuild(schemaChanged) { if (schemaChanged) schema = T().buildSchema(state.cfg); recompute(); renderNav(); renderMain(); persist(); },
     render() { renderNav(); renderMain(); },
     go(id) { current = id; renderNav(); renderMain(); window.scrollTo(0, 0); },
     openState(st, db) { loadState(st); state.db = db; recompute(); current = 'general'; renderMain(); persist(); },

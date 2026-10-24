@@ -27,7 +27,11 @@ function load(files, opts = {}) {
   return ctx;
 }
 
-// Bộ mô-đun tính toán MBA (giống thứ tự nạp trong index.html, bỏ phần giao diện và CSDL)
-const CORE = ['js/vendor/xlsx.full.min.js', 'js/qd1901.js', 'js/factory.js', 'js/bushing-hitachi.js', 'js/cpc-import.js', 'js/bushing-k.js', 'js/schema.js', 'js/evaluate.js'];
+// Lớp nghiệp vụ (giống thứ tự nạp trong index.html) + bộ đọc CPC 100; không nạp giao diện và Supabase
+const DOMAIN = ['js/domain/common.js', 'js/domain/qd1901.js', 'js/domain/bushing-hitachi.js', 'js/domain/bushing-k.js',
+  'js/domain/equipment-types.js', 'js/domain/report.js', 'js/domain/records.js',
+  'js/domain/types/mba/factory.js', 'js/domain/types/mba/schema.js', 'js/domain/types/mba/evaluate.js',
+  'js/domain/types/mba/to-rows.js', 'js/domain/types/mba/report.js', 'js/domain/types/mba/index.js'];
+const CORE = ['js/vendor/xlsx.full.min.js'].concat(DOMAIN, ['js/data/instruments/cpc100.js']);
 
-module.exports = { load, CORE, ROOT };
+module.exports = { load, CORE, DOMAIN, ROOT };

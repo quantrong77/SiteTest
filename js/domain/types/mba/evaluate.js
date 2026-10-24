@@ -3,22 +3,7 @@
 (function () {
   'use strict';
 
-  const RANK = { fail: 5, warn: 4, missing: 3, pass: 2, info: 1 };
-  const worst = (...st) => st.filter(Boolean).sort((a, b) => RANK[b] - RANK[a])[0] || null;
-
-  const toNum = s => {
-    if (s === null || s === undefined) return NaN;
-    const t = String(s).trim().replace(/\s/g, '').replace(',', '.');
-    return t === '' ? NaN : Number(t);
-  };
-  const ok = Number.isFinite;
-  function fmt(x, d) {
-    if (!ok(x)) return '';
-    if (d === undefined) d = Math.abs(x) >= 1000 ? 0 : Math.abs(x) >= 100 ? 1 : Math.abs(x) >= 10 ? 2 : Math.abs(x) >= 1 ? 3 : 4;
-    return x.toFixed(d).replace('.', ',');
-  }
-  const sgn = (x, d = 2) => (ok(x) ? (x > 0 ? '+' : '') + fmt(x, d) : '');
-  const devPct = (a, ref) => (ok(a) && ok(ref) && ref !== 0 ? (a - ref) / ref * 100 : NaN);
+  const { RANK, worst, toNum, ok, fmt, sgn, devPct, findGrid } = Common;
 
   function evaluate(state, FX, schema) {
     const v = state.v, cfg = state.cfg, L = QD.LIMITS, R = QD.REF;
@@ -551,11 +536,6 @@
     return { calc, findings, sec, notes };
   }
 
-  function findGrid(schema, id) {
-    let hit = null;
-    Schema.eachGrid(schema, g => { if (g.id === id) hit = g; });
-    return hit;
-  }
 
   function autoConclusion(res, schema, state) {
     const failed = schema.sections.filter(s => res.sec[s.id].status === 'fail').map(s => `${s.no}. ${s.title}`);

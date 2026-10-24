@@ -20,9 +20,13 @@ Dữ liệu đang nhập được tự lưu trong trình duyệt; dùng **Lưu .
 
 ## Quy trình
 
-1. **0. Thông tin chung**: kiểm tra số chế tạo máy chính, ngày, lý do thí nghiệm. Template A/B/C tự chọn theo
+1. **Mới** → chọn loại thiết bị (hiện có Máy biến áp; các loại khác hiện "Chưa hỗ trợ").
+   **0. Thông tin chung**: kiểm tra số chế tạo máy chính, ngày, lý do thí nghiệm. Template A/B/C tự chọn theo
    pha của số chế tạo. Kiểm tra ánh xạ **cột pha A/B/C ↔ số chế tạo** (mặc định theo file xuất xưởng).
-2. **Mục 1–11**: nhập số liệu vào các bảng giống hệt template. Có thể **dán khối từ Excel** (Ctrl+V vào ô đầu),
+2. **Mục 1–11**: mỗi hạng mục có 4 bước *Chuẩn bị · Hướng dẫn đo · Nhập số liệu · Đánh giá* và khung *Tài liệu tham khảo*
+   (điều khoản QĐ 1901; quy trình đơn vị và HD máy đo khi có). Thanh điều hướng hiện tiến trình và trạng thái từng hạng mục
+   (chưa làm / đang làm / đã nhập / đạt / cần xem xét / không đạt), vẫn nhảy tự do giữa các hạng mục.
+   Bước Nhập số liệu: nhập vào các bảng giống hệt template. Có thể **dán khối từ Excel** (Ctrl+V vào ô đầu),
    Enter để xuống dòng. Ô viền xanh/đỏ/vàng = Đạt / Không đạt / Cần xem xét; rê chuột vào ô để xem chi tiết.
    Ô nền xám là giá trị tự tính (Kht, PI, quy đổi 20 °C, ΔR, ΔK…); ô chữ nghiêng mờ là giá trị tự tính có thể ghi đè.
 3. **Σ Tổng hợp**: xem toàn bộ kết quả so sánh, chỉnh đánh giá ghi vào BBTN nếu cần, điền kết luận.
@@ -146,20 +150,35 @@ npm test
 - `test/evaluate.test.js`: ảnh chụp toàn bộ kết quả đánh giá MBA (`test/snapshots/evaluate.json`) trên hồ sơ mẫu dựng từ schema
   (`test/mba-fixture.js`, số liệu giả). Sửa phép tính, ngưỡng hay câu chữ đánh giá sẽ làm test này đỏ; nếu thay đổi là cố ý,
   chạy `npm run test:update` rồi xem diff của file ảnh chụp trước khi commit.
+- `test/to-rows.test.js`: ảnh chụp các dòng CSDL sinh từ biểu mẫu MBA (`test/snapshots/to-rows.json`) — khóa sơ đồ đo,
+  pha, nấc, giá trị quy đổi mà trang Xu hướng dùng để nối các lần đo.
+- `test/types.test.js`: đăng ký loại thiết bị, biên bản cũ không ghi loại → MBA, lưu biên bản qua kho dữ liệu.
+- `test/layers.test.js`: ranh giới ba lớp (nghiệp vụ không chạm DOM/mạng; giao diện không truy vấn Supabase trực tiếp;
+  `index.html` nạp đủ file theo thứ tự lớp).
 - GitHub Actions chạy test cho mỗi pull request, và chạy trước bước triển khai GitHub Pages.
 
 ## Cấu trúc mã
 
-| File | Vai trò |
+Ba lớp, lớp trên chỉ gọi lớp ngay dưới. Mỗi loại thiết bị là một mô-đun đăng ký với `EquipmentTypes.register({ code, label,
+classCode, defaultCfg, normalizeCfg, buildSchema, evaluate, autoConclusion, factory, toRows, report, references, workflow })`;
+lõi app dùng chung cho mọi loại. Biên bản lưu `state.type`; biên bản cũ không có trường này được coi là MBA.
+
+| Lớp / file | Vai trò |
 |---|---|
-| `js/qd1901.js` | Bảng tra, phép quy đổi và ngưỡng theo QĐ 1901 |
-| `js/factory.js` | Đọc file xuất xưởng (dò theo nhãn/tiêu đề), API tra cứu theo số chế tạo |
-| `js/schema.js` | Ánh xạ biểu mẫu ↔ bảng/hàng/cột trong template |
-| `js/evaluate.js` | Tính toán, so sánh, đánh giá, kết luận gợi ý |
-| `js/docx.js` | Điền dữ liệu vào template .docx, giữ nguyên định dạng |
-| `js/app.js` | Giao diện, lưu/mở, xuất file |
-| `js/db.js` | Chuyển biểu mẫu / Test report thành dòng số liệu; đọc ghi Supabase |
-| `js/db-ui.js` | Trang CSDL và trang Xu hướng |
-| `js/catalog-ui.js` | Trang danh mục Trạm – Ngăn lộ – Thiết bị (CRUD) |
-| `js/auth-ui.js`, `css/auth.css` | Đăng nhập Google/email, trạng thái phiên, thông báo, vạch tiến trình |
+| **`js/domain/`** — nghiệp vụ, hàm thuần (test bằng Node) | |
+| `common.js` | Số, định dạng, xếp hạng kết quả, duyệt biểu mẫu, loại lần thí nghiệm, ngày |
+| `qd1901.js`, `bushing-k.js`, `bushing-hitachi.js` | Bảng tra, quy đổi, ngưỡng QĐ 1901; hệ số K sứ; quy đổi sứ RIP Hitachi |
+| `equipment-types.js` | Đăng ký và tra loại thiết bị |
+| `report.js`, `records.js` | Đọc giá trị mặc định từ template; lưu biên bản / Test report qua kho dữ liệu (`Records.setRepo`) |
+| `types/mba/` | Mô-đun MBA: `schema.js` (biểu mẫu ↔ bảng/hàng/cột template), `evaluate.js`, `factory.js` (đọc file xuất xưởng), `to-rows.js` (dòng CSDL), `report.js` (ghi BBTN), `index.js` (đăng ký) |
+| **`js/data/`** — dữ liệu và tích hợp | |
+| `db.js` | Kho dữ liệu Supabase: kết nối, đăng nhập, ghi/đọc lần thí nghiệm, thiết bị, tài liệu, danh mục |
+| `docx.js` | Đọc/ghi template .docx, giữ nguyên định dạng |
+| `bushing-k-repo.js` | Nạp bảng hệ số K sứ từ CSDL, bản sao offline |
+| `instruments/cpc100.js` | Bộ đọc file XML OMICRON CPC 100 (đặc tính từ hóa, điểm khuỷu) |
+| **`js/ui/`** — giao diện | |
+| `app.js` | Lõi giao diện: vẽ biểu mẫu theo schema, đánh giá tức thời, lưu/mở, xuất .docx/.xlsx, chọn loại thiết bị |
+| `workflow.js` | Tiến trình, 4 bước của hạng mục, khung Tài liệu tham khảo |
+| `types/mba/ui.js`, `types/mba/cpc-dialog.js` | Giao diện riêng của MBA (chú thích hạng mục, cấu hình mục 0, sứ, CPC 100) |
+| `db-ui.js`, `catalog-ui.js`, `kconf-ui.js`, `auth-ui.js` | Trang CSDL & Xu hướng; danh mục Trạm – Ngăn – Thiết bị; hệ số K sứ; đăng nhập |
 | `supabase/migrations/` | Lược đồ CSDL, view xu hướng, RLS, Storage |

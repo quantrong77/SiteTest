@@ -16,7 +16,7 @@
     if (K.loading || (K.loaded && !force)) return;
     K.loading = true;
     try {
-      if (await BushingK.load()) App.rebuild(true);
+      if (await BushingKRepo.load()) App.rebuild(true);
       K.loaded = true;
     } catch (e) { App.toast('Lỗi tải bảng hệ số sứ: ' + e.message, true); }
     finally { K.loading = false; }

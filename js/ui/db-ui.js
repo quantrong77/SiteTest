@@ -3,7 +3,7 @@
   'use strict';
   const $ = (s, r = document) => r.querySelector(s);
   const esc = s => App.esc(s);
-  const fmt = (x, d) => (x === null || x === undefined || x === '' ? '' : Evaluate.fmt(Number(x), d));
+  const fmt = (x, d) => (x === null || x === undefined || x === '' ? '' : Common.fmt(Number(x), d));
   const ST = { pass: 'Đạt', warn: 'Cần xem xét', fail: 'Không đạt', missing: 'Thiếu dữ liệu', info: 'Tham khảo' };
   const ITEM = {
     IR: 'Điện trở cách điện', WTGD: 'tgδ & điện dung cuộn dây', DCR: 'Điện trở một chiều', RATIO: 'Tỷ số biến', BUSHING: 'Sứ đầu vào',
@@ -59,7 +59,7 @@
     let h = '<div style="overflow-x:auto"><table class="ftable"><thead><tr><th>Ngày TN</th><th>Loại</th><th>Thiết bị</th><th>Trạng thái</th><th>Số giá trị</th><th>Không đạt</th><th>Nguồn</th><th></th></tr></thead><tbody>';
     sessions.forEach(s => {
       const cur = App.state.db && App.state.db.sessionId === s.id;
-      h += `<tr class="${s.n_fail ? 'st-fail' : ''}"><td class="num">${esc(s.test_date)}</td><td>${esc(DB.KIND_LABEL[s.kind] || s.kind)}</td>
+      h += `<tr class="${s.n_fail ? 'st-fail' : ''}"><td class="num">${esc(s.test_date)}</td><td>${esc(Common.KIND_LABEL[s.kind] || s.kind)}</td>
         <td>${esc(s.serial_no)}${s.equipment_name ? `<div class="note">${esc(s.equipment_name)}</div>` : ''}${s.bay_code ? `<div class="note">${esc(s.substation_name || '')} · ${esc(s.bay_code)}</div>` : ''}</td>
         <td><span class="badge ${s.status === 'final' ? 'st-pass' : 'st-info'}">${s.status === 'final' ? 'Đã chốt' : 'Nháp'}</span>${cur ? ' <span class="badge st-missing">đang mở</span>' : ''}</td>
         <td class="num">${s.n_values}</td><td class="num">${s.n_fail || ''}</td><td>${s.source === 'factory_import' ? 'Test report' : 'Hiện trường'}</td>
@@ -150,14 +150,14 @@
       svg += `<polyline fill="none" stroke="${col}" stroke-width="2" points="${s.map(r => `${sx(t(r.test_date))},${sy(Number(r.value_cmp))}`).join(' ')}"/>`;
       s.forEach(r => {
         const fat = r.kind === 'FAT';
-        svg += `<circle cx="${sx(t(r.test_date))}" cy="${sy(Number(r.value_cmp))}" r="${fat ? 5 : 4}" fill="${fat ? '#fff' : col}" stroke="${col}" stroke-width="2"><title>${esc(n)} — ${esc(r.test_date)} (${esc(DB.KIND_LABEL[r.kind] || r.kind)})\n${esc(fmt(r.value_cmp))} ${esc(unit)}${r.change_pct !== null ? `\nThay đổi so với khởi đầu: ${esc(fmt(r.change_pct, 2))} %` : ''}</title></circle>`;
+        svg += `<circle cx="${sx(t(r.test_date))}" cy="${sy(Number(r.value_cmp))}" r="${fat ? 5 : 4}" fill="${fat ? '#fff' : col}" stroke="${col}" stroke-width="2"><title>${esc(n)} — ${esc(r.test_date)} (${esc(Common.KIND_LABEL[r.kind] || r.kind)})\n${esc(fmt(r.value_cmp))} ${esc(unit)}${r.change_pct !== null ? `\nThay đổi so với khởi đầu: ${esc(fmt(r.change_pct, 2))} %` : ''}</title></circle>`;
       });
     });
     svg += '</svg>';
     const legend = `<div class="legend">${names.map((n, i) => `<span><i style="background:${COLORS[i % COLORS.length]}"></i>${esc(n)}</span>`).join('')}<span><i class="hollow"></i>Xuất xưởng (FAT)</span></div>`;
     let tbl = '<div style="overflow-x:auto"><table class="ftable"><thead><tr><th>Ngày</th><th>Lần TN</th><th>Thiết bị / pha</th><th>Giá trị đo</th><th>Nhiệt độ</th><th>Giá trị so sánh</th><th>Khởi đầu</th><th>% thay đổi</th><th>Đánh giá lúc đo</th></tr></thead><tbody>';
     pts.slice().sort((a, b) => a.test_date.localeCompare(b.test_date) || a.serial_no.localeCompare(b.serial_no)).forEach(r => {
-      tbl += `<tr><td class="num">${esc(r.test_date)}</td><td>${esc(DB.KIND_LABEL[r.kind] || r.kind)}</td><td>${esc(r.serial_no)}${r.phase ? ' · ' + esc(r.phase) : ''}</td>
+      tbl += `<tr><td class="num">${esc(r.test_date)}</td><td>${esc(Common.KIND_LABEL[r.kind] || r.kind)}</td><td>${esc(r.serial_no)}${r.phase ? ' · ' + esc(r.phase) : ''}</td>
         <td class="num">${esc(fmt(r.value))} ${esc(r.unit || '')}</td><td class="num">${r.temp_c !== null ? esc(fmt(r.temp_c, 1)) + ' °C' : ''}</td>
         <td class="num">${esc(fmt(r.value_cmp))}${r.norm_temp_c !== null && r.value_norm !== null ? ` @${esc(fmt(r.norm_temp_c, 0))} °C` : ''}</td>
         <td class="num">${esc(fmt(r.base_value))}</td><td class="num">${r.change_pct !== null ? esc(fmt(r.change_pct, 2)) + ' %' : ''}</td>
@@ -254,7 +254,7 @@
         const st = App.state;
         if (act === 'dbSaveAsNew') st.db = null;
         App.recompute();
-        const r = await DB.saveField(st, App.res, App.schema, act === 'dbSaveFinal' ? 'final' : 'draft');
+        const r = await Records.saveField(st, App.res, App.schema, act === 'dbSaveFinal' ? 'final' : 'draft');
         st.db = { sessionId: r.id, equipmentId: r.equipmentId, savedAt: new Date().toISOString() };
         Catalog.reset();
         App.persist(); sessions = null; T.loadedFor = '';
@@ -265,7 +265,7 @@
         const emb = App.EMB.factory;
         const blob = emb && FX.data.fileName === emb.name
           ? new Blob([Uint8Array.from(atob(emb.b64), ch => ch.charCodeAt(0))], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }) : null;
-        const out = await DB.importFactory(FX, blob, App.state.cfg.bayId || null);
+        const out = await Records.importFactory(App.state, FX, blob, App.state.cfg.bayId || null);
         Catalog.reset();
         sessions = null; T.loadedFor = ''; T.equipment = null;
         App.toast(`Đã nhập Test report: ${out.map(o => `${o.serial} (${o.n} giá trị)`).join(', ')}`);

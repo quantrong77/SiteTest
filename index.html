@@ -60,19 +60,33 @@
   <script src="js/vendor/supabase.js"></script>
   <script src="js/config.js"></script>
   <script src="js/embedded.js"></script>
-  <script src="js/qd1901.js"></script>
-  <script src="js/factory.js"></script>
-  <script src="js/bushing-hitachi.js"></script>
-  <script src="js/cpc-import.js"></script>
-  <script src="js/bushing-k.js"></script>
-  <script src="js/schema.js"></script>
-  <script src="js/evaluate.js"></script>
-  <script src="js/docx.js"></script>
-  <script src="js/db.js"></script>
-  <script src="js/auth-ui.js"></script>
-  <script src="js/db-ui.js"></script>
-  <script src="js/catalog-ui.js"></script>
-  <script src="js/kconf-ui.js"></script>
-  <script src="js/app.js"></script>
+  <!-- Nghiệp vụ (hàm thuần): hàm chung, bảng tra QĐ 1901, quy đổi sứ, đăng ký loại thiết bị, mô-đun MBA -->
+  <script src="js/domain/common.js"></script>
+  <script src="js/domain/qd1901.js"></script>
+  <script src="js/domain/bushing-hitachi.js"></script>
+  <script src="js/domain/bushing-k.js"></script>
+  <script src="js/domain/equipment-types.js"></script>
+  <script src="js/domain/report.js"></script>
+  <script src="js/domain/records.js"></script>
+  <script src="js/domain/types/mba/factory.js"></script>
+  <script src="js/domain/types/mba/schema.js"></script>
+  <script src="js/domain/types/mba/evaluate.js"></script>
+  <script src="js/domain/types/mba/to-rows.js"></script>
+  <script src="js/domain/types/mba/report.js"></script>
+  <script src="js/domain/types/mba/index.js"></script>
+  <!-- Dữ liệu và tích hợp: .docx, Supabase, bảng hệ số K từ CSDL, bộ đọc máy đo -->
+  <script src="js/data/docx.js"></script>
+  <script src="js/data/db.js"></script>
+  <script src="js/data/bushing-k-repo.js"></script>
+  <script src="js/data/instruments/cpc100.js"></script>
+  <!-- Giao diện -->
+  <script src="js/ui/workflow.js"></script>
+  <script src="js/ui/auth-ui.js"></script>
+  <script src="js/ui/db-ui.js"></script>
+  <script src="js/ui/catalog-ui.js"></script>
+  <script src="js/ui/kconf-ui.js"></script>
+  <script src="js/ui/types/mba/cpc-dialog.js"></script>
+  <script src="js/ui/types/mba/ui.js"></script>
+  <script src="js/ui/app.js"></script>
 </body>
 </html>
