@@ -1,0 +1,9 @@
+{
+  "name": "site-test-report",
+  "private": true,
+  "description": "Site Test Report — biên bản thí nghiệm hiện trường thiết bị nhất thứ",
+  "scripts": {
+    "test": "node --test test/*.test.js",
+    "test:update": "UPDATE_SNAPSHOTS=1 node --test test/*.test.js"
+  }
+}

@@ -134,6 +134,20 @@ Phân quyền (RLS): viewer xem; editor nhập/sửa và xóa bản nháp của 
 - Trong app: mục 0 → **Nạp template khác** / **Nạp file xuất xưởng khác** (file mới phải cùng cấu trúc).
 - Hoặc nhúng lại vào bản phân phối: `python tools/build_embedded.py`.
 
+## Kiểm tra tự động
+
+Cần Node.js 22 trở lên, không cài thêm thư viện:
+
+```
+npm test
+```
+
+- `test/calc.test.js`: phép quy đổi và bảng tra QĐ 1901 (K1, K2, Bảng 5, PI, độ ẩm), hệ số K sứ, sứ Hitachi, đặc tính từ hóa CPC 100.
+- `test/evaluate.test.js`: ảnh chụp toàn bộ kết quả đánh giá MBA (`test/snapshots/evaluate.json`) trên hồ sơ mẫu dựng từ schema
+  (`test/mba-fixture.js`, số liệu giả). Sửa phép tính, ngưỡng hay câu chữ đánh giá sẽ làm test này đỏ; nếu thay đổi là cố ý,
+  chạy `npm run test:update` rồi xem diff của file ảnh chụp trước khi commit.
+- GitHub Actions chạy test cho mỗi pull request, và chạy trước bước triển khai GitHub Pages.
+
 ## Cấu trúc mã
 
 | File | Vai trò |
