@@ -359,6 +359,11 @@ code { font-family: var(--mono); font-size: 12px; }
 .nav-st.st-warn { color: var(--warn); }
 .nav-st.st-fail { color: var(--fail); }
 
+.wf-bar { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: 8px 12px; }
+.sec-edit { display: flex; flex-wrap: wrap; gap: 6px; margin: -4px 0 14px; }
+.btn.danger { color: var(--fail); border-color: #e7b9b4; }
+.btn.danger:hover:not(:disabled) { background: var(--fail-bg); }
+.sec-edit .btn:disabled { opacity: .45; cursor: default; }
 .wf-steps { display: flex; flex-wrap: wrap; gap: 0; margin: -4px 0 14px; border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; width: fit-content; max-width: 100%; }
 .wf-step { display: inline-flex; align-items: center; gap: 7px; padding: 7px 14px 7px 10px; border: 0; border-right: 1px solid var(--line); background: #f7f8f9; color: var(--muted); font: 500 13px var(--font); cursor: pointer; }
 .wf-step:last-child { border-right: 0; }

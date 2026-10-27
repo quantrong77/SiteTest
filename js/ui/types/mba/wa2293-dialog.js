@@ -122,7 +122,9 @@
     $('#waPanel').innerHTML = h;
   }
 
-  function apply() {
+  // Một bước hoàn tác cho mỗi hạng mục được điền (7, 8, 9)
+  const apply = () => App.track('Nhập file Haefely 2293', doApply);
+  function doApply() {
     const st = App.state, taps = st.cfg.taps;
     st.att = st.att || {};
     const writes = {}, temps = {};

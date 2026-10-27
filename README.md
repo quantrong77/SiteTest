@@ -32,6 +32,16 @@ Dữ liệu đang nhập được tự lưu trong trình duyệt; dùng **Lưu .
 3. **Σ Tổng hợp**: xem toàn bộ kết quả so sánh, chỉnh đánh giá ghi vào BBTN nếu cần, điền kết luận.
 4. **Xuất BBTN .docx** (điền vào template) và **Xuất so sánh .xlsx** (bảng so sánh chi tiết để lưu hồ sơ).
 
+## Xóa / hoàn tác số liệu theo hạng mục
+
+- Mỗi hạng mục có nút **Hoàn tác** (kèm số bước) và **Xóa số liệu hạng mục** cạnh thanh 4 bước.
+- Mỗi bước hoàn tác là một thao tác: sửa xong một ô, dán bảng, nhập file máy đo (Haefely 2293, CPC 100), điền tự động,
+  thêm / xóa dòng, xóa hạng mục. Một lần nhập file đổi nhiều hạng mục thì mỗi hạng mục có bước riêng (vd hoàn tác mục 9
+  không đụng số liệu mục 7, 8 vừa nhập cùng file).
+- **Ctrl+Z** khi con trỏ không ở trong ô nhập: hoàn tác hạng mục đang mở (trong ô nhập, Ctrl+Z vẫn là hoàn tác gõ chữ).
+- Xóa hạng mục giữ nguyên thông tin chung, cấu hình (đề mục cột, nhãn dòng) và kết luận.
+- Lịch sử giữ trong phiên làm việc (tối đa 200 bước), mất khi tải lại trang hoặc tạo / mở biên bản khác.
+
 ## Tra cứu xuất xưởng theo số chế tạo
 
 | Hạng mục | Khóa tra cứu |
@@ -167,6 +177,7 @@ npm test
   pha, nấc, giá trị quy đổi mà trang Xu hướng dùng để nối các lần đo.
 - `test/wa2293.test.js`: đọc file Haefely 2293 (dữ liệu tổng hợp đúng định dạng máy), ánh xạ nấc/pha/mΩ, quy đổi nhiệt độ,
   nén dạng sóng, phụ lục; có thư mục số liệu thật `../MBA/Rdc/Chup song` trên máy thì kiểm tra thêm.
+- `test/history.test.js`: khóa số liệu → hạng mục, hoàn tác tách theo hạng mục, xóa rồi hoàn tác.
 - `test/types.test.js`: đăng ký loại thiết bị, biên bản cũ không ghi loại → MBA, lưu biên bản qua kho dữ liệu.
 - `test/layers.test.js`: ranh giới ba lớp (nghiệp vụ không chạm DOM/mạng; giao diện không truy vấn Supabase trực tiếp;
   `index.html` nạp đủ file theo thứ tự lớp).
@@ -185,6 +196,7 @@ lõi app dùng chung cho mọi loại. Biên bản lưu `state.type`; biên bả
 | `qd1901.js`, `bushing-k.js`, `bushing-hitachi.js` | Bảng tra, quy đổi, ngưỡng QĐ 1901; hệ số K sứ; quy đổi sứ RIP Hitachi |
 | `equipment-types.js` | Đăng ký và tra loại thiết bị |
 | `report.js`, `records.js` | Đọc giá trị mặc định từ template; lưu biên bản / Test report qua kho dữ liệu (`Records.setRepo`) |
+| `edit-history.js` | Lịch sử chỉnh sửa theo hạng mục: hoàn tác, xóa số liệu hạng mục |
 | `oltc-wave.js` | Nén / giải nén dạng sóng điện trở động OLTC, nhận biết bất thường máy đo ghi nhận |
 | `types/mba/` | Mô-đun MBA: `schema.js` (biểu mẫu ↔ bảng/hàng/cột template), `evaluate.js`, `factory.js` (đọc file xuất xưởng), `to-rows.js` (dòng CSDL), `report.js` (ghi BBTN, phụ lục chụp sóng), `import-2293.js` (số liệu Haefely 2293 → biểu mẫu), `index.js` (đăng ký) |
 | **`js/data/`** — dữ liệu và tích hợp | |

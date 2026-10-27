@@ -51,7 +51,8 @@
     $('#cpcPanel').innerHTML = h;
   }
 
-  function apply() {
+  const apply = () => App.track('Nhập XML CPC 100', doApply);
+  function doApply() {
     const st = App.state, need = {};
     const filled = [];
     files.forEach(f => f.cards.forEach(c => {

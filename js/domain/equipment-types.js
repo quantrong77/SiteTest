@@ -19,7 +19,7 @@
     });
     if (typeof def.toRows.fieldRows !== 'function') throw new Error(`Loại thiết bị ${def.code}: thiếu toRows.fieldRows`);
     if (typeof def.report.fill !== 'function') throw new Error(`Loại thiết bị ${def.code}: thiếu report.fill`);
-    types.set(def.code, Object.freeze(Object.assign({ factory: null, workflow: {}, references: {} }, def)));
+    types.set(def.code, Object.freeze(Object.assign({ factory: null, workflow: {}, references: {}, attSections: {} }, def)));
   }
 
   const codeOf = state => (state && state.type) || DEFAULT;

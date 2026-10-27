@@ -58,6 +58,8 @@
     toRows: MbaRows,
     report: { fill: MbaReport.fill, filePrefix: 'MBA', minTables: MbaReport.minTables, stdTables: MbaReport.stdTables, defaultReason: 'Sau lắp đặt' },
     references,
+    // Số liệu đính kèm biên bản (state.att) thuộc hạng mục nào — để xóa / hoàn tác theo hạng mục
+    attSections: { oltc: 'oltc', oscAuto: 'oltc' },
     // Nội dung bước Chuẩn bị / Hướng dẫn đo theo hạng mục: cấu hình sau (quy trình đơn vị, HD máy đo)
     workflow: {},
   });

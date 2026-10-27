@@ -42,6 +42,42 @@
   const TU = () => (window.TypeUI || {})[EquipmentTypes.codeOf(state)] || {};
   const applyFactoryDefaults = cfg => { if (T().applyFactoryDefaults) T().applyFactoryDefaults(cfg, FX); };
 
+  // ---------------------------------------------------------------- xóa / hoàn tác theo hạng mục
+  let secOfFn = null, secOfSchema = null, editStart = null;
+  const secOf = () => { if (secOfSchema !== schema) { secOfSchema = schema; secOfFn = Common.sectionOfKey(schema); } return secOfFn; };
+  // Chạy một thao tác sửa số liệu (nhập file, điền tự động, xóa…) và ghi một bước hoàn tác cho mỗi hạng mục bị đổi
+  async function track(label, fn) {
+    const before = EditHistory.snapshot(state);
+    try { return await fn(); } finally { EditHistory.record(label, before, state, secOf(), T().attSections); updateEditTools(); }
+  }
+  function undoSection(sec) {
+    const st = EditHistory.undo(sec, state);
+    if (!st) return;
+    editStart = null;
+    recompute(); renderNav(); renderMain(); persist();
+    toast(`Đã hoàn tác: ${st.label}`);
+  }
+  function clearSection(sec) {
+    const s = schema.sections.find(x => x.id === sec);
+    if (!s || !EditHistory.hasData(sec, state, secOf(), T().attSections)) return;
+    if (!confirm(`Xóa toàn bộ số liệu đã nhập của hạng mục ${s.no}. ${s.title}?\nCó thể hoàn tác bằng nút “Hoàn tác”.`)) return;
+    let n = 0;
+    track(`Xóa số liệu hạng mục ${s.no}`, () => { n = EditHistory.clearSection(sec, state, secOf(), T().attSections); }).then(() => {
+      recompute(); renderNav(); renderMain(); persist();
+      toast(`Đã xóa ${n} ô số liệu của hạng mục ${s.no} — bấm “Hoàn tác” nếu xóa nhầm`);
+    });
+  }
+  function editToolsHTML(sec) {
+    const n = EditHistory.count(sec), last = EditHistory.last(sec);
+    const has = EditHistory.hasData(sec, state, secOf(), T().attSections);
+    return `<div class="sec-edit" data-edittools="${sec}"><button class="btn small" data-undo="${sec}" ${n ? '' : 'disabled'} title="${esc(last ? `Hoàn tác: ${last.label} (Ctrl+Z)` : 'Chưa có thay đổi để hoàn tác')}">Hoàn tác<span class="n">${n ? ` · ${n}` : ''}</span></button>`
+      + `<button class="btn small danger" data-clearsec="${sec}" ${has ? '' : 'disabled'} title="Xóa toàn bộ số liệu đã nhập của hạng mục này">Xóa số liệu hạng mục</button></div>`;
+  }
+  // Cập nhật nút sau khi gõ / nhập mà không vẽ lại trang
+  function updateEditTools() {
+    $$('[data-edittools]').forEach(box => { box.outerHTML = editToolsHTML(box.dataset.edittools); });
+  }
+
   function templateData() {
     if (state.cfg.template === 'custom') {
       const b = lsGet(LS_TPL);
@@ -63,6 +99,7 @@
     const code = type || EquipmentTypes.codeOf(state);
     const cfg = keepCfg ? JSON.parse(JSON.stringify(state.cfg)) : EquipmentTypes.get(code).defaultCfg();
     state = { type: code, v: {}, cfg, sum: { tick: {}, ev: {} }, att: {}, created: new Date().toISOString() };
+    EditHistory.reset();
     applyFactoryDefaults(cfg);
     schema = T().buildSchema(state.cfg);
     await readTemplateDefaults();
@@ -276,7 +313,7 @@
       if (U.sectionFooter) body += U.sectionFooter(s.id, App);
       body += `<div class="wf-sum" data-fsum="${s.id}"></div>`;
     }
-    const h = headHTML(String(s.no), s.title, s.en, s.id) + Workflow.stepsHTML(s.id, S)
+    const h = headHTML(String(s.no), s.title, s.en, s.id) + `<div class="wf-bar">${Workflow.stepsHTML(s.id, S)}${editToolsHTML(s.id)}</div>`
       + `<div class="wf-layout"><div class="wf-main" data-step="${step}">${body}</div>${Workflow.referencesHTML(T(), s.id, esc)}</div>`;
     return `<section class="panel" data-sec="${s.id}">${h}</section>`;
   }
@@ -411,6 +448,12 @@
     const el = e.target;
     if (el.dataset.k) {
       state.v[el.dataset.k] = el.value;
+      // mỗi lần sửa xong một ô (change) là một bước hoàn tác của hạng mục chứa ô đó
+      if (e.type === 'change' && editStart && editStart.k === el.dataset.k) {
+        EditHistory.record('Sửa ô', { v: Object.assign({}, state.v, { [el.dataset.k]: editStart.v }), att: null }, state, secOf());
+        editStart.v = el.value;
+        updateEditTools();
+      }
       if (TU().rerenderOn && TU().rerenderOn.test(el.dataset.k)) { recompute(); renderMain(); persist(); return; }
       if (el.dataset.k === 'meta.serial' && e.type === 'change') onSerialChange();
       scheduleEval();
@@ -454,6 +497,7 @@
     const text = (e.clipboardData || window.clipboardData).getData('text');
     if (!/[\t\n]/.test(text.replace(/\r?\n$/, ''))) return;
     e.preventDefault();
+    const before = EditHistory.snapshot(state, false);
     const table = el.closest('table');
     const map = {};
     $$('[data-g]', table).forEach(x => { map[`${x.dataset.r}:${x.dataset.col}`] = x; });
@@ -466,6 +510,9 @@
       while (cc < 60) { const t = map[`${r0 + i}:${cc}`]; if (t) { if (step === j) { target = t; break; } step++; } cc++; }
       if (target) { target.value = cell.trim(); state.v[target.dataset.k] = target.value; n++; }
     }));
+    EditHistory.record(`Dán ${n} ô`, before, state, secOf());
+    editStart = null;
+    updateEditTools();
     toast(`Đã dán ${n} ô`);
     scheduleEval();
   }
@@ -488,6 +535,8 @@
     if (b.dataset.ftab !== undefined) { factoryTab = +b.dataset.ftab; renderMain(); return; }
     if (b.dataset.wfstep) { Workflow.setStep(b.dataset.sec, b.dataset.wfstep); renderMain(); return; }
     if (b.dataset.newtype) { chooseTypeDone(b.dataset.newtype); return; }
+    if (b.dataset.undo) { undoSection(b.dataset.undo); return; }
+    if (b.dataset.clearsec) { clearSection(b.dataset.clearsec); return; }
     const act = b.dataset.act;
     try {
       if (act === 'new') openTypeDialog();
@@ -502,7 +551,7 @@
         state.v['meta.conclusion'] = T().autoConclusion(res, schema, state);
         renderMain(); persist();
       } else if (act && act.startsWith('db')) await DbUI.action(act, b);
-      else if (act && TU().actions && TU().actions[act]) await TU().actions[act](b, App);
+      else if (act && TU().actions && TU().actions[act]) await track(b.textContent.trim() || act, () => TU().actions[act](b, App));
     } catch (err) {
       console.error(err);
       toast('Lỗi: ' + err.message, true);
@@ -550,6 +599,7 @@
     if (!EquipmentTypes.has(type)) throw new Error(`Biên bản loại “${type}” chưa được hỗ trợ trong phiên bản này`);
     const cfg = EquipmentTypes.get(type).normalizeCfg(st.cfg);
     state = { type, v: st.v, cfg, sum: st.sum || { tick: {}, ev: {} }, att: st.att || {}, created: st.created, db: st.db || null };
+    EditHistory.reset();
     state.sum.tick = state.sum.tick || {}; state.sum.ev = state.sum.ev || {};
     applyFactoryDefaults(state.cfg);
     schema = T().buildSchema(state.cfg);
@@ -646,6 +696,14 @@
     $('#main').addEventListener('change', onInput);
     $('#main').addEventListener('paste', onPaste);
     $('#main').addEventListener('keydown', onKey);
+    $('#main').addEventListener('focusin', e => { const k = e.target.dataset && e.target.dataset.k; if (k) editStart = { k, v: state.v[k] }; });
+    // Ctrl+Z ngoài ô nhập: hoàn tác bước gần nhất của hạng mục đang mở (trong ô nhập giữ hoàn tác gõ chữ của trình duyệt)
+    document.addEventListener('keydown', e => {
+      if (!(e.ctrlKey || e.metaKey) || e.shiftKey || e.key.toLowerCase() !== 'z') return;
+      if (e.target.closest && e.target.closest('input, textarea, select, [contenteditable], dialog[open]')) return;
+      if (!schema.sections.some(s => s.id === current) || !EditHistory.count(current)) return;
+      e.preventDefault(); undoSection(current);
+    });
     $('#fileJson').addEventListener('change', e => readFile(e.target, async f => {
       loadState(JSON.parse(await f.text())); recompute(); current = 'general'; renderMain(); persist(); toast('Đã mở ' + f.name);
     }));
@@ -671,7 +729,7 @@
   // API cho các trang khác (js/ui/*.js) và phần giao diện riêng của loại thiết bị (TypeUI)
   const App = window.App = {
     get state() { return state; }, get res() { return res; }, get schema() { return schema; }, get FX() { return FX; }, get type() { return T(); }, EMB,
-    exportDocx, exportXlsx, toast, esc, download, safeName, persist, recompute, renderMain, fieldHTML, cfgField, readFile, lsGet, lsSet, abToB64,
+    exportDocx, exportXlsx, toast, esc, download, safeName, persist, recompute, renderMain, fieldHTML, cfgField, readFile, lsGet, lsSet, abToB64, track,
     rebuild(schemaChanged) { if (schemaChanged) schema = T().buildSchema(state.cfg); recompute(); renderNav(); renderMain(); persist(); },
     render() { renderNav(); renderMain(); },
     go(id) { current = id; renderNav(); renderMain(); window.scrollTo(0, 0); },

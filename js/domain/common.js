@@ -38,6 +38,21 @@
       (s.groups || []).forEach(gr => (gr.fields || []).forEach(f => fn(f, s)));
     });
   }
+  // Khóa số liệu → mã hạng mục (ô của hạng mục, hoặc ô/khóa phụ trong lưới của hạng mục); thông tin chung, kết luận → null
+  function sectionOfKey(schema) {
+    const exact = {}, prefix = [], memo = new Map();
+    schema.sections.forEach(s => {
+      (s.fields || []).forEach(f => { exact[f.k] = s.id; });
+      (s.groups || []).forEach(gr => (gr.fields || []).forEach(f => { exact[f.k] = s.id; }));
+      (s.extraDoc || []).forEach(x => { exact[x.k] = s.id; });
+    });
+    eachGrid(schema, (g, s) => prefix.push([g.id + '.', s.id]));
+    prefix.sort((a, b) => b[0].length - a[0].length);
+    return k => {
+      if (!memo.has(k)) memo.set(k, exact[k] || (prefix.find(([p]) => k.startsWith(p)) || [])[1] || null);
+      return memo.get(k);
+    };
+  }
   function findGrid(schema, id) {
     let hit = null;
     eachGrid(schema, g => { if (g.id === id) hit = g; });
@@ -59,5 +74,5 @@
     return m ? m[0] : null;
   }
 
-  window.Common = { RANK, worst, ST_TEXT, toNum, ok, fmt, sgn, devPct, str, eachGrid, eachField, findGrid, KIND_LABEL, kindOf, isoDate };
+  window.Common = { RANK, worst, ST_TEXT, toNum, ok, fmt, sgn, devPct, str, eachGrid, eachField, findGrid, sectionOfKey, KIND_LABEL, kindOf, isoDate };
 })();
