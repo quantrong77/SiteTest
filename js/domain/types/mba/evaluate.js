@@ -466,6 +466,13 @@
       add({ sec: 'oltc', item: 'Thí nghiệm OLTC (vòng quay, chụp công tắc K)', meas: ['d1', 'd2'].map(d => `${txt(`oltc.rounds.${d}.k`) || '?'} / ${txt(`oltc.rounds.${d}.cyc`) || '?'}`).join('; '),
         status: oe === 'Đạt' ? 'pass' : oe === 'Không đạt' ? 'fail' : 'missing', basis: R.oltc, note: oe ? 'Căn cứ kết quả thí nghiệm & hướng dẫn NSX' : 'Chưa chọn kết luận OLTC', keys: ['oltc.eval'] });
     }
+    // Chụp sóng điện trở động (nhập từ máy đo): QĐ 1901 không nêu ngưỡng → chỉ báo bất thường máy đo ghi nhận
+    const osc = (state.att && state.att.oltc) || {};
+    Object.keys(osc).sort().forEach(ph => {
+      const r = osc[ph], n = r.rows.length || r.waves.length, an = OltcWave.anomalies(r);
+      add({ sec: 'oltc', item: 'Chụp sóng điện trở động OLTC', loc: `Pha ${ph}`, meas: `${n} lần chuyển nấc`, status: an.length ? 'warn' : 'info', basis: R.oltc,
+        note: (an.length ? an.map(a => a.text).join('; ') + '. ' : '') + 'Đồ thị ở Phụ lục BBTN; đánh giá theo hướng dẫn NSX OLTC', keys: ['oltc.osc'] });
+    });
 
     // ================= 10. Độ ẩm cách điện cứng =================
     const mo = val('moist.val');

@@ -70,6 +70,19 @@ Dữ liệu đang nhập được tự lưu trong trình duyệt; dùng **Lưu .
   gắn nhãn "kiểm tra") và **mốc 25 / 50 / 75 %** — theo % U_k khi có khuỷu, theo % U lớn nhất đã đo khi không xác định được khuỷu.
   Dòng tại các mốc nội suy log–log trên đường cong đo. Khi xuất BBTN, bảng đặc tính từ hóa được chèn thêm cột "Điểm khuỷu"
   và hàng tiêu đề; đầu cuộn thực đo (vd 2S1-2S5) ghi vào ô nhãn. File có cuộn 5, 6 tự mở thêm cuộn (HV tối đa 6, MV 5).
+- **Haefely 2293** (mục 7, 8, 9 — nút *Nhập file Haefely 2293…*): chọn cùng lúc các file `.csv` xuất từ máy và file `.bin`
+  cùng tên của cả ba pha (bỏ qua `.dat`, `.mat`).
+  - Điện trở một chiều theo nấc → mục 7 (Ω → mΩ), tỷ số biến theo nấc → mục 8, bảng chuyển nấc + dạng sóng → mục 9.
+  - Pha lấy theo tên file (…TAP-A, …TSB B, …pha C) vì máy 1 pha đo từng máy với cùng dây A–N; cặp cuộn của tỷ số biến
+    đoán theo tỷ số định mức xuất xưởng gần nhất; nơi ghi của từng loại số liệu sửa được trong hộp thoại.
+  - Nấc 9 của máy (17 nấc) ghi vào hàng 9b (chọn được 9a / 9c / cả ba). Nhóm điện trở lệch xa các file khác mặc định không điền.
+  - Biểu mẫu chỉ có một ô nhiệt độ mỗi cuộn: các pha đo ở nhiệt độ khác nhau được quy về cùng nhiệt độ
+    (R2 = R1·(235+t2)/(235+t1)) trước khi ghi — có thể bỏ chọn trong hộp thoại.
+  - Dạng sóng R(t) (3250 mẫu, 6500 Hz) được nén (min/max mỗi 5 mẫu, 16 bit) và lưu trong biên bản (`state.att.oltc`),
+    xem trước ở mục 9. Khi xuất BBTN, **phụ lục chụp sóng OLTC** được nối vào section riêng sau biên bản (đánh số trang lại):
+    mỗi pha một bảng số liệu và đồ thị từng lần chuyển nấc (hoặc gộp theo chiều tăng / giảm).
+  - QĐ 1901 không nêu ngưỡng chụp sóng: app chỉ báo “Cần xem xét” khi máy không ghi nhận chuyển mạch (tFall = tRise = 0)
+    hoặc dòng đo sụt dưới 50 % trong lúc chuyển nấc; đánh giá theo hướng dẫn NSX OLTC.
 - Chỗ QĐ 1901 không nêu ngưỡng (đặc tính V-A, R một chiều TI chân sứ, C2 sứ, đo không tải ở điện áp thấp)
   được ghi “Tham khảo” để lưu làm giá trị khởi đầu, không tự đặt ngưỡng.
 
@@ -152,6 +165,8 @@ npm test
   chạy `npm run test:update` rồi xem diff của file ảnh chụp trước khi commit.
 - `test/to-rows.test.js`: ảnh chụp các dòng CSDL sinh từ biểu mẫu MBA (`test/snapshots/to-rows.json`) — khóa sơ đồ đo,
   pha, nấc, giá trị quy đổi mà trang Xu hướng dùng để nối các lần đo.
+- `test/wa2293.test.js`: đọc file Haefely 2293 (dữ liệu tổng hợp đúng định dạng máy), ánh xạ nấc/pha/mΩ, quy đổi nhiệt độ,
+  nén dạng sóng, phụ lục; có thư mục số liệu thật `../MBA/Rdc/Chup song` trên máy thì kiểm tra thêm.
 - `test/types.test.js`: đăng ký loại thiết bị, biên bản cũ không ghi loại → MBA, lưu biên bản qua kho dữ liệu.
 - `test/layers.test.js`: ranh giới ba lớp (nghiệp vụ không chạm DOM/mạng; giao diện không truy vấn Supabase trực tiếp;
   `index.html` nạp đủ file theo thứ tự lớp).
@@ -170,15 +185,17 @@ lõi app dùng chung cho mọi loại. Biên bản lưu `state.type`; biên bả
 | `qd1901.js`, `bushing-k.js`, `bushing-hitachi.js` | Bảng tra, quy đổi, ngưỡng QĐ 1901; hệ số K sứ; quy đổi sứ RIP Hitachi |
 | `equipment-types.js` | Đăng ký và tra loại thiết bị |
 | `report.js`, `records.js` | Đọc giá trị mặc định từ template; lưu biên bản / Test report qua kho dữ liệu (`Records.setRepo`) |
-| `types/mba/` | Mô-đun MBA: `schema.js` (biểu mẫu ↔ bảng/hàng/cột template), `evaluate.js`, `factory.js` (đọc file xuất xưởng), `to-rows.js` (dòng CSDL), `report.js` (ghi BBTN), `index.js` (đăng ký) |
+| `oltc-wave.js` | Nén / giải nén dạng sóng điện trở động OLTC, nhận biết bất thường máy đo ghi nhận |
+| `types/mba/` | Mô-đun MBA: `schema.js` (biểu mẫu ↔ bảng/hàng/cột template), `evaluate.js`, `factory.js` (đọc file xuất xưởng), `to-rows.js` (dòng CSDL), `report.js` (ghi BBTN, phụ lục chụp sóng), `import-2293.js` (số liệu Haefely 2293 → biểu mẫu), `index.js` (đăng ký) |
 | **`js/data/`** — dữ liệu và tích hợp | |
 | `db.js` | Kho dữ liệu Supabase: kết nối, đăng nhập, ghi/đọc lần thí nghiệm, thiết bị, tài liệu, danh mục |
-| `docx.js` | Đọc/ghi template .docx, giữ nguyên định dạng |
+| `docx.js` | Đọc/ghi template .docx, giữ nguyên định dạng; nối phụ lục (bảng, ảnh) trong section riêng |
 | `bushing-k-repo.js` | Nạp bảng hệ số K sứ từ CSDL, bản sao offline |
 | `instruments/cpc100.js` | Bộ đọc file XML OMICRON CPC 100 (đặc tính từ hóa, điểm khuỷu) |
+| `instruments/wa2293.js` | Bộ đọc file Haefely 2293: `.csv` (UTF-16) điện trở, tỷ số biến, chuyển nấc; `.bin` dạng sóng chụp OLTC |
 | **`js/ui/`** — giao diện | |
 | `app.js` | Lõi giao diện: vẽ biểu mẫu theo schema, đánh giá tức thời, lưu/mở, xuất .docx/.xlsx, chọn loại thiết bị |
 | `workflow.js` | Tiến trình, 4 bước của hạng mục, khung Tài liệu tham khảo |
-| `types/mba/ui.js`, `types/mba/cpc-dialog.js` | Giao diện riêng của MBA (chú thích hạng mục, cấu hình mục 0, sứ, CPC 100) |
+| `types/mba/ui.js`, `types/mba/cpc-dialog.js`, `types/mba/wa2293-dialog.js`, `types/mba/oltc-chart.js` | Giao diện riêng của MBA (chú thích hạng mục, cấu hình mục 0, sứ, CPC 100, Haefely 2293, đồ thị chụp sóng) |
 | `db-ui.js`, `catalog-ui.js`, `kconf-ui.js`, `auth-ui.js` | Trang CSDL & Xu hướng; danh mục Trạm – Ngăn – Thiết bị; hệ số K sứ; đăng nhập |
 | `supabase/migrations/` | Lược đồ CSDL, view xu hướng, RLS, Storage |

@@ -3,7 +3,8 @@
   'use strict';
   const { eachField, eachGrid } = Common;
 
-  function fill(tpl, { state, res, schema }) {
+  // assets: tài nguyên giao diện dựng sẵn (vd ảnh đồ thị chụp sóng OLTC theo pha: { oltcCharts: { A: [{ png, w, h, dir, caption }] } })
+  function fill(tpl, { state, res, schema, assets }) {
     const miss = [];
     const out = Report.decimal(state.cfg.decSep);
     const write = (f, value) => {
@@ -57,9 +58,52 @@
       tpl.setCellText(tpl.cell([0], row, 3), tick ? '✓' : '');
       tpl.setCellText(tpl.cell([0], row, 4), ev === '—' ? '' : (ev || (tick ? S.text : '')));
     });
+    // Phụ lục chụp sóng OLTC (nhập từ máy đo 2293): nối cuối biên bản, mỗi pha một phần
+    const osc = (state.att && state.att.oltc) || {};
+    if (Object.keys(osc).length && tpl.appendSection) tpl.appendSection(oltcAppendix(state, osc, assets || {}, out));
     return { cells, miss };
   }
 
+  // Cột bảng số liệu giống bảng máy đo (và mẫu phụ lục của đơn vị); độ rộng theo khổ chữ của template A4 (16 cm)
+  const OLTC_COLS = [
+    ['tr', 'Tap Transition / Connection', 1400], ['t', 'Temp. [°C]', 800], ['ub', 'Static Voltage Before Tap Change [V]', 1000], ['ib', 'Static Current Before Tap Change [A]', 1000],
+    ['ua', 'Static Voltage After Tap Change [V]', 1000], ['ia', 'Static Current After Tap Change [A]', 1000], ['tFall', 'tFall [mS]', 920], ['tRise', 'tRise [mS]', 920], ['delta', 'Delta', 1000],
+  ];
+  function oltcAppendix(state, osc, assets, out) {
+    const v = state.v, blocks = [];
+    const charts = assets.oltcCharts || {};
+    const numTxt = x => (Number.isFinite(x) ? out(String(x)) : '');
+    const phases = Object.keys(osc).sort();
+    phases.forEach((ph, pi) => {
+      const r = osc[ph];
+      blocks.push({ type: 'page' });
+      if (!pi) blocks.push({ type: 'p', text: 'PHỤ LỤC', bold: true, size: 14, align: 'center' });
+      // tổ 3 máy 1 pha: số chế tạo theo ánh xạ cột pha ở mục 0
+      const sn = (state.cfg.ps && state.cfg.ps[ph]) || v['meta.serial'] || '';
+      blocks.push({ type: 'p', text: `ĐỒ THỊ CHỤP SÓNG OLTC – MBA ${sn} – PHA ${ph}`.replace(/\s+–\s+–/, ' –'), bold: true, size: 13, align: 'center' });
+      if (v['meta.project'] || v['meta.site']) blocks.push({ type: 'p', text: [v['meta.project'], v['meta.site']].filter(Boolean).join(' – '), align: 'center', size: 12 });
+      blocks.push({ type: 'p', text: `Máy đo: ${r.device}. File: ${[r.file, r.bin].filter(Boolean).join(', ')}${r.exported ? ` (xuất ${r.exported})` : ''}.`, italic: true, size: 10, align: 'center', after: 160 });
+      let n = 1;
+      if (r.rows.length) {
+        blocks.push({ type: 'p', text: `${n++}. Số liệu:`, bold: true, size: 12, keepNext: true });
+        blocks.push({ type: 'table', size: 9, head: OLTC_COLS.map(c => c[1]), widths: OLTC_COLS.map(c => c[2]),
+          rows: r.rows.map(x => OLTC_COLS.map(([k]) => (k === 'tr' ? x.tr : numTxt(x[k])))) });
+      }
+      const ch = charts[ph] || [];
+      if (ch.length) {
+        blocks.push({ type: 'p', text: `${n}. Đồ thị điện trở động R(t):`, bold: true, size: 12, keepNext: true });
+        [['up', 'Quá trình tăng nấc'], ['down', 'Quá trình giảm nấc'], ['', 'Chuyển nấc khác']].forEach(([d, title], di) => {
+          const items = ch.filter(c => c.dir === d);
+          if (!items.length) return;
+          blocks.push({ type: 'p', text: `${n}.${di + 1} ${title}`, bold: true, italic: true, size: 12, keepNext: true });
+          blocks.push({ type: 'images', perRow: items[0].perRow || 2, widthCm: items[0].perRow === 1 ? 16 : 8, items });
+        });
+      }
+    });
+    blocks.push({ type: 'p', text: 'Người thí nghiệm', bold: true, size: 12, align: 'right', after: 1200 });
+    return blocks;
+  }
+
   // Template chuẩn MBA 500 kV có 73 bảng; ít hơn 72 thì vị trí điền có thể lệch
-  window.MbaReport = { fill, minTables: 72, stdTables: 73 };
+  window.MbaReport = { fill, oltcAppendix, minTables: 72, stdTables: 73 };
 })();

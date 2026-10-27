@@ -49,11 +49,17 @@
       <button class="ad-x" onclick="this.closest('dialog').close()" aria-label="Đóng">×</button></div>
     <div id="cpcPanel"></div>
   </dialog>
+  <dialog class="auth-dialog cpc-dialog wa-dialog" id="waDialog" aria-labelledby="waTitle">
+    <div class="ad-band"><span>Nhập số liệu máy đo Haefely 2293</span>
+      <button class="ad-x" onclick="this.closest('dialog').close()" aria-label="Đóng">×</button></div>
+    <div id="waPanel"></div>
+  </dialog>
   <input type="file" id="fileJson" accept=".json,application/json" hidden>
   <input type="file" id="fileXlsx" accept=".xlsx,.xlsm" hidden>
   <input type="file" id="fileDocx" accept=".docx" hidden>
   <input type="file" id="fileHitachi" accept=".xlsx,.xlsm" hidden>
   <input type="file" id="fileCpc" accept=".xml" multiple hidden>
+  <input type="file" id="file2293" accept=".csv,.bin" multiple hidden>
 
   <script src="js/vendor/jszip.min.js"></script>
   <script src="js/vendor/xlsx.full.min.js"></script>
@@ -68,17 +74,20 @@
   <script src="js/domain/equipment-types.js"></script>
   <script src="js/domain/report.js"></script>
   <script src="js/domain/records.js"></script>
+  <script src="js/domain/oltc-wave.js"></script>
   <script src="js/domain/types/mba/factory.js"></script>
   <script src="js/domain/types/mba/schema.js"></script>
   <script src="js/domain/types/mba/evaluate.js"></script>
   <script src="js/domain/types/mba/to-rows.js"></script>
   <script src="js/domain/types/mba/report.js"></script>
+  <script src="js/domain/types/mba/import-2293.js"></script>
   <script src="js/domain/types/mba/index.js"></script>
   <!-- Dữ liệu và tích hợp: .docx, Supabase, bảng hệ số K từ CSDL, bộ đọc máy đo -->
   <script src="js/data/docx.js"></script>
   <script src="js/data/db.js"></script>
   <script src="js/data/bushing-k-repo.js"></script>
   <script src="js/data/instruments/cpc100.js"></script>
+  <script src="js/data/instruments/wa2293.js"></script>
   <!-- Giao diện -->
   <script src="js/ui/workflow.js"></script>
   <script src="js/ui/auth-ui.js"></script>
@@ -86,6 +95,8 @@
   <script src="js/ui/catalog-ui.js"></script>
   <script src="js/ui/kconf-ui.js"></script>
   <script src="js/ui/types/mba/cpc-dialog.js"></script>
+  <script src="js/ui/types/mba/oltc-chart.js"></script>
+  <script src="js/ui/types/mba/wa2293-dialog.js"></script>
   <script src="js/ui/types/mba/ui.js"></script>
   <script src="js/ui/app.js"></script>
 </body>

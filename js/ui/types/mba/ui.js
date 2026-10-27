@@ -1,5 +1,5 @@
-// MBA: phần giao diện riêng của loại thiết bị — chú thích từng hạng mục, cấu hình ở mục 0, công cụ mục 5/6/11
-// (sứ, đối tượng đo tgδ, CPC 100), file test report sứ Hitachi. Lõi giao diện (js/ui/app.js) gọi qua TypeUI.MBA.
+// MBA: phần giao diện riêng của loại thiết bị — chú thích từng hạng mục, cấu hình ở mục 0, công cụ mục 5/6/7/8/9/11
+// (sứ, đối tượng đo tgδ, Haefely 2293 và xem trước chụp sóng OLTC, CPC 100), file test report sứ Hitachi. Lõi giao diện (js/ui/app.js) gọi qua TypeUI.MBA.
 (function () {
   'use strict';
   const $ = (s, r = document) => r.querySelector(s);
@@ -39,10 +39,82 @@
     }
   }
 
-  // Công cụ đầu hạng mục (mục 11: số cuộn thứ cấp, nhập XML CPC 100)
+  // Công cụ đầu hạng mục (mục 7, 8, 9: nhập file Haefely 2293; mục 11: số cuộn thứ cấp, nhập XML CPC 100)
   function sectionTools(id, A) {
+    if (['dcr', 'ratio', 'oltc'].includes(id)) {
+      return `<div class="bct-tools"><div class="fields"><div class="field"><label>Số liệu từ máy đo</label><button class="btn primary" data-act="load2293">Nhập file Haefely 2293…</button></div>${id === 'oltc' ? A.cfgField('oltcCharts', 'Đồ thị chụp sóng trong phụ lục BBTN', { options: [['all', 'Từng lần chuyển nấc (2 đồ thị/hàng)'], ['overlay', 'Gộp theo chiều tăng / giảm nấc']] }) : ''}</div>`
+        + '<div class="hint-text">Chọn cùng lúc các file <b>.csv</b> xuất từ máy (điện trở một chiều, tỷ số biến, chuyển nấc) và file <b>.bin</b> cùng tên (dạng sóng chụp OLTC); có thể chọn file của cả ba pha. Bỏ qua các file .dat, .mat.</div></div>';
+    }
     if (id !== 'bct') return '';
     return `<div class="bct-tools"><div class="fields">${A.cfgField('bctCores.hv', 'Số cuộn thứ cấp TI phía HV', { options: [4, 5, 6] })}${A.cfgField('bctCores.mv', 'Số cuộn thứ cấp TI phía MV', { options: [4, 5] })}<div class="field"><label>Đặc tính từ hóa từ máy đo</label><button class="btn primary" data-act="loadCpc">Nhập XML CPC 100…</button></div></div><div class="hint-text">Chọn một hoặc nhiều file XML xuất từ CPC 100 (mỗi file một pha/một phía). App lấy 3 điểm (U, I) theo IEC 61869-2 và điền vào bảng đặc tính từ hóa; file có cuộn 5, 6 sẽ tự mở thêm cuộn. Phía LV và trung tính theo template chỉ có 4 và 3 cuộn.</div></div>`;
+  }
+
+  // ---------------------------------------------------------------- mục 9: chụp sóng OLTC (xem trước phụ lục)
+  const thumbs = new Map(); // ảnh xem trước theo dạng sóng nén (vẽ lại chỉ khi số liệu đổi)
+  function thumb(series, o, key) {
+    if (!thumbs.has(key)) thumbs.set(key, OltcChart.draw(document.createElement('canvas'), series, o).toDataURL('image/png'));
+    return thumbs.get(key);
+  }
+  const OSC_COLS = ['t', 'ub', 'ib', 'rb', 'ua', 'ia', 'ra', 'tFall', 'tRise', 'delta'];
+  function sectionFooter(id, A) {
+    if (id !== 'oltc') return '';
+    const osc = (A.state.att && A.state.att.oltc) || {}, esc = A.esc, f = Common.fmt;
+    const phases = Object.keys(osc).sort();
+    let h = '<h3>Chụp sóng OLTC (phụ lục BBTN)</h3>';
+    if (!phases.length) return h + '<div class="hint-text">Chưa có số liệu chụp sóng — nhập file .csv và .bin của Haefely 2293 bằng nút ở đầu mục.</div>';
+    const mode = A.state.cfg.oltcCharts || 'all';
+    phases.forEach(ph => {
+      const r = osc[ph], an = OltcWave.anomalies(r);
+      h += `<section class="osc-phase" data-ph="${ph}"><div class="osc-head"><b>Pha ${ph}</b><span>${r.rows.length || r.waves.length} lần chuyển nấc · ${esc([r.file, r.bin].filter(Boolean).join(' + '))}</span>`
+        + `${an.length ? `<span class="badge st-warn" title="${esc(an.map(a => a.text).join('; '))}">${an.length} điểm cần xem xét</span>` : ''}<span class="spacer"></span><button class="btn small" data-act="delOltc" data-ph="${ph}">Xóa pha ${ph}</button></div>`;
+      if (an.length) h += `<ul class="osc-warn">${an.map(a => `<li>${esc(a.text)}</li>`).join('')}</ul>`;
+      if (r.rows.length) {
+        h += '<details class="osc-data"><summary>Bảng số liệu chuyển nấc</summary><div class="grid-wrap"><table class="ftable"><thead><tr><th>Chuyển nấc</th><th>T (°C)</th><th>U trước (V)</th><th>I trước (A)</th><th>R trước (Ω)</th><th>U sau (V)</th><th>I sau (A)</th><th>R sau (Ω)</th><th>tFall (ms)</th><th>tRise (ms)</th><th>Delta</th></tr></thead><tbody>'
+          + r.rows.map(x => `<tr class="${x.tFall === 0 && x.tRise === 0 ? 'st-warn' : ''}"><td>${esc(x.tr)}</td>${OSC_COLS.map(k => `<td class="num">${Number.isFinite(x[k]) ? String(x[k]).replace('.', ',') : ''}</td>`).join('')}</tr>`).join('')
+          + '</tbody></table></div></details>';
+      }
+      if (!r.waves.length) { h += '<div class="hint-text">Chưa có file .bin của pha này — phụ lục chỉ có bảng số liệu.</div></section>'; return; }
+      h += `<div class="osc-grid ${mode === 'overlay' ? 'wide' : ''}">`;
+      if (mode === 'overlay') {
+        [['up', 'tăng nấc'], ['down', 'giảm nấc']].forEach(([d, t]) => {
+          const xs = r.waves.filter(w => OltcWave.dir(w) === d);
+          if (!xs.length) return;
+          const col = OltcChart.ramp(xs.length);
+          const src = thumb(xs.map((c, k) => ({ c, color: col[k] })), { title: `Pha ${ph}: ${t} ${xs[0].from} -> ${xs[xs.length - 1].to}` }, `o|${ph}|${d}|${xs.map(c => c.tr + c.q.slice(0, 40)).join()}`);
+          h += `<figure><img src="${src}" alt="Đồ thị R(t) chồng ${xs.length} lần ${t}, pha ${ph}"><figcaption>${xs.length} lần ${t}, màu đậm dần theo thứ tự đo</figcaption></figure>`;
+        });
+      } else {
+        r.waves.forEach(w => {
+          const src = thumb([{ c: w }], { title: OltcChart.title(w) }, `w|${w.tr}|${w.q}`);
+          const drop = w.iMinPct !== null && w.iMinPct < 50;
+          h += `<figure class="${drop ? 'warn' : ''}"><img src="${src}" alt="Đồ thị R(t) chuyển nấc ${esc(w.from)} → ${esc(w.to)}, pha ${ph}" loading="lazy"><figcaption>${esc(w.from)} → ${esc(w.to)}${w.iMinPct !== null ? ` · I nhỏ nhất ${f(w.iMinPct, 0)} %` : ''}</figcaption></figure>`;
+        });
+      }
+      h += '</div></section>';
+    });
+    return h;
+  }
+
+  // Ảnh đồ thị cho phụ lục BBTN (gọi khi xuất .docx)
+  async function reportAssets(A) {
+    const osc = (A.state.att && A.state.att.oltc) || {}, mode = A.state.cfg.oltcCharts || 'all';
+    const out = {};
+    for (const ph of Object.keys(osc)) {
+      const ws = osc[ph].waves;
+      out[ph] = [];
+      if (mode === 'overlay') {
+        for (const [d, t] of [['up', 'tăng nấc'], ['down', 'giảm nấc'], ['', 'chuyển nấc']]) {
+          const xs = ws.filter(w => OltcWave.dir(w) === d);
+          if (!xs.length) continue;
+          const col = OltcChart.ramp(xs.length);
+          const img = await OltcChart.png(xs.map((c, k) => ({ c, color: col[k] })), { title: `Pha ${ph}: ${t} ${xs[0].from} -> ${xs[xs.length - 1].to}` });
+          out[ph].push(Object.assign(img, { dir: d, perRow: 1, caption: `${xs.length} lần ${t}, màu đậm dần theo thứ tự đo` }));
+        }
+      } else {
+        for (const w of ws) out[ph].push(Object.assign(await OltcChart.png([{ c: w }], { title: OltcChart.title(w) }), { dir: OltcWave.dir(w), perRow: 2, caption: '' }));
+      }
+    }
+    return { oltcCharts: out };
   }
 
   // Ô hệ số K sứ: tự tra (Hitachi, bảng K) thì hiện giá trị tính, nhập tay thì là ô nhập thường
@@ -134,6 +206,16 @@
       A.rebuild(true);
     },
     loadHitachi: () => $('#fileHitachi').click(),
+    load2293: () => $('#file2293').click(),
+    delOltc(b, A) {
+      const st = A.state, ph = b.dataset.ph;
+      if (!st.att || !st.att.oltc || !confirm(`Xóa số liệu chụp sóng OLTC pha ${ph}? Các ô đã điền ở mục 7, 8, 9 giữ nguyên.`)) return;
+      delete st.att.oltc[ph];
+      const sum = Mba2293.oltcSummary(st.att.oltc);
+      if (String(st.v['oltc.osc'] ?? '').trim() === st.att.oscAuto) st.v['oltc.osc'] = sum;
+      st.att.oscAuto = sum;
+      A.rebuild(false);
+    },
     loadCpc: () => { cpcTarget = null; $('#fileCpc').multiple = true; $('#fileCpc').click(); },
     cpcSlot(b) {
       const m = b.dataset.grid.match(/^bct\.(\w+)\.ex\.(\w)$/);
@@ -155,6 +237,7 @@
   // Gọi một lần khi app khởi động, trước khi đánh giá biên bản đầu tiên
   function init(A) {
     loadHitachiDefault(A);
+    $('#file2293').addEventListener('change', e => { const fl = Array.from(e.target.files); e.target.value = ''; if (fl.length) Wa2293Import.open(fl).catch(err => A.toast('Lỗi đọc file 2293: ' + err.message, true)); });
     $('#fileCpc').addEventListener('change', e => { const fl = Array.from(e.target.files); e.target.value = ''; if (fl.length) CpcImport.open(fl, cpcTarget); });
     $('#fileHitachi').addEventListener('change', e => A.readFile(e.target, async f => {
       const buf = await f.arrayBuffer();
@@ -165,5 +248,5 @@
   }
 
   window.TypeUI = window.TypeUI || {};
-  window.TypeUI.MBA = { intro, sectionTools, field, rerenderOn, gridTools, rowLabel, generalFiles, generalConfig, factoryUnits, actions, init };
+  window.TypeUI.MBA = { intro, sectionTools, sectionFooter, reportAssets, field, rerenderOn, gridTools, rowLabel, generalFiles, generalConfig, factoryUnits, actions, init };
 })();

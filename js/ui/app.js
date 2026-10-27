@@ -62,7 +62,7 @@
   async function newRecord(keepCfg, type) {
     const code = type || EquipmentTypes.codeOf(state);
     const cfg = keepCfg ? JSON.parse(JSON.stringify(state.cfg)) : EquipmentTypes.get(code).defaultCfg();
-    state = { type: code, v: {}, cfg, sum: { tick: {}, ev: {} }, created: new Date().toISOString() };
+    state = { type: code, v: {}, cfg, sum: { tick: {}, ev: {} }, att: {}, created: new Date().toISOString() };
     applyFactoryDefaults(cfg);
     schema = T().buildSchema(state.cfg);
     await readTemplateDefaults();
@@ -273,6 +273,7 @@
         gr.grids.forEach(g => { body += gridHTML(g); });
       });
       if (s.extraDoc) body += '<div class="fields">' + s.extraDoc.map(x => `<div class="field"><label>${x.k === 'ir.k1' ? 'Hệ số quy đổi K1 (ghi vào BBTN)' : 'Hệ số quy đổi K2 (ghi vào BBTN)'}</label><div class="calcval" data-n="${x.k}"></div></div>`).join('') + '</div>';
+      if (U.sectionFooter) body += U.sectionFooter(s.id, App);
       body += `<div class="wf-sum" data-fsum="${s.id}"></div>`;
     }
     const h = headHTML(String(s.no), s.title, s.en, s.id) + Workflow.stepsHTML(s.id, S)
@@ -429,7 +430,7 @@
         schema = T().buildSchema(state.cfg);
       }
       recompute();
-      if (/^(template|bctCores|taps)/.test(el.dataset.cfg)) renderMain(); else updateComputed();
+      if (/^(template|bctCores|taps|oltcCharts)/.test(el.dataset.cfg)) renderMain(); else updateComputed();
       persist();
     } else if (el.dataset.sumtick) {
       state.sum.tick[el.dataset.sumtick] = el.checked; persist();
@@ -548,7 +549,7 @@
     const type = EquipmentTypes.codeOf(st);
     if (!EquipmentTypes.has(type)) throw new Error(`Biên bản loại “${type}” chưa được hỗ trợ trong phiên bản này`);
     const cfg = EquipmentTypes.get(type).normalizeCfg(st.cfg);
-    state = { type, v: st.v, cfg, sum: st.sum || { tick: {}, ev: {} }, created: st.created, db: st.db || null };
+    state = { type, v: st.v, cfg, sum: st.sum || { tick: {}, ev: {} }, att: st.att || {}, created: st.created, db: st.db || null };
     state.sum.tick = state.sum.tick || {}; state.sum.ev = state.sum.ev || {};
     applyFactoryDefaults(state.cfg);
     schema = T().buildSchema(state.cfg);
@@ -576,7 +577,9 @@
     if (!data) { toast('Chưa có template BBTN — nạp file .docx ở mục 0 “Thông tin chung & cấu hình”', true); return; }
     const tpl = await DocxTemplate.load(data), R = T().report;
     if (tpl.tables.length < R.minTables) toast(`Cảnh báo: template có ${tpl.tables.length} bảng (mẫu chuẩn ${R.stdTables}) — vị trí điền có thể lệch`, true);
-    const { cells, miss } = R.fill(tpl, { state, res, schema });
+    // Tài nguyên cần trình duyệt dựng (vd ảnh đồ thị chụp sóng cho phụ lục)
+    const assets = TU().reportAssets ? await TU().reportAssets(App) : {};
+    const { cells, miss } = R.fill(tpl, { state, res, schema, assets });
     const v = state.v;
     const blob = await tpl.toBlob();
     const name = `BBTN_${R.filePrefix}_${safeName(v['meta.serial'])}_${safeName(v['meta.date'])}.docx`;
