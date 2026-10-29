@@ -133,7 +133,7 @@
   function navItems() {
     return [{ id: 'general', no: '0', title: 'Thông tin chung & cấu hình' }]
       .concat(schema.sections.map(s => ({ id: s.id, no: String(s.no), title: s.title })))
-      .concat([{ id: 'summary', no: 'Σ', title: 'Tổng hợp & kết luận' }, { id: 'factory', no: 'XX', title: 'Số liệu xuất xưởng' },
+      .concat([{ id: 'summary', no: 'Σ', title: 'Tổng hợp & kết luận' }, { id: 'appendix', no: 'PL', title: 'Phụ lục BBTN' }, { id: 'factory', no: 'XX', title: 'Số liệu xuất xưởng' },
         { id: 'db', no: 'DB', title: 'CSDL – biên bản đã lưu' }, { id: 'catalog', no: '≡', title: 'Trạm – Ngăn – Thiết bị' }, { id: 'trend', no: '↗', title: 'Xu hướng' },
         { id: 'kconf', no: 'K', title: 'Hệ số quy đổi sứ' }]);
   }
@@ -375,6 +375,7 @@
     else if (current === 'trend') html = DbUI.renderTrend();
     else if (current === 'catalog') html = Catalog.render();
     else if (current === 'kconf') html = KConf.render();
+    else if (current === 'appendix') html = AppendixUI.render(App);
     else html = renderSection(schema.sections.find(s => s.id === current));
     const dl = FX ? `<datalist id="dlSerials">${FX.data.order.map(s => `<option value="${esc(s)}">`).join('')}</datalist>` : '';
     main.innerHTML = html + dl;
@@ -382,6 +383,7 @@
     if (current === 'db' || current === 'trend') DbUI.afterRender(current);
     if (current === 'catalog') Catalog.afterRender();
     if (current === 'kconf') KConf.afterRender();
+    if (current === 'appendix') AppendixUI.afterRender(App);
   }
 
   // Cập nhật ô tính toán, trạng thái ô, bảng so sánh mà không render lại form (giữ focus)
@@ -540,7 +542,7 @@
     const act = b.dataset.act;
     try {
       if (act === 'new') openTypeDialog();
-      else if (act === 'save') saveJson();
+      else if (act === 'save') await saveJson();
       else if (act === 'open') $('#fileJson').click();
       else if (act === 'loadXlsx') $('#fileXlsx').click();
       else if (act === 'loadDocx') $('#fileDocx').click();
@@ -551,6 +553,7 @@
         state.v['meta.conclusion'] = T().autoConclusion(res, schema, state);
         renderMain(); persist();
       } else if (act && act.startsWith('db')) await DbUI.action(act, b);
+      else if (act && act.startsWith('appx')) await AppendixUI.action(act, b, App);
       else if (act && TU().actions && TU().actions[act]) await track(b.textContent.trim() || act, () => TU().actions[act](b, App));
     } catch (err) {
       console.error(err);
@@ -585,8 +588,9 @@
   }
 
   // ---------------------------------------------------------------- files
-  function saveJson() {
-    const data = { app: 'bbtn-mba', version: 1, savedAt: new Date().toISOString(), factoryFile: FX ? FX.data.fileName : null, state };
+  // File .json mang theo file đính kèm (báo cáo SFRA) dạng base64 để mở được trên máy khác
+  async function saveJson() {
+    const data = { app: 'bbtn-mba', version: 1, savedAt: new Date().toISOString(), factoryFile: FX ? FX.data.fileName : null, state, files: await AppendixUI.filesFor(state) };
     const name = `BBTN_${T().report.filePrefix}_${safeName(state.v['meta.serial'])}_${safeName(state.v['meta.date'])}.json`;
     download(new Blob([JSON.stringify(data, null, 1)], { type: 'application/json' }), name);
     toast('Đã lưu ' + name);
@@ -628,7 +632,7 @@
     const tpl = await DocxTemplate.load(data), R = T().report;
     if (tpl.tables.length < R.minTables) toast(`Cảnh báo: template có ${tpl.tables.length} bảng (mẫu chuẩn ${R.stdTables}) — vị trí điền có thể lệch`, true);
     // Tài nguyên cần trình duyệt dựng (vd ảnh đồ thị chụp sóng cho phụ lục)
-    const assets = TU().reportAssets ? await TU().reportAssets(App) : {};
+    const assets = Object.assign(TU().reportAssets ? await TU().reportAssets(App) : {}, await AppendixUI.reportAssets(App));
     const { cells, miss } = R.fill(tpl, { state, res, schema, assets });
     const v = state.v;
     const blob = await tpl.toBlob();
@@ -673,6 +677,7 @@
     Records.setRepo(DB);
     loadFactoryDefault();
     Object.values(window.TypeUI || {}).forEach(u => { if (u.init) u.init(App); });
+    AppendixUI.init(App);
     const saved = lsGet(LS_STATE);
     let restored = false;
     if (saved) {
@@ -705,7 +710,10 @@
       e.preventDefault(); undoSection(current);
     });
     $('#fileJson').addEventListener('change', e => readFile(e.target, async f => {
-      loadState(JSON.parse(await f.text())); recompute(); current = 'general'; renderMain(); persist(); toast('Đã mở ' + f.name);
+      const obj = JSON.parse(await f.text());
+      loadState(obj);
+      if (obj.files) await AppendixUI.restoreFiles(obj.files);
+      recompute(); current = 'general'; renderMain(); persist(); toast('Đã mở ' + f.name);
     }));
     $('#fileXlsx').addEventListener('change', e => readFile(e.target, async f => {
       const buf = await f.arrayBuffer();

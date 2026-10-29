@@ -3,7 +3,8 @@
   'use strict';
   const { eachField, eachGrid } = Common;
 
-  // assets: tài nguyên giao diện dựng sẵn (vd ảnh đồ thị chụp sóng OLTC theo pha: { oltcCharts: { A: [{ png, w, h, dir, caption }] } })
+  // assets: tài nguyên giao diện dựng sẵn — ảnh đồ thị chụp sóng OLTC theo pha { oltcCharts: { A: [{ png, w, h, dir, caption }] } },
+  // báo cáo SFRA đã mở { fraDoc: DocxTemplate }
   function fill(tpl, { state, res, schema, assets }) {
     const miss = [];
     const out = Report.decimal(state.cfg.decSep);
@@ -58,9 +59,13 @@
       tpl.setCellText(tpl.cell([0], row, 3), tick ? '✓' : '');
       tpl.setCellText(tpl.cell([0], row, 4), ev === '—' ? '' : (ev || (tick ? S.text : '')));
     });
-    // Phụ lục chụp sóng OLTC (nhập từ máy đo 2293): nối cuối biên bản, mỗi pha một phần
-    const osc = (state.att && state.att.oltc) || {};
-    if (Object.keys(osc).length && tpl.appendSection) tpl.appendSection(oltcAppendix(state, osc, assets || {}, out));
+    // Phụ lục nối cuối biên bản, mỗi phụ lục một section (đánh số trang riêng): chụp sóng OLTC (mỗi pha một phần),
+    // báo cáo SFRA (nối nguyên văn file .docx đã nạp)
+    const A = assets || {};
+    if (tpl.appendSection) Appendix.list(state, { fra: !!A.fraDoc }).forEach(a => {
+      if (a.kind === 'oltc') tpl.appendSection(oltcAppendix(state, state.att.oltc, A, out, a.label));
+      if (a.kind === 'fra') { tpl.appendSection(Appendix.fraHeader(a.label, state.att.fra)); tpl.importBody(A.fraDoc); }
+    });
     return { cells, miss };
   }
 
@@ -69,7 +74,7 @@
     ['tr', 'Tap Transition / Connection', 1400], ['t', 'Temp. [°C]', 800], ['ub', 'Static Voltage Before Tap Change [V]', 1000], ['ib', 'Static Current Before Tap Change [A]', 1000],
     ['ua', 'Static Voltage After Tap Change [V]', 1000], ['ia', 'Static Current After Tap Change [A]', 1000], ['tFall', 'tFall [mS]', 920], ['tRise', 'tRise [mS]', 920], ['delta', 'Delta', 1000],
   ];
-  function oltcAppendix(state, osc, assets, out) {
+  function oltcAppendix(state, osc, assets, out, label = 'PHỤ LỤC') {
     const v = state.v, blocks = [];
     const charts = assets.oltcCharts || {};
     const numTxt = x => (Number.isFinite(x) ? out(String(x)) : '');
@@ -77,7 +82,7 @@
     phases.forEach((ph, pi) => {
       const r = osc[ph];
       blocks.push({ type: 'page' });
-      if (!pi) blocks.push({ type: 'p', text: 'PHỤ LỤC', bold: true, size: 14, align: 'center' });
+      if (!pi) blocks.push({ type: 'p', text: label, bold: true, size: 14, align: 'center' });
       // tổ 3 máy 1 pha: số chế tạo theo ánh xạ cột pha ở mục 0
       const sn = (state.cfg.ps && state.cfg.ps[ph]) || v['meta.serial'] || '';
       blocks.push({ type: 'p', text: `ĐỒ THỊ CHỤP SÓNG OLTC – MBA ${sn} – PHA ${ph}`.replace(/\s+–\s+–/, ' –'), bold: true, size: 13, align: 'center' });

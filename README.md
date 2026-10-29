@@ -32,6 +32,20 @@ Dữ liệu đang nhập được tự lưu trong trình duyệt; dùng **Lưu .
 3. **Σ Tổng hợp**: xem toàn bộ kết quả so sánh, chỉnh đánh giá ghi vào BBTN nếu cần, điền kết luận.
 4. **Xuất BBTN .docx** (điền vào template) và **Xuất so sánh .xlsx** (bảng so sánh chi tiết để lưu hồ sơ).
 
+## Phụ lục BBTN (chụp sóng OLTC, SFRA)
+
+Trang **Phụ lục BBTN** (thanh điều hướng, nhóm Kết quả). Khi xuất BBTN .docx, mỗi phụ lục được nối thành một section
+riêng sau biên bản (trang mới, đánh số trang lại; nhiều phụ lục thì đánh "PHỤ LỤC 1, 2").
+
+- **Chụp sóng OLTC**: dựng từ file Haefely 2293 nhập ở mục 9.
+- **SFRA**: bấm *Mở SFRA Analyzer* (https://quantrong77.github.io/-Analysis-SFRA/), phân tích rồi tải báo cáo Word ở mục
+  *Báo cáo*; quay lại bấm *Nạp báo cáo SFRA (.docx)…*. App hiện tiêu đề, số phép đo, kết luận của báo cáo; khi xuất,
+  nội dung báo cáo (bảng, giản đồ Bode, kết luận) được nối nguyên văn — ảnh và kiểu đoạn được chép sang mã riêng để không
+  đụng định dạng template; bỏ phần chân trang, đánh số danh sách, chú thích của file nguồn.
+- File báo cáo giữ trong kho file của trình duyệt (IndexedDB), đi kèm file **.json** khi *Lưu .json* (base64) và được
+  tải lên Storage (`documents`, kind `OTHER`, đường dẫn `<S/N>/<lần TN>/appendix/<mã>.docx`) khi *Lưu CSDL*; mở biên
+  bản từ CSDL ở máy khác thì tự tải về.
+
 ## Xóa / hoàn tác số liệu theo hạng mục
 
 - Mỗi hạng mục có nút **Hoàn tác** (kèm số bước) và **Xóa số liệu hạng mục** cạnh thanh 4 bước.
@@ -177,6 +191,7 @@ npm test
   pha, nấc, giá trị quy đổi mà trang Xu hướng dùng để nối các lần đo.
 - `test/wa2293.test.js`: đọc file Haefely 2293 (dữ liệu tổng hợp đúng định dạng máy), ánh xạ nấc/pha/mΩ, quy đổi nhiệt độ,
   nén dạng sóng, phụ lục; có thư mục số liệu thật `../MBA/Rdc/Chup song` trên máy thì kiểm tra thêm.
+- `test/appendix.test.js`: tóm tắt báo cáo SFRA, đánh số phụ lục.
 - `test/history.test.js`: khóa số liệu → hạng mục, hoàn tác tách theo hạng mục, xóa rồi hoàn tác.
 - `test/types.test.js`: đăng ký loại thiết bị, biên bản cũ không ghi loại → MBA, lưu biên bản qua kho dữ liệu.
 - `test/layers.test.js`: ranh giới ba lớp (nghiệp vụ không chạm DOM/mạng; giao diện không truy vấn Supabase trực tiếp;
@@ -196,12 +211,14 @@ lõi app dùng chung cho mọi loại. Biên bản lưu `state.type`; biên bả
 | `qd1901.js`, `bushing-k.js`, `bushing-hitachi.js` | Bảng tra, quy đổi, ngưỡng QĐ 1901; hệ số K sứ; quy đổi sứ RIP Hitachi |
 | `equipment-types.js` | Đăng ký và tra loại thiết bị |
 | `report.js`, `records.js` | Đọc giá trị mặc định từ template; lưu biên bản / Test report qua kho dữ liệu (`Records.setRepo`) |
+| `appendix.js` | Danh sách và đánh số phụ lục, tóm tắt báo cáo SFRA |
 | `edit-history.js` | Lịch sử chỉnh sửa theo hạng mục: hoàn tác, xóa số liệu hạng mục |
 | `oltc-wave.js` | Nén / giải nén dạng sóng điện trở động OLTC, nhận biết bất thường máy đo ghi nhận |
 | `types/mba/` | Mô-đun MBA: `schema.js` (biểu mẫu ↔ bảng/hàng/cột template), `evaluate.js`, `factory.js` (đọc file xuất xưởng), `to-rows.js` (dòng CSDL), `report.js` (ghi BBTN, phụ lục chụp sóng), `import-2293.js` (số liệu Haefely 2293 → biểu mẫu), `index.js` (đăng ký) |
 | **`js/data/`** — dữ liệu và tích hợp | |
 | `db.js` | Kho dữ liệu Supabase: kết nối, đăng nhập, ghi/đọc lần thí nghiệm, thiết bị, tài liệu, danh mục |
-| `docx.js` | Đọc/ghi template .docx, giữ nguyên định dạng; nối phụ lục (bảng, ảnh) trong section riêng |
+| `docx.js` | Đọc/ghi template .docx, giữ nguyên định dạng; nối phụ lục (bảng, ảnh, nội dung file .docx khác) trong section riêng |
+| `file-store.js` | Kho file đính kèm trong trình duyệt (IndexedDB) |
 | `bushing-k-repo.js` | Nạp bảng hệ số K sứ từ CSDL, bản sao offline |
 | `instruments/cpc100.js` | Bộ đọc file XML OMICRON CPC 100 (đặc tính từ hóa, điểm khuỷu) |
 | `instruments/wa2293.js` | Bộ đọc file Haefely 2293: `.csv` (UTF-16) điện trở, tỷ số biến, chuyển nấc; `.bin` dạng sóng chụp OLTC |
@@ -209,5 +226,6 @@ lõi app dùng chung cho mọi loại. Biên bản lưu `state.type`; biên bả
 | `app.js` | Lõi giao diện: vẽ biểu mẫu theo schema, đánh giá tức thời, lưu/mở, xuất .docx/.xlsx, chọn loại thiết bị |
 | `workflow.js` | Tiến trình, 4 bước của hạng mục, khung Tài liệu tham khảo |
 | `types/mba/ui.js`, `types/mba/cpc-dialog.js`, `types/mba/wa2293-dialog.js`, `types/mba/oltc-chart.js` | Giao diện riêng của MBA (chú thích hạng mục, cấu hình mục 0, sứ, CPC 100, Haefely 2293, đồ thị chụp sóng) |
+| `appendix-ui.js` | Trang Phụ lục BBTN: liên kết SFRA Analyzer, nạp báo cáo SFRA |
 | `db-ui.js`, `catalog-ui.js`, `kconf-ui.js`, `auth-ui.js` | Trang CSDL & Xu hướng; danh mục Trạm – Ngăn – Thiết bị; hệ số K sứ; đăng nhập |
 | `supabase/migrations/` | Lược đồ CSDL, view xu hướng, RLS, Storage |

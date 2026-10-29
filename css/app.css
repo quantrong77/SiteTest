@@ -278,6 +278,18 @@ code { font-family: var(--mono); font-size: 12px; }
 .wa-opts select { border: 1px solid #c4cad0; border-radius: 6px; padding: 3px 6px; }
 
 /* ---------- chụp sóng OLTC (mục 9) ---------- */
+.appx-card { border: 1px solid var(--line); border-radius: var(--radius); padding: 4px 16px 12px; margin: 12px 0 16px; }
+.appx-head { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.appx-head h3 { margin: 10px 0 6px; }
+.appx-card > p { font-size: 13px; margin: 4px 0 8px; }
+.appx-steps { margin: 6px 0 10px; padding-left: 22px; font-size: 13px; }
+.appx-steps li { margin: 8px 0 12px; }
+.appx-steps li > div { margin-bottom: 6px; max-width: 78ch; }
+.appx-file { border: 1px solid var(--line-soft); border-radius: var(--radius); background: #f8fafb; padding: 8px 12px 10px; }
+.appx-file-head { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; font-size: 13px; margin-bottom: 8px; }
+.appx-file-head > span:not(.badge):not(.spacer) { color: var(--muted); font-size: 12px; }
+.appx-file-head .spacer { flex: 1; }
+.appx-file b { overflow-wrap: anywhere; }
 .osc-phase { border: 1px solid var(--line); border-radius: var(--radius); margin: 10px 0 14px; overflow: hidden; }
 .osc-head { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; padding: 8px 12px; background: #f4f6f7; border-bottom: 1px solid var(--line); font-size: 13px; }
 .osc-head > span:not(.badge):not(.spacer) { color: var(--muted); font-size: 12px; overflow-wrap: anywhere; }

@@ -260,7 +260,8 @@
       // chân trang mặc định: của section cuối, không khai thì kế thừa từ section gần nhất phía trước có khai
       const defOf = s => kids(s, 'footerReference').find(f => wAttr(f, 'type') === 'default');
       const owner = desc(this.body, 'sectPr').reverse().find(defOf);
-      if (owner) {
+      // phụ lục thứ hai trở đi: section cuối đã trỏ chân trang phụ lục, chỉ cần đánh số trang lại
+      if (owner && !this.appxFooter) {
         this.appxFooter = { from: defOf(owner).getAttributeNS(R_NS, 'id') };
         kids(last, 'footerReference').forEach(f => last.removeChild(f));
         const ref = this.doc.createElementNS(W, 'w:footerReference');
@@ -270,6 +271,115 @@
         last.insertBefore(ref, hdrs.length ? hdrs[hdrs.length - 1].nextSibling : last.firstChild);
       }
       this.appendBlocks(blocks[0] && blocks[0].type === 'page' ? blocks.slice(1) : blocks);
+    }
+
+    // Các đoạn văn cấp thân văn bản: { style, text } (để tóm tắt file trước khi nối)
+    outline() {
+      return this.children.filter(n => n.localName === 'p').map(p => {
+        const pPr = kids(p, 'pPr')[0], ps = pPr && kids(pPr, 'pStyle')[0];
+        return { style: ps ? wAttr(ps, 'val') : '', text: this.paraText(p).trim() };
+      }).filter(x => x.text);
+    }
+
+    // Nối thân văn bản của một file .docx khác (vd báo cáo SFRA Analyzer) vào cuối, trước sectPr cuối. Mã quan hệ (ảnh,
+    // liên kết) và mã kiểu đoạn được đổi sang mã riêng để không trùng template; file ảnh và định nghĩa kiểu ghi khi toBlob().
+    // Bỏ phần không mang theo được: section, đánh số danh sách, chú thích, đánh dấu.
+    importBody(src) {
+      this.imports = this.imports || [];
+      const tag = `Imp${this.imports.length + 1}`;
+      const rels = new Map(), styles = new Set();
+      const DROP = ['sectPr', 'numPr', 'bookmarkStart', 'bookmarkEnd', 'commentRangeStart', 'commentRangeEnd', 'commentReference', 'footnoteReference', 'endnoteReference'];
+      const sect = kids(this.body, 'sectPr')[0] || null;
+      src.children.filter(n => n.localName !== 'sectPr').forEach(n => {
+        const c = this.doc.importNode(n, true), drop = [];
+        [c].concat(Array.from(c.getElementsByTagName('*'))).forEach(el => {
+          if (el.namespaceURI === W && DROP.includes(el.localName)) { drop.push(el); return; }
+          Array.from(el.attributes).forEach(a => {
+            if (a.namespaceURI !== R_NS) return;
+            if (!rels.has(a.value)) rels.set(a.value, `rId${tag}_${rels.size + 1}`);
+            el.setAttributeNS(R_NS, a.name, rels.get(a.value));
+          });
+          if (el.namespaceURI === W && ['pStyle', 'rStyle', 'tblStyle'].includes(el.localName) && wAttr(el, 'val')) {
+            styles.add(wAttr(el, 'val'));
+            el.setAttributeNS(W, 'w:val', tag + wAttr(el, 'val'));
+          }
+          if (el.localName === 'docPr') { this.picId = (this.picId || 5000) + 1; el.setAttribute('id', String(this.picId)); }
+        });
+        drop.forEach(e => e.parentNode && e.parentNode.removeChild(e));
+        this.body.insertBefore(c, sect);
+      });
+      this.imports.push({ src, tag, rels, styles });
+    }
+
+    async writeImports() {
+      const MIME = { png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', gif: 'image/gif', bmp: 'image/bmp', tif: 'image/tiff', tiff: 'image/tiff', emf: 'image/x-emf', wmf: 'image/x-wmf', svg: 'image/svg+xml' };
+      for (const im of this.imports || []) {
+        const srel = new DOMParser().parseFromString(await im.src.zip.file('word/_rels/document.xml.rels').async('string'), 'application/xml');
+        const byId = {};
+        Array.from(srel.getElementsByTagName('Relationship')).forEach(r => { byId[r.getAttribute('Id')] = r; });
+        let add = '';
+        const exts = new Set();
+        for (const [old, nid] of im.rels) {
+          const r = byId[old];
+          if (!r) continue;
+          const type = r.getAttribute('Type'), target = r.getAttribute('Target');
+          if (r.getAttribute('TargetMode') === 'External') { add += `<Relationship Id="${nid}" Type="${xesc(type)}" Target="${xesc(target)}" TargetMode="External"/>`; continue; }
+          const f = im.src.zip.file('word/' + target.replace(/^\/?word\//, ''));
+          if (!f) continue;
+          const name = `media/${im.tag}_${target.split('/').pop()}`;
+          this.zip.file('word/' + name, await f.async('uint8array'));
+          exts.add(name.split('.').pop().toLowerCase());
+          add += `<Relationship Id="${nid}" Type="${xesc(type)}" Target="${xesc(name)}"/>`;
+        }
+        const relPath = 'word/_rels/document.xml.rels';
+        this.zip.file(relPath, (await this.zip.file(relPath).async('string')).replace('</Relationships>', add + '</Relationships>'));
+        let ct = await this.zip.file('[Content_Types].xml').async('string');
+        exts.forEach(e => { if (!new RegExp(`Extension="${e}"`, 'i').test(ct) && MIME[e]) ct = ct.replace(/(<Types[^>]*>)/, `$1<Default Extension="${e}" ContentType="${MIME[e]}"/>`); });
+        this.zip.file('[Content_Types].xml', ct);
+        await this.importStyles(im);
+      }
+      this.imports = [];
+    }
+
+    // Kiểu đoạn của file nguồn (kèm chuỗi basedOn) chép sang template dưới mã mới; kiểu gốc nhất nhận phông/cỡ chữ mặc định
+    // của file nguồn để giữ đúng hình thức báo cáo
+    async importStyles(im) {
+      const sf = im.src.zip.file('word/styles.xml'), tf = this.zip.file('word/styles.xml');
+      if (!sf || !tf || !im.styles.size) return;
+      const S = new DOMParser().parseFromString(await sf.async('string'), 'application/xml');
+      const Tg = new DOMParser().parseFromString(await tf.async('string'), 'application/xml');
+      const byId = {};
+      desc(S, 'style').forEach(s => { byId[wAttr(s, 'styleId')] = s; });
+      const need = new Set();
+      const walk = id => { if (!id || need.has(id) || !byId[id]) return; need.add(id); const b = kids(byId[id], 'basedOn')[0]; walk(b && wAttr(b, 'val')); };
+      im.styles.forEach(walk);
+      const defR = desc(S, 'rPrDefault').map(d => kids(d, 'rPr')[0]).find(Boolean);
+      const root = Tg.documentElement;
+      need.forEach(id => {
+        const st = Tg.importNode(byId[id], true);
+        st.setAttributeNS(W, 'w:styleId', im.tag + id);
+        st.removeAttributeNS(W, 'default');
+        const nm = kids(st, 'name')[0];
+        if (nm) nm.setAttributeNS(W, 'w:val', `${wAttr(nm, 'val')} (${im.tag})`);
+        ['basedOn', 'next', 'link'].forEach(k => kids(st, k).forEach(e => {
+          if (need.has(wAttr(e, 'val'))) e.setAttributeNS(W, 'w:val', im.tag + wAttr(e, 'val')); else st.removeChild(e);
+        }));
+        if (!kids(st, 'basedOn').length && defR) {
+          let rPr = kids(st, 'rPr')[0];
+          if (!rPr) { rPr = Tg.createElementNS(W, 'w:rPr'); st.appendChild(rPr); }
+          // giữ thuộc tính kiểu đã có, thêm phông / cỡ chữ mặc định còn thiếu, đúng thứ tự phần tử của rPr
+          const ORDER = ['rStyle', 'rFonts', 'b', 'bCs', 'i', 'iCs', 'caps', 'smallCaps', 'strike', 'dstrike', 'outline', 'shadow', 'emboss', 'imprint', 'noProof', 'snapToGrid',
+            'vanish', 'webHidden', 'color', 'spacing', 'w', 'kern', 'position', 'sz', 'szCs', 'highlight', 'u', 'effect', 'bdr', 'shd', 'fitText', 'vertAlign', 'rtl', 'cs', 'em', 'lang'];
+          ['rFonts', 'sz', 'szCs'].forEach(name => {
+            const n = kids(defR, name)[0];
+            if (!n || kids(rPr, name).length) return;
+            const later = Array.from(rPr.childNodes).find(x => x.nodeType === 1 && ORDER.indexOf(x.localName) > ORDER.indexOf(name));
+            rPr.insertBefore(Tg.importNode(n, true), later || null);
+          });
+        }
+        root.appendChild(st);
+      });
+      this.zip.file('word/styles.xml', new XMLSerializer().serializeToString(Tg));
     }
 
     // Chân trang phụ lục: sao chân trang mặc định của template, "/20" ghi cứng → tổng số trang của section
@@ -360,6 +470,7 @@
     async toBlob() {
       await this.writeMedia();
       await this.writeAppendixFooter();
+      await this.writeImports();
       const xml = new XMLSerializer().serializeToString(this.doc);
       this.zip.file('word/document.xml', xml);
       return this.zip.generateAsync({ type: 'blob', compression: 'DEFLATE', compressionOptions: { level: 6 }, mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' });

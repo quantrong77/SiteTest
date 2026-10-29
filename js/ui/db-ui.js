@@ -256,6 +256,8 @@
         App.recompute();
         const r = await Records.saveField(st, App.res, App.schema, act === 'dbSaveFinal' ? 'final' : 'draft');
         st.db = { sessionId: r.id, equipmentId: r.equipmentId, savedAt: new Date().toISOString() };
+        // file đính kèm (báo cáo SFRA) lên Storage để mở biên bản trên máy khác vẫn có phụ lục
+        try { await AppendixUI.afterDbSave(st); } catch (err) { App.toast('Đã lưu biên bản nhưng chưa lưu được file phụ lục SFRA: ' + err.message, true); }
         Catalog.reset();
         App.persist(); sessions = null; T.loadedFor = '';
         App.toast(`Đã lưu biên bản lên CSDL: ${r.n} giá trị đo`);
@@ -275,6 +277,7 @@
         const row = await DB.loadSession(btn.dataset.id);
         if (!row.app_state) throw new Error('Biên bản này không có dữ liệu biểu mẫu (nhập từ Test report)');
         App.openState(row.app_state, { sessionId: row.id, equipmentId: row.equipment_id, savedAt: row.updated_at });
+        try { await AppendixUI.ensureFiles(App.state); } catch (err) { App.toast('Không tải được file phụ lục SFRA từ CSDL: ' + err.message, true); }
         if (act === 'dbExport') await App.exportDocx(); else App.toast('Đã mở biên bản ' + row.test_date);
         busy = false; return;
       } else if (act === 'dbDocs') {
