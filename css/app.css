@@ -286,7 +286,10 @@ code { font-family: var(--mono); font-size: 12px; }
 .flag-banner > div { margin: 3px 0; }
 .flag-key { display: inline-block; width: 12px; height: 12px; border-radius: 3px; margin-right: 6px; vertical-align: -1px; border: 1px solid #e0b100; background: #fff4cc; }
 .flag-key.missing { border-color: var(--fail); background: #fde6e3; }
-.np-tools { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; margin: 0 0 10px; }
+.np-tools { position: relative; display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; margin: 0 0 10px; padding: 10px 12px; border: 1.5px dashed #b9c3cc; border-radius: var(--radius); background: #f8fafb; }
+.np-tools.drag { border-color: var(--accent); background: #eaf2fb; }
+.np-dropmsg { display: none; position: absolute; inset: 0; align-items: center; justify-content: center; border-radius: var(--radius); background: rgba(234, 242, 251, .94); color: var(--accent); font-weight: 600; pointer-events: none; }
+.np-tools.drag .np-dropmsg { display: flex; }
 .np-tools .hint-text { margin: 0; max-width: 72ch; }
 .auth-dialog.np-dialog { width: min(1180px, calc(100vw - 32px)); }
 .np-wait { display: grid; grid-template-columns: minmax(0, 320px) 1fr; gap: 16px; align-items: start; }

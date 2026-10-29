@@ -34,7 +34,7 @@ Dữ liệu đang nhập được tự lưu trong trình duyệt; dùng **Lưu .
 
 ## Đọc ảnh nameplate (mục 0)
 
-- Nút **Nhập ảnh nameplate…** ở đầu khối *Thông tin thiết bị*. Chữ được nhận dạng ngay trong trình duyệt bằng
+- Nút **Nhập ảnh nameplate…** ở đầu khối *Thông tin thiết bị*; hoặc **kéo thả ảnh** vào khung đó, hoặc **dán ảnh (Ctrl+V)** khi đang ở mục 0. Chữ được nhận dạng ngay trong trình duyệt bằng
   Tesseract.js (ảnh không gửi đi đâu); lần đầu tải thư viện và dữ liệu tiếng Anh (~10 MB) từ CDN, sau đó máy lưu sẵn.
 - Ảnh được phóng to, chuyển xám, lọc trung vị (bỏ hạt nhiễu, vân xước kim loại) trước khi đọc. Bảng nhãn – giá trị bị
   OCR tách cột được ghép lại theo toạ độ trên ảnh, có bù độ nghiêng.
