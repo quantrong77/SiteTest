@@ -29,7 +29,7 @@ function load(files, opts = {}) {
 }
 
 // Lớp nghiệp vụ (giống thứ tự nạp trong index.html) + bộ đọc máy đo CPC 100, Haefely 2293; không nạp giao diện và Supabase
-const DOMAIN = ['js/domain/common.js', 'js/domain/qd1901.js', 'js/domain/bushing-hitachi.js', 'js/domain/bushing-k.js',
+const DOMAIN = ['js/domain/common.js', 'js/domain/qd1901.js', 'js/domain/criteria.js', 'js/domain/test-items.js', 'js/domain/bushing-hitachi.js', 'js/domain/bushing-k.js',
   'js/domain/equipment-types.js', 'js/domain/report.js', 'js/domain/records.js', 'js/domain/oltc-wave.js', 'js/domain/edit-history.js', 'js/domain/appendix.js',
   'js/domain/types/mba/factory.js', 'js/domain/types/mba/schema.js', 'js/domain/types/mba/evaluate.js',
   'js/domain/types/mba/to-rows.js', 'js/domain/types/mba/report.js', 'js/domain/types/mba/import-2293.js', 'js/domain/types/mba/nameplate.js', 'js/domain/types/mba/index.js'];

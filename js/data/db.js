@@ -175,6 +175,10 @@
   const listBays = async () => chk(await need().from('v_bays').select('*').order('code'));
   const listClasses = async () => chk(await need().from('equipment_classes').select('*').order('is_component').order('code'));
   // Bảng hệ số quy đổi tgδ sứ (QĐ 1901, theo hãng) — admin cấu hình
+  // Bộ tiêu chí đơn vị: ngưỡng chỉnh khác QĐ 1901 (upsert theo khóa, xóa = dùng lại giá trị QĐ 1901)
+  const listCriteria = async () => chk(await need().from('criteria_overrides').select('*').order('key'));
+  const saveCriteria = async rows => (rows.length ? chk(await need().from('criteria_overrides').upsert(rows, { onConflict: 'key' }).select()) : []);
+  const deleteCriteria = async keys => (keys.length ? chk(await need().from('criteria_overrides').delete().in('key', keys).select('key')) : []);
   const listKTables = async () => chk(await need().from('bushing_k_tables').select('*').order('basis', { ascending: false }).order('name'));
   const FK_MSG = { bays: 'ngăn lộ', substations: 'trạm', equipment: 'thiết bị' };
   async function crud(op, table, payload, id) {
@@ -197,7 +201,7 @@
 
   window.DB = {
     connect, cfgGet, checkConfig, siteCfg, refreshUser, signIn, signUp, signOut, signInWithGoogle, resetPassword, updatePassword, onAuthChange, authInit, saveField, importFactory, uploadDoc, downloadDoc,
-    listSessions, loadSession, deleteSession, listDocs, listEquipment, trend, listSubstations, listBays, listClasses, listKTables, crud,
+    listSessions, loadSession, deleteSession, listDocs, listEquipment, trend, listSubstations, listBays, listClasses, listKTables, listCriteria, saveCriteria, deleteCriteria, crud,
     get client() { return client; }, get user() { return user; }, get role() { return role; }, get profile() { return profile; },
     get busy() { return inflight; },
     canEdit: () => role === 'editor' || role === 'admin',

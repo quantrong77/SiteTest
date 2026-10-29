@@ -306,6 +306,13 @@ tr.np-missing .np-val { background: #fde6e3; border-color: var(--fail); }
 .np-raw { margin: 10px 0; font-size: 12.5px; }
 .np-raw pre { white-space: pre-wrap; max-height: 220px; overflow: auto; background: #f4f6f7; padding: 8px; border-radius: 6px; }
 @media (max-width: 760px) { .np-grid, .np-wait { grid-template-columns: 1fr; } .np-img { position: static; } }
+/* ---------- bộ tiêu chí ---------- */
+.crit-tbl td:first-child { font-weight: 600; white-space: nowrap; }
+.crit-tbl td:nth-child(2) { min-width: 280px; }
+.crit-tbl td:nth-child(5) { min-width: 130px; }
+.crit-tbl tr.crit-changed td { background: var(--warn-bg); }
+.crit-in { width: 7em; text-align: right; border: 1px solid #c4cad0; border-radius: 6px; padding: 4px 6px; font: inherit; }
+.crit-note { width: 100%; min-width: 200px; border: 1px solid #c4cad0; border-radius: 6px; padding: 4px 6px; font: inherit; }
 .appx-card { border: 1px solid var(--line); border-radius: var(--radius); padding: 4px 16px 12px; margin: 12px 0 16px; }
 .appx-head { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
 .appx-head h3 { margin: 10px 0 6px; }

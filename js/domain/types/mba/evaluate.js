@@ -6,7 +6,8 @@
   const { RANK, worst, toNum, ok, fmt, sgn, devPct, findGrid } = Common;
 
   function evaluate(state, FX, schema) {
-    const v = state.v, cfg = state.cfg, L = QD.LIMITS, R = QD.REF;
+    // Ngưỡng theo bộ tiêu chí đang áp dụng (mặc định = QĐ 1901; Admin có thể chỉnh theo đơn vị)
+    const v = state.v, cfg = state.cfg, L = Criteria.limits(), R = QD.REF;
     const calc = {}, findings = [], notes = {};
     const val = k => toNum(v[k]);
     const txt = k => (v[k] === undefined || v[k] === null ? '' : String(v[k]).trim());
@@ -364,9 +365,9 @@
       }
       if (ok(C)) {
         const fref = F && row.fcfg ? F.ins(row.fcfg, 'c', main) : null;
-        const d = devPct(C, fref);
+        const cc = TestItems.capacitance({ c: C, ref: fref, lim: L.WINDING_C_DEV });
         add({ sec: 'wtgd', item: `Điện dung cuộn dây ${row.label || 'đối tượng bổ sung'}`, loc: unitLabel(main), meas: `${fmt(C, 1)} pF`, ref: ok(fref) ? `${fmt(fref, 0)} pF (XX)` : '',
-          dev: sgn(d), limit: `±${L.WINDING_C_DEV}% so với giá trị khởi đầu`, status: ok(d) ? (Math.abs(d) <= L.WINDING_C_DEV ? 'pass' : 'fail') : 'info',
+          dev: sgn(cc.dev), limit: `±${L.WINDING_C_DEV}% so với giá trị khởi đầu`, status: cc.status,
           basis: R.wtgd, note: ok(fref) ? '' : 'Không có điện dung XX cho sơ đồ đo này → lưu làm giá trị khởi đầu', keys: [`${p}.c`] });
       }
     });
@@ -394,21 +395,21 @@
           let ref = okRef ? parts.reduce((a, b) => a + b.r75, 0) * 1000 : NaN; // Ω → mΩ
           if (okRef && G.delta) ref *= 2 / 3;
           const refT = okRef ? parts[0].refT : 75;
-          const m75 = ok(t) ? QD.convDCR(m, t, refT) : NaN;
-          const d = devPct(m75, ref);
+          const rd = TestItems.dcr({ m, t, ref, refT, lim: L.DCR_DEV });
+          const m75 = rd.atRef, d = rd.dev;
           if (ok(d)) calc[`${G.g}.${row.k}.d${ph}`] = fmt(d, 2);
           const tapNote = okRef && row.tap && parts[0].tap && parts[0].tap.toUpperCase() !== String(row.tap).toUpperCase() ? ` (nấc XX ${parts[0].tap})` : '';
           add({ sec: 'dcr', item: `R một chiều ${G.label}`, loc: `${row.tap ? 'Nấc ' + row.tap + tapNote + ' – ' : ''}pha ${ph} – ${s}`,
             meas: `${fmt(m)} mΩ @${ok(t) ? fmt(t, 1) : '?'} °C`, conv: ok(m75) ? `${fmt(m75)} mΩ @${refT} °C` : '',
             ref: okRef ? `${fmt(ref)} mΩ @${refT} °C (XX ${G.winding.join('+')}${G.delta ? ' ×2/3' : ''})` : '', dev: sgn(d),
-            limit: `±${L.DCR_DEV}% so với NSX cùng nhiệt độ`, status: !ok(t) ? 'missing' : ok(d) ? (Math.abs(d) <= L.DCR_DEV ? 'pass' : 'fail') : 'info',
+            limit: `±${L.DCR_DEV}% so với NSX cùng nhiệt độ`, status: rd.status,
             basis: R.dcr, note: !ok(t) ? 'Thiếu nhiệt độ đo' : okRef ? 'R75 = R·(235+75)/(235+t)' : 'Không có số liệu XX tương ứng', keys: [k] });
         });
-        const sp = QD.phaseSpread(vals);
-        if (sp !== null) {
-          calc[`${G.g}.${row.k}.dP`] = fmt(sp, 2);
-          add({ sec: 'dcr', item: `Độ lệch R giữa các pha – ${G.label}`, loc: row.tap ? `Nấc ${row.tap}` : '', meas: `${fmt(sp, 2)} %`,
-            limit: `≤ ${L.DCR_DEV}% ((Rmax−Rmin)/RTB)`, status: sp <= L.DCR_DEV ? 'pass' : 'fail', basis: R.dcr, keys: [`${G.g}.${row.k}.dP`] });
+        const sp = TestItems.spread(vals, L.DCR_DEV);
+        if (sp) {
+          calc[`${G.g}.${row.k}.dP`] = fmt(sp.sp, 2);
+          add({ sec: 'dcr', item: `Độ lệch R giữa các pha – ${G.label}`, loc: row.tap ? `Nấc ${row.tap}` : '', meas: `${fmt(sp.sp, 2)} %`,
+            limit: `≤ ${L.DCR_DEV}% ((Rmax−Rmin)/RTB)`, status: sp.status, basis: R.dcr, keys: [`${G.g}.${row.k}.dP`] });
         }
       });
     });
@@ -434,21 +435,21 @@
           vals.push(m);
           if (!ok(m)) return;
           const s = serialOf(ph);
-          const dAuto = devPct(m, nom);
-          if (ok(dAuto)) calc[`${G.g}.${row.k}.d${ph}`] = fmt(dAuto, 3);
-          const d = ok(val(`${G.g}.${row.k}.d${ph}`)) ? val(`${G.g}.${row.k}.d${ph}`) : dAuto;
+          const rr = TestItems.ratio({ m, nominal: nom, manualDev: val(`${G.g}.${row.k}.d${ph}`), lim: L.RATIO_DEV });
+          if (ok(rr.devAuto)) calc[`${G.g}.${row.k}.d${ph}`] = fmt(rr.devAuto, 3);
+          const d = rr.dev;
           const fe = G.ferr(row.tap, s);
           add({ sec: 'ratio', item: `Tỷ số biến ${G.label}`, loc: `${row.tap ? 'Nấc ' + row.tap + ' – ' : ''}pha ${ph} – ${s}`, meas: fmt(m, 4),
             ref: ok(nom) ? `Kđm = ${fmt(nom, 4)}${ok(fe) ? `; sai số XX ${sgn(fe, 2)} %` : ''}` : '', dev: ok(d) ? `${sgn(d, 3)} %` : '',
-            limit: `±${L.RATIO_DEV}% so với nameplate`, status: ok(d) ? (Math.abs(d) <= L.RATIO_DEV ? 'pass' : 'fail') : 'missing', basis: R.ratio,
+            limit: `±${L.RATIO_DEV}% so với nameplate`, status: rr.status, basis: R.ratio,
             note: ok(fe) && ok(d) ? `Chênh với sai số xuất xưởng: ${sgn(d - fe, 3)} điểm %` : (ok(nom) ? '' : 'Không xác định được tỷ số định mức cho nấc này'),
             keys: [k, `${G.g}.${row.k}.d${ph}`] });
         });
-        const sp = QD.phaseSpread(vals);
-        if (sp !== null) {
-          calc[`${G.g}.${row.k}.dP`] = fmt(sp, 3);
-          add({ sec: 'ratio', item: `Độ lệch tỷ số giữa các pha ${G.label}`, loc: row.tap ? `Nấc ${row.tap}` : '', meas: `${fmt(sp, 3)} %`,
-            limit: `≤ ${L.RATIO_DEV}%`, status: sp <= L.RATIO_DEV ? 'pass' : 'fail', basis: R.ratio, keys: [`${G.g}.${row.k}.dP`] });
+        const sp = TestItems.spread(vals, L.RATIO_DEV);
+        if (sp) {
+          calc[`${G.g}.${row.k}.dP`] = fmt(sp.sp, 3);
+          add({ sec: 'ratio', item: `Độ lệch tỷ số giữa các pha ${G.label}`, loc: row.tap ? `Nấc ${row.tap}` : '', meas: `${fmt(sp.sp, 3)} %`,
+            limit: `≤ ${L.RATIO_DEV}%`, status: sp.status, basis: R.ratio, keys: [`${G.g}.${row.k}.dP`] });
         }
       });
     });
@@ -521,8 +522,8 @@
         const ct = ctOf(row.w, ph), term = `${ct}S1-${ct}S${row.s}`;
         const s = serialOf(side === 'lv' ? ph.toUpperCase() : ph);
         const fb = F ? F.bct(s, term) : null;
-        const m75 = ok(tCT) ? QD.convDCR(m, tCT, 75) : NaN;
-        const d = fb ? devPct(m75, fb.r75) : NaN;
+        const rd = TestItems.dcr({ m, t: tCT, ref: fb ? fb.r75 : NaN, refT: 75, lim: Infinity });
+        const m75 = rd.atRef, d = rd.dev;
         add({ sec: 'bct', item: 'R một chiều TI chân sứ', loc: `${S.label} – pha ${ph} – ${term} – ${s}`, meas: `${fmt(m)} Ω @${ok(tCT) ? fmt(tCT, 1) : '?'} °C`,
           conv: ok(m75) ? `${fmt(m75)} Ω @75 °C` : '', ref: fb ? `${fmt(fb.r75)} Ω @75 °C (XX)` : '', dev: sgn(d),
           limit: 'So sánh với NSX (QĐ 1901 không nêu ngưỡng)', status: !ok(tCT) ? 'missing' : 'info', basis: R.bct,
@@ -555,6 +556,9 @@
     if (warned.length) parts.push(`Hạng mục cần theo dõi/xem xét: ${warned.join('; ')}.`);
     if (missing.length) parts.push(`Hạng mục còn thiếu dữ liệu đánh giá: ${missing.join('; ')}.`);
     if (!failed.length && !warned.length && !missing.length) parts.push('Các hạng mục đã thí nghiệm đạt tiêu chuẩn theo QĐ 1901/QĐ-EVNNPT và phù hợp với số liệu xuất xưởng.');
+    // ngưỡng đơn vị khác QĐ 1901 → ghi rõ căn cứ đánh giá
+    const own = Criteria.changedText();
+    if (own) parts.push(own);
     return parts.join(' ');
   }
 

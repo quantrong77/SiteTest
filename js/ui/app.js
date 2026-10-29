@@ -135,7 +135,7 @@
       .concat(schema.sections.map(s => ({ id: s.id, no: String(s.no), title: s.title })))
       .concat([{ id: 'summary', no: 'Σ', title: 'Tổng hợp & kết luận' }, { id: 'appendix', no: 'PL', title: 'Phụ lục BBTN' }, { id: 'factory', no: 'XX', title: 'Số liệu xuất xưởng' },
         { id: 'db', no: 'DB', title: 'CSDL – biên bản đã lưu' }, { id: 'catalog', no: '≡', title: 'Trạm – Ngăn – Thiết bị' }, { id: 'trend', no: '↗', title: 'Xu hướng' },
-        { id: 'kconf', no: 'K', title: 'Hệ số quy đổi sứ' }]);
+        { id: 'kconf', no: 'K', title: 'Hệ số quy đổi sứ' }, { id: 'criteria', no: 'TC', title: 'Bộ tiêu chí đánh giá' }]);
   }
   // Thanh điều hướng vẽ như sơ đồ một sợi: mỗi hạng mục là một ngăn lộ, trạng thái là ký hiệu máy cắt
   const BRK_LABEL = { pass: 'Đạt — máy cắt đóng', warn: 'Cần xem xét', fail: 'Không đạt — máy cắt cắt', missing: 'Thiếu dữ liệu', info: 'Tham khảo' };
@@ -287,7 +287,7 @@
     ['fail', 'warn', 'missing', 'pass', 'info'].forEach(s => { counts[s] = list.filter(f => f.status === s).length; });
     const shown = list.filter(f => fk === 'all' || f.status === fk);
     const secTitle = id => { const s = schema.sections.find(x => x.id === id); return s ? `${s.no}. ${s.title}` : id; };
-    let h = `<div class="findings" data-findings="${secId}"><div class="findings-head"><h3>So sánh với số liệu xuất xưởng & đánh giá</h3><div class="filters">`;
+    let h = `<div class="findings" data-findings="${secId}">${criteriaNote()}<div class="findings-head"><h3>So sánh với số liệu xuất xưởng & đánh giá</h3><div class="filters">`;
     [['all', 'Tất cả'], ['fail', 'Không đạt'], ['warn', 'Cần xem xét'], ['missing', 'Thiếu dữ liệu'], ['pass', 'Đạt'], ['info', 'Tham khảo']].forEach(([k, t]) => {
       if (k !== 'all' && !counts[k]) return;
       h += `<button data-filter="${k}" data-fsec="${secId}" class="${fk === k ? 'on' : ''}">${t} · ${counts[k]}</button>`;
@@ -299,6 +299,12 @@
       h += `<tr class="st-${f.status}">${secId === '*' ? `<td>${esc(secTitle(f.sec))}</td>` : ''}<td>${esc(f.item)}</td><td>${esc(f.loc || '')}</td><td class="num">${esc(f.meas || '')}</td><td class="num">${esc(f.conv || '')}</td><td class="num">${esc(f.ref || '')}</td><td class="num">${esc(f.dev || '')}</td><td>${esc(f.limit || '')}</td><td><span class="badge st-${f.status}">${ST_TEXT[f.status]}</span></td><td>${esc(f.basis || '')}</td><td class="note">${esc(f.note || '')}</td></tr>`;
     });
     return h + '</tbody></table></div></div>';
+  }
+
+  // Đang dùng ngưỡng đơn vị khác QĐ 1901: nhắc ở trang đánh giá (nội dung cũng được ghi vào kết luận tự động)
+  function criteriaNote() {
+    const n = Criteria.changed().length;
+    return n ? `<div class="callout warn">Đánh giá theo <b>bộ tiêu chí của đơn vị</b>: ${n} ngưỡng khác QĐ 1901. <button class="btn small" data-nav="criteria">Xem bộ tiêu chí</button></div>` : '';
   }
 
   function headHTML(no, title, en, secId) {
@@ -406,6 +412,7 @@
     else if (current === 'catalog') html = Catalog.render();
     else if (current === 'kconf') html = KConf.render();
     else if (current === 'appendix') html = AppendixUI.render(App);
+    else if (current === 'criteria') html = CriteriaUI.render();
     else html = renderSection(schema.sections.find(s => s.id === current));
     const dl = FX ? `<datalist id="dlSerials">${FX.data.order.map(s => `<option value="${esc(s)}">`).join('')}</datalist>` : '';
     main.innerHTML = html + dl;
@@ -414,6 +421,7 @@
     if (current === 'catalog') Catalog.afterRender();
     if (current === 'kconf') KConf.afterRender();
     if (current === 'appendix') AppendixUI.afterRender(App);
+    if (current === 'criteria') CriteriaUI.afterRender();
   }
 
   // Cập nhật ô tính toán, trạng thái ô, bảng so sánh mà không render lại form (giữ focus)
@@ -722,9 +730,11 @@
     if (restored && !new URLSearchParams(location.search).has('code')) Notify.show({ type: 'info', msg: 'Đã mở lại biên bản đang nhập dở trên máy này.' });
     // Đăng nhập / đăng xuất / đổi kết nối → làm mới dữ liệu CSDL đang hiển thị
     document.addEventListener('auth:changed', () => {
-      DbUI.reset(); Catalog.reset(); KConf.reset(); renderNav(); renderMain();
+      DbUI.reset(); Catalog.reset(); KConf.reset(); CriteriaUI.reset(); renderNav(); renderMain();
       // bảng hệ số quy đổi sứ trong CSDL (admin cấu hình) → dựng lại lựa chọn ở mục 5
       if (DB.user) KConf.load(true);
+      // bộ tiêu chí đơn vị (admin cấu hình) → đánh giá lại biên bản đang mở
+      if (DB.user) CriteriaUI.load(true);
     });
     DB.connect();
     AuthUI.init().catch(e => console.warn(e));

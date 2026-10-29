@@ -60,6 +60,14 @@ riêng sau biên bản (trang mới, đánh số trang lại; nhiều phụ lụ
   tải lên Storage (`documents`, kind `OTHER`, đường dẫn `<S/N>/<lần TN>/appendix/<mã>.docx`) khi *Lưu CSDL*; mở biên
   bản từ CSDL ở máy khác thì tự tải về.
 
+## Bộ tiêu chí đánh giá
+
+- Trang **Bộ tiêu chí đánh giá** (TC): mọi ngưỡng Đạt / Không đạt, giá trị gốc QĐ 1901 và căn cứ (Điều, mục). Mọi người xem được;
+  **Admin** chỉnh giá trị áp dụng và ghi chú lý do (hướng dẫn NSX, văn bản của đơn vị), hoặc khôi phục toàn bộ theo QĐ 1901.
+- Ngưỡng đã chỉnh được tô màu; trang đánh giá của từng hạng mục có dòng nhắc; **kết luận tự động của BBTN ghi rõ** ngưỡng nào khác
+  QĐ 1901 và giá trị gốc. Các bảng tra (K1, K2, Bảng 5, PI, độ ẩm) giữ nguyên theo QĐ 1901.
+- Lưu ở bảng `criteria_overrides` (migration `…000600`); app giữ bản sao trên máy để dùng khi mất mạng.
+
 ## Xóa / hoàn tác số liệu theo hạng mục
 
 - Mỗi hạng mục có nút **Hoàn tác** (kèm số bước) và **Xóa số liệu hạng mục** cạnh thanh 4 bước.
@@ -129,7 +137,7 @@ riêng sau biên bản (trang mới, đánh số trang lại; nhiều phụ lụ
 ### Cài đặt một lần
 1. Tạo project trên supabase.com (hoặc Supabase tự host).
 2. Mở **SQL Editor**, chạy lần lượt các file trong `supabase/migrations/` theo thứ tự tên:
-   `…000100_field_test_db.sql`, `…000200_substation_bay_hierarchy.sql`, `…000300_auth_profile.sql`, `…000400_bushing_k_tables.sql`, `…000500_bushing_k_formula_mul.sql`
+   `…000100_field_test_db.sql`, `…000200_substation_bay_hierarchy.sql`, `…000300_auth_profile.sql`, `…000400_bushing_k_tables.sql`, `…000500_bushing_k_formula_mul.sql`, `…000600_criteria_overrides.sql`
    (hoặc dùng Supabase CLI: `supabase link` rồi `supabase db push`).
 3. Trong app: trang **CSDL** → nhập *Project URL* và *anon/publishable key* (Settings → API) → **Kết nối**.
    Muốn điền sẵn trên máy: chép `js/config.example.js` thành `js/config.js` rồi điền URL + key
@@ -206,6 +214,7 @@ npm test
 - `test/wa2293.test.js`: đọc file Haefely 2293 (dữ liệu tổng hợp đúng định dạng máy), ánh xạ nấc/pha/mΩ, quy đổi nhiệt độ,
   nén dạng sóng, phụ lục; có thư mục số liệu thật `../MBA/Rdc/Chup song` trên máy thì kiểm tra thêm.
 - `test/nameplate.test.js`: đọc nameplate từ chữ OCR (giá trị giả): đủ trường, ghép cột theo toạ độ, trường cần kiểm tra / thiếu.
+- `test/criteria.test.js`: bộ tiêu chí (mặc định = QĐ 1901, ngưỡng đơn vị dùng khi đánh giá và ghi vào kết luận), hạng mục dùng chung.
 - `test/appendix.test.js`: tóm tắt báo cáo SFRA, đánh số phụ lục.
 - `test/history.test.js`: khóa số liệu → hạng mục, hoàn tác tách theo hạng mục, xóa rồi hoàn tác.
 - `test/types.test.js`: đăng ký loại thiết bị, biên bản cũ không ghi loại → MBA, lưu biên bản qua kho dữ liệu.
@@ -229,12 +238,15 @@ lõi app dùng chung cho mọi loại. Biên bản lưu `state.type`; biên bả
 | `types/mba/nameplate.js` | Tách thông tin thiết bị từ chữ OCR của ảnh nameplate, độ tin cậy, trạng thái từng trường |
 | `appendix.js` | Danh sách và đánh số phụ lục, tóm tắt báo cáo SFRA |
 | `edit-history.js` | Lịch sử chỉnh sửa theo hạng mục: hoàn tác, xóa số liệu hạng mục |
+| `criteria.js` | Bộ tiêu chí: ngưỡng gốc QĐ 1901 và ngưỡng đơn vị đã chỉnh, câu ghi vào kết luận |
+| `test-items.js` | Hạng mục dùng chung cho mọi loại thiết bị: quy đổi về 20 °C / 75 °C, so sánh R một chiều, tỷ số biến, lệch pha, điện dung |
 | `oltc-wave.js` | Nén / giải nén dạng sóng điện trở động OLTC, nhận biết bất thường máy đo ghi nhận |
 | `types/mba/` | Mô-đun MBA: `schema.js` (biểu mẫu ↔ bảng/hàng/cột template), `evaluate.js`, `factory.js` (đọc file xuất xưởng), `to-rows.js` (dòng CSDL), `report.js` (ghi BBTN, phụ lục chụp sóng), `import-2293.js` (số liệu Haefely 2293 → biểu mẫu), `index.js` (đăng ký) |
 | **`js/data/`** — dữ liệu và tích hợp | |
 | `db.js` | Kho dữ liệu Supabase: kết nối, đăng nhập, ghi/đọc lần thí nghiệm, thiết bị, tài liệu, danh mục |
 | `docx.js` | Đọc/ghi template .docx, giữ nguyên định dạng; nối phụ lục (bảng, ảnh, nội dung file .docx khác) trong section riêng |
 | `ocr.js` | Nhận dạng chữ trên ảnh (Tesseract.js, nạp khi dùng), tiền xử lý ảnh |
+| `criteria-repo.js` | Nạp / lưu bộ tiêu chí đơn vị từ CSDL, bản sao offline |
 | `file-store.js` | Kho file đính kèm trong trình duyệt (IndexedDB) |
 | `bushing-k-repo.js` | Nạp bảng hệ số K sứ từ CSDL, bản sao offline |
 | `instruments/cpc100.js` | Bộ đọc file XML OMICRON CPC 100 (đặc tính từ hóa, điểm khuỷu) |
@@ -243,6 +255,7 @@ lõi app dùng chung cho mọi loại. Biên bản lưu `state.type`; biên bả
 | `app.js` | Lõi giao diện: vẽ biểu mẫu theo schema, đánh giá tức thời, lưu/mở, xuất .docx/.xlsx, chọn loại thiết bị |
 | `workflow.js` | Tiến trình, 4 bước của hạng mục, khung Tài liệu tham khảo |
 | `types/mba/ui.js`, `types/mba/cpc-dialog.js`, `types/mba/wa2293-dialog.js`, `types/mba/oltc-chart.js`, `types/mba/nameplate-dialog.js` | Giao diện riêng của MBA (chú thích hạng mục, cấu hình mục 0, sứ, CPC 100, Haefely 2293, đồ thị chụp sóng, đọc ảnh nameplate) |
+| `criteria-ui.js` | Trang Bộ tiêu chí đánh giá |
 | `appendix-ui.js` | Trang Phụ lục BBTN: liên kết SFRA Analyzer, nạp báo cáo SFRA |
 | `db-ui.js`, `catalog-ui.js`, `kconf-ui.js`, `auth-ui.js` | Trang CSDL & Xu hướng; danh mục Trạm – Ngăn – Thiết bị; hệ số K sứ; đăng nhập |
 | `supabase/migrations/` | Lược đồ CSDL, view xu hướng, RLS, Storage |

@@ -120,6 +120,25 @@
       BUSHING_AC_PCT: 85,  // Điều 38 — thử AC 1 phút = 85% giá trị xuất xưởng
       KHT_HEALTHY: 1.3,    // Điều 29 — MBA không ẩm: R60/R15 từ 1,3–2 (10–30 °C)
     },
+    // Mô tả từng ngưỡng cho trang Bộ tiêu chí (Admin chỉnh theo đơn vị; giá trị trong LIMITS luôn là giá trị gốc QĐ 1901)
+    LIMIT_INFO: {
+      NOLOAD_1PH_NEW: { sec: 'noload', label: 'Tổn hao không tải MBA 1 pha ≥110 kV — sau lắp đặt / sửa chữa, lệch tối đa so với giá trị khởi đầu', unit: '%', source: 'Điều 34' },
+      NOLOAD_OPER: { sec: 'noload', label: 'Tổn hao không tải — trong vận hành, lệch tối đa so với giá trị khởi đầu', unit: '%', source: 'Điều 34' },
+      IR_DROP: { sec: 'ir', label: 'R60 quy về 20 °C giảm tối đa so với giá trị khởi đầu / lần trước', unit: '%', source: 'Điều 9 mục 4' },
+      KHT_HEALTHY: { sec: 'ir', label: 'Hệ số hấp thụ R60/R15 tối thiểu (MBA không ẩm, 10–30 °C)', unit: '', source: 'Điều 29' },
+      CORE_NEW: { sec: 'ir', label: 'R cách điện lõi từ / gông từ tối thiểu — MBA mới, sau lắp đặt', unit: 'MΩ', source: 'Điều 9 Bảng 1 ghi chú a' },
+      CORE_OLD: { sec: 'ir', label: 'R cách điện lõi từ / gông từ tối thiểu — trong vận hành', unit: 'MΩ', source: 'Điều 9 Bảng 1 ghi chú a' },
+      BUSHING_C1_DEV: { sec: 'bushing', label: 'Điện dung C1 sứ thay đổi tối đa (khi NSX không quy định)', unit: '%', source: 'Điều 38 mục 3c' },
+      BUSHING_TGD_RISE_WARN: { sec: 'bushing', label: 'tgδ sứ tăng so với khởi đầu — từ mức này: cần xem xét', unit: '%', source: 'Điều 38 mục 3a' },
+      BUSHING_TGD_RISE_FAIL: { sec: 'bushing', label: 'tgδ sứ tăng so với khởi đầu — trên mức này: không đạt', unit: '%', source: 'Điều 38 mục 3a' },
+      BUSHING_AC_PCT: { sec: 'bushing', label: 'Điện áp thử AC 1 phút sứ so với giá trị xuất xưởng', unit: '%', source: 'Điều 38 mục 2' },
+      WINDING_TGD_OK: { sec: 'wtgd', label: 'tgδ cuộn dây quy về 20 °C tối đa', unit: '%', source: 'Điều 9 mục 5' },
+      WINDING_TGD_RISE: { sec: 'wtgd', label: 'tgδ cuộn dây (quy cùng nhiệt độ) tăng tối đa so với xuất xưởng', unit: '%', source: 'Điều 30' },
+      WINDING_C_DEV: { sec: 'wtgd', label: 'Điện dung cuộn dây thay đổi tối đa so với giá trị khởi đầu', unit: '%', source: 'Điều 9 mục 5' },
+      DCR_DEV: { sec: 'dcr', label: 'Điện trở một chiều — lệch tối đa so với NSX và giữa các pha', unit: '%', source: 'Điều 9 mục 7' },
+      RATIO_DEV: { sec: 'ratio', label: 'Tỷ số biến — lệch tối đa so với nameplate và giữa các pha', unit: '%', source: 'Điều 9 mục 6; Điều 33' },
+      BCT_IR_MIN: { sec: 'bct', label: 'R cách điện TI chân sứ tối thiểu (khi NSX không quy định)', unit: 'MΩ', source: 'Điều 39' },
+    },
     REF: {
       visual: 'Điều 9 Bảng 1',
       noload: 'Điều 34 mục 3',
