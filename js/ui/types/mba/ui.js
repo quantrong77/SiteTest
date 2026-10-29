@@ -137,6 +137,10 @@
   }
 
   // ---------------------------------------------------------------- mục 0
+  // Nút đọc ảnh nameplate ở đầu khối Thông tin thiết bị
+  const headTools = () => '<div class="np-tools"><button class="btn primary" data-act="loadNameplate">Nhập ảnh nameplate…</button>'
+    + '<span class="hint-text">Chụp thẳng, đủ sáng, không lóa. App đọc chữ ngay trên máy này và điền các ô; ô tô vàng cần kiểm tra, ô tô đỏ chưa đọc được — nhập tay.</span></div>';
+
   function generalFiles(A) {
     const HB = HitachiBushing;
     return `<div class="field"><label>Test report sứ Hitachi (quy đổi 20 °C)</label><div class="calcval file" title="${A.esc(HB.source || '')}">${A.esc(HB.source || 'chưa nạp')}${HB.source ? ` · ${HB.reports.length} sứ` : ''}</div></div>`
@@ -207,6 +211,7 @@
     },
     loadHitachi: () => $('#fileHitachi').click(),
     load2293: () => $('#file2293').click(),
+    loadNameplate: () => $('#fileNameplate').click(),
     delOltc(b, A) {
       const st = A.state, ph = b.dataset.ph;
       if (!st.att || !st.att.oltc || !confirm(`Xóa số liệu chụp sóng OLTC pha ${ph}? Các ô đã điền ở mục 7, 8, 9 giữ nguyên.`)) return;
@@ -237,6 +242,7 @@
   // Gọi một lần khi app khởi động, trước khi đánh giá biên bản đầu tiên
   function init(A) {
     loadHitachiDefault(A);
+    $('#fileNameplate').addEventListener('change', e => { const f = e.target.files[0]; e.target.value = ''; if (f) NameplateImport.open(f); });
     $('#file2293').addEventListener('change', e => { const fl = Array.from(e.target.files); e.target.value = ''; if (fl.length) Wa2293Import.open(fl).catch(err => A.toast('Lỗi đọc file 2293: ' + err.message, true)); });
     $('#fileCpc').addEventListener('change', e => { const fl = Array.from(e.target.files); e.target.value = ''; if (fl.length) CpcImport.open(fl, cpcTarget); });
     $('#fileHitachi').addEventListener('change', e => A.readFile(e.target, async f => {
@@ -248,5 +254,5 @@
   }
 
   window.TypeUI = window.TypeUI || {};
-  window.TypeUI.MBA = { intro, sectionTools, sectionFooter, reportAssets, field, rerenderOn, gridTools, rowLabel, generalFiles, generalConfig, factoryUnits, actions, init };
+  window.TypeUI.MBA = { intro, headTools, sectionTools, sectionFooter, reportAssets, field, rerenderOn, gridTools, rowLabel, generalFiles, generalConfig, factoryUnits, actions, init };
 })();

@@ -176,6 +176,34 @@
     ].join('');
   }
 
+  // ---------------------------------------------------------------- ô đọc tự động cần kiểm tra (vd từ ảnh nameplate)
+  // state.att.ocr[khóa] = { status: 'check' | 'missing', label, conf, why }; khóa cấu hình ghi "cfg.<đường dẫn>"
+  const flagOf = k => (state.att && state.att.ocr && state.att.ocr[k]) || null;
+  function flagHTML(k) {
+    const fl = flagOf(k);
+    if (!fl) return { cls: '', note: '' };
+    const note = fl.status === 'missing' ? 'Không đọc được trên ảnh — nhập tay' : `Đọc từ ảnh, độ tin cậy ${fl.conf} %${fl.why ? ` (${fl.why})` : ''} — kiểm tra lại`;
+    return { cls: ` flag-${fl.status}`, note: `<span class="note flag-note">${esc(note)}</span>` };
+  }
+  // Người dùng sửa ô → coi như đã kiểm tra, bỏ tô nền
+  function clearFlag(k, el) {
+    if (!flagOf(k)) return;
+    delete state.att.ocr[k];
+    const box = el && el.closest('.field');
+    if (box) { box.classList.remove('flag-check', 'flag-missing'); const n = box.querySelector('.flag-note'); if (n) n.remove(); }
+    const banner = $('[data-flagbanner]');
+    if (banner) banner.outerHTML = flagBannerHTML();
+  }
+  function flagBannerHTML() {
+    const fl = Object.entries((state.att && state.att.ocr) || {});
+    if (!fl.length) return '<div data-flagbanner hidden></div>';
+    const chk = fl.filter(([, x]) => x.status === 'check').map(([, x]) => x.label), miss = fl.filter(([, x]) => x.status === 'missing').map(([, x]) => x.label);
+    return `<div class="callout warn flag-banner" data-flagbanner><b>Thông tin đọc từ ảnh nameplate cần xem lại.</b>
+      ${chk.length ? `<div><span class="flag-key check"></span>Cần kiểm tra: ${chk.map(esc).join(', ')}</div>` : ''}
+      ${miss.length ? `<div><span class="flag-key missing"></span>Không đọc được, cần nhập tay: ${miss.map(esc).join(', ')}</div>` : ''}
+      <div class="row-actions"><button class="btn small" data-act="flagsDone">Đã kiểm tra hết — bỏ tô nền</button></div></div>`;
+  }
+
   // ---------------------------------------------------------------- render primitives
   function fieldHTML(f, opts = {}) {
     const k = f.k, val = state.v[k] ?? '';
@@ -191,7 +219,8 @@
       const list = f.serial && FX ? ' list="dlSerials"' : '';
       ctrl = `<input id="${id}" data-k="${k}" value="${esc(val)}" ${f.num ? 'inputmode="decimal"' : ''} placeholder="${esc(f.placeholder || '')}"${list}>`;
     }
-    return `<div class="field ${f.type === 'textarea' ? 'wide' : ''}"><label for="${id}">${esc(f.label)}</label>${ctrl}${opts.note ? `<span class="note">${opts.note}</span>` : ''}</div>`;
+    const fl = flagHTML(k);
+    return `<div class="field ${f.type === 'textarea' ? 'wide' : ''}${fl.cls}"><label for="${id}">${esc(f.label)}</label>${ctrl}${opts.note ? `<span class="note">${opts.note}</span>` : ''}${fl.note}</div>`;
   }
   function cfgField(path, label, opts = {}) {
     const val = path.split('.').reduce((o, p) => (o ? o[p] : ''), state.cfg) ?? '';
@@ -199,7 +228,8 @@
     let ctrl;
     if (opts.options) ctrl = `<select id="${id}" data-cfg="${path}">${opts.options.map(o => { const [v, t] = Array.isArray(o) ? o : [o, o]; return `<option value="${esc(v)}" ${String(v) === String(val) ? 'selected' : ''}>${esc(t)}</option>`; }).join('')}</select>`;
     else ctrl = `<input id="${id}" data-cfg="${path}" value="${esc(Array.isArray(val) ? val.join(', ') : val)}" ${opts.list ? 'list="dlSerials"' : ''} ${opts.num ? 'inputmode="decimal"' : ''}>`;
-    return `<div class="field ${opts.wide ? 'wide' : ''}"><label for="${id}">${esc(label)}</label>${ctrl}${opts.note ? `<span class="note">${opts.note}</span>` : ''}</div>`;
+    const fl = flagHTML('cfg.' + path);
+    return `<div class="field ${opts.wide ? 'wide' : ''}${fl.cls}"><label for="${id}">${esc(label)}</label>${ctrl}${opts.note ? `<span class="note">${opts.note}</span>` : ''}${fl.note}</div>`;
   }
 
   function gridHTML(g) {
@@ -281,7 +311,7 @@
   function renderGeneral() {
     const D = FX && FX.data, U = TU();
     let h = headHTML('0', 'Thông tin chung & cấu hình', 'General & settings');
-    h += `<h3>Thông tin thiết bị (điền vào đầu biên bản)</h3><div class="fields">${schema.head.map(f => fieldHTML(f)).join('')}</div>`;
+    h += `<h3>Thông tin thiết bị (điền vào đầu biên bản)</h3>${U.headTools ? U.headTools(App) : ''}${flagBannerHTML()}<div class="fields">${schema.head.map(f => fieldHTML(f)).join('')}</div>`;
     h += '<h3>Template & số liệu xuất xưởng</h3><div class="fields">';
     h += cfgField('template', 'Template BBTN dùng để xuất', { options: (Object.keys(EMB.templates).length ? Object.keys(EMB.templates).map(k => [k, EMB.templates[k].name]) : [['A', '(chưa có — nạp template .docx)']]).concat(lsGet(LS_TPL) ? [['custom', 'Tùy chỉnh: ' + JSON.parse(lsGet(LS_TPL)).name]] : []) });
     h += `<div class="field"><label>Nạp template khác (.docx cùng cấu trúc)</label><button class="btn" data-act="loadDocx">Chọn file template…</button></div>`;
@@ -450,6 +480,7 @@
     const el = e.target;
     if (el.dataset.k) {
       state.v[el.dataset.k] = el.value;
+      if (e.type === 'change') clearFlag(el.dataset.k, el);
       // mỗi lần sửa xong một ô (change) là một bước hoàn tác của hạng mục chứa ô đó
       if (e.type === 'change' && editStart && editStart.k === el.dataset.k) {
         EditHistory.record('Sửa ô', { v: Object.assign({}, state.v, { [el.dataset.k]: editStart.v }), att: null }, state, secOf());
@@ -470,6 +501,7 @@
       schema = T().buildSchema(state.cfg); recompute(); updateComputed(); persist();
     } else if (el.dataset.cfg && e.type === 'change') {
       setCfg(el.dataset.cfg, el.value);
+      clearFlag('cfg.' + el.dataset.cfg, el);
       if (/^(taps|bctCores)/.test(el.dataset.cfg)) {
         if (el.dataset.cfg === 'taps' && state.cfg.taps.length !== 19) toast(`Cần đúng 19 nhãn nấc (đang có ${state.cfg.taps.length}) — tạm dùng mặc định`, true);
         schema = T().buildSchema(state.cfg);
@@ -549,6 +581,7 @@
       else if (act === 'resetXlsx') { lsSet(LS_FAC, null); loadFactoryDefault(); applyFactoryDefaults(state.cfg); recompute(); renderMain(); toast('Đã dùng lại file xuất xưởng mặc định'); }
       else if (act === 'docx') await exportDocx();
       else if (act === 'xlsx') exportXlsx();
+      else if (act === 'flagsDone') { if (state.att) delete state.att.ocr; renderMain(); persist(); toast('Đã bỏ tô nền các ô đọc từ ảnh'); }
       else if (act === 'autoConclusion') {
         state.v['meta.conclusion'] = T().autoConclusion(res, schema, state);
         renderMain(); persist();

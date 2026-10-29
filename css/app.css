@@ -278,6 +278,31 @@ code { font-family: var(--mono); font-size: 12px; }
 .wa-opts select { border: 1px solid #c4cad0; border-radius: 6px; padding: 3px 6px; }
 
 /* ---------- chụp sóng OLTC (mục 9) ---------- */
+/* ---------- ô đọc tự động cần kiểm tra (ảnh nameplate) ---------- */
+.field.flag-check input, .field.flag-check select, .field.flag-check textarea { background: #fff4cc; border-color: #e0b100; }
+.field.flag-missing input, .field.flag-missing select, .field.flag-missing textarea { background: #fde6e3; border-color: var(--fail); }
+.field .flag-note { color: var(--warn); }
+.field.flag-missing .flag-note { color: var(--fail); }
+.flag-banner > div { margin: 3px 0; }
+.flag-key { display: inline-block; width: 12px; height: 12px; border-radius: 3px; margin-right: 6px; vertical-align: -1px; border: 1px solid #e0b100; background: #fff4cc; }
+.flag-key.missing { border-color: var(--fail); background: #fde6e3; }
+.np-tools { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; margin: 0 0 10px; }
+.np-tools .hint-text { margin: 0; max-width: 72ch; }
+.auth-dialog.np-dialog { width: min(1180px, calc(100vw - 32px)); }
+.np-wait { display: grid; grid-template-columns: minmax(0, 320px) 1fr; gap: 16px; align-items: start; }
+.np-wait img, .np-img img { width: 100%; height: auto; border: 1px solid var(--line); border-radius: var(--radius); }
+.np-wait progress { width: 100%; }
+.np-grid { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 3fr); gap: 16px; align-items: start; }
+.np-img { margin: 0; position: sticky; top: 0; }
+.np-img figcaption { margin-top: 6px; }
+.np-tbl { overflow-x: auto; }
+.np-val { width: 100%; min-width: 180px; border: 1px solid #c4cad0; border-radius: 6px; padding: 5px 7px; font: inherit; }
+tr.np-check .np-val { background: #fff4cc; border-color: #e0b100; }
+tr.np-missing .np-val { background: #fde6e3; border-color: var(--fail); }
+.np-weak { color: var(--fail) !important; }
+.np-raw { margin: 10px 0; font-size: 12.5px; }
+.np-raw pre { white-space: pre-wrap; max-height: 220px; overflow: auto; background: #f4f6f7; padding: 8px; border-radius: 6px; }
+@media (max-width: 760px) { .np-grid, .np-wait { grid-template-columns: 1fr; } .np-img { position: static; } }
 .appx-card { border: 1px solid var(--line); border-radius: var(--radius); padding: 4px 16px 12px; margin: 12px 0 16px; }
 .appx-head { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
 .appx-head h3 { margin: 10px 0 6px; }

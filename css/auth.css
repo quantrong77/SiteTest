@@ -57,10 +57,12 @@ button.acct.ghost { cursor: pointer; }
 .toast-item[data-type="success"] { border-left-color: #2fbf71; }
 .toast-item[data-type="error"] { border-left-color: #ff6b5e; }
 .toast-item[data-type="loading"] { border-left-color: #3d8fe6; }
+.toast-item[data-type="warn"] { border-left-color: #f0b429; }
 .ti-icon { flex: none; width: 20px; height: 20px; display: grid; place-items: center; border-radius: 50%; }
 .ti-icon svg { width: 16px; height: 16px; }
 .toast-item[data-type="success"] .ti-icon { background: #2fbf71; color: #062614; }
 .toast-item[data-type="error"] .ti-icon { background: #ff6b5e; color: #2d0703; }
+.toast-item[data-type="warn"] .ti-icon { background: #f0b429; color: #2b1d00; }
 .toast-item[data-type="info"] .ti-icon { background: #8fa3b8; color: #101820; }
 .toast-item[data-type="loading"] .ti-icon { color: #8fc3ff; }
 .ti-body { flex: 1; min-width: 0; }

@@ -32,6 +32,20 @@ Dữ liệu đang nhập được tự lưu trong trình duyệt; dùng **Lưu .
 3. **Σ Tổng hợp**: xem toàn bộ kết quả so sánh, chỉnh đánh giá ghi vào BBTN nếu cần, điền kết luận.
 4. **Xuất BBTN .docx** (điền vào template) và **Xuất so sánh .xlsx** (bảng so sánh chi tiết để lưu hồ sơ).
 
+## Đọc ảnh nameplate (mục 0)
+
+- Nút **Nhập ảnh nameplate…** ở đầu khối *Thông tin thiết bị*. Chữ được nhận dạng ngay trong trình duyệt bằng
+  Tesseract.js (ảnh không gửi đi đâu); lần đầu tải thư viện và dữ liệu tiếng Anh (~10 MB) từ CDN, sau đó máy lưu sẵn.
+- Ảnh được phóng to, chuyển xám, lọc trung vị (bỏ hạt nhiễu, vân xước kim loại) trước khi đọc. Bảng nhãn – giá trị bị
+  OCR tách cột được ghép lại theo toạ độ trên ảnh, có bù độ nghiêng.
+- Trường đọc: hãng, kiểu loại, số chế tạo, năm, công suất (cuộn HV), điện áp và dòng định mức (ghép HV/MV/LV đúng cách
+  ghi trong BBTN), tổ đấu dây, kiểu OLTC (mục 9), I0 nameplate (cấu hình mục 0).
+- Hộp thoại cho xem ảnh, sửa giá trị, chọn ô cần điền, xoay ảnh đọc lại. Sau khi điền: ô **tô vàng** = đọc được nhưng chưa
+  chắc chắn (độ tin cậy < 80 %, đã sửa ký tự O→0, bỏ khoảng trắng, ghép theo thứ tự cuộn, số giá trị giữa các cuộn không
+  khớp…), ô **tô đỏ** = không đọc được, cần nhập tay; có băng nhắc ở đầu khối. Sửa ô thì ô đó hết tô nền; hoặc bấm
+  *Đã kiểm tra hết*.
+- OCR trên ảnh chụp thật có thể sai (lóa, chữ khắc mờ, góc chụp): luôn đối chiếu với nameplate.
+
 ## Phụ lục BBTN (chụp sóng OLTC, SFRA)
 
 Trang **Phụ lục BBTN** (thanh điều hướng, nhóm Kết quả). Khi xuất BBTN .docx, mỗi phụ lục được nối thành một section
@@ -191,6 +205,7 @@ npm test
   pha, nấc, giá trị quy đổi mà trang Xu hướng dùng để nối các lần đo.
 - `test/wa2293.test.js`: đọc file Haefely 2293 (dữ liệu tổng hợp đúng định dạng máy), ánh xạ nấc/pha/mΩ, quy đổi nhiệt độ,
   nén dạng sóng, phụ lục; có thư mục số liệu thật `../MBA/Rdc/Chup song` trên máy thì kiểm tra thêm.
+- `test/nameplate.test.js`: đọc nameplate từ chữ OCR (giá trị giả): đủ trường, ghép cột theo toạ độ, trường cần kiểm tra / thiếu.
 - `test/appendix.test.js`: tóm tắt báo cáo SFRA, đánh số phụ lục.
 - `test/history.test.js`: khóa số liệu → hạng mục, hoàn tác tách theo hạng mục, xóa rồi hoàn tác.
 - `test/types.test.js`: đăng ký loại thiết bị, biên bản cũ không ghi loại → MBA, lưu biên bản qua kho dữ liệu.
@@ -211,6 +226,7 @@ lõi app dùng chung cho mọi loại. Biên bản lưu `state.type`; biên bả
 | `qd1901.js`, `bushing-k.js`, `bushing-hitachi.js` | Bảng tra, quy đổi, ngưỡng QĐ 1901; hệ số K sứ; quy đổi sứ RIP Hitachi |
 | `equipment-types.js` | Đăng ký và tra loại thiết bị |
 | `report.js`, `records.js` | Đọc giá trị mặc định từ template; lưu biên bản / Test report qua kho dữ liệu (`Records.setRepo`) |
+| `types/mba/nameplate.js` | Tách thông tin thiết bị từ chữ OCR của ảnh nameplate, độ tin cậy, trạng thái từng trường |
 | `appendix.js` | Danh sách và đánh số phụ lục, tóm tắt báo cáo SFRA |
 | `edit-history.js` | Lịch sử chỉnh sửa theo hạng mục: hoàn tác, xóa số liệu hạng mục |
 | `oltc-wave.js` | Nén / giải nén dạng sóng điện trở động OLTC, nhận biết bất thường máy đo ghi nhận |
@@ -218,6 +234,7 @@ lõi app dùng chung cho mọi loại. Biên bản lưu `state.type`; biên bả
 | **`js/data/`** — dữ liệu và tích hợp | |
 | `db.js` | Kho dữ liệu Supabase: kết nối, đăng nhập, ghi/đọc lần thí nghiệm, thiết bị, tài liệu, danh mục |
 | `docx.js` | Đọc/ghi template .docx, giữ nguyên định dạng; nối phụ lục (bảng, ảnh, nội dung file .docx khác) trong section riêng |
+| `ocr.js` | Nhận dạng chữ trên ảnh (Tesseract.js, nạp khi dùng), tiền xử lý ảnh |
 | `file-store.js` | Kho file đính kèm trong trình duyệt (IndexedDB) |
 | `bushing-k-repo.js` | Nạp bảng hệ số K sứ từ CSDL, bản sao offline |
 | `instruments/cpc100.js` | Bộ đọc file XML OMICRON CPC 100 (đặc tính từ hóa, điểm khuỷu) |
@@ -225,7 +242,7 @@ lõi app dùng chung cho mọi loại. Biên bản lưu `state.type`; biên bả
 | **`js/ui/`** — giao diện | |
 | `app.js` | Lõi giao diện: vẽ biểu mẫu theo schema, đánh giá tức thời, lưu/mở, xuất .docx/.xlsx, chọn loại thiết bị |
 | `workflow.js` | Tiến trình, 4 bước của hạng mục, khung Tài liệu tham khảo |
-| `types/mba/ui.js`, `types/mba/cpc-dialog.js`, `types/mba/wa2293-dialog.js`, `types/mba/oltc-chart.js` | Giao diện riêng của MBA (chú thích hạng mục, cấu hình mục 0, sứ, CPC 100, Haefely 2293, đồ thị chụp sóng) |
+| `types/mba/ui.js`, `types/mba/cpc-dialog.js`, `types/mba/wa2293-dialog.js`, `types/mba/oltc-chart.js`, `types/mba/nameplate-dialog.js` | Giao diện riêng của MBA (chú thích hạng mục, cấu hình mục 0, sứ, CPC 100, Haefely 2293, đồ thị chụp sóng, đọc ảnh nameplate) |
 | `appendix-ui.js` | Trang Phụ lục BBTN: liên kết SFRA Analyzer, nạp báo cáo SFRA |
 | `db-ui.js`, `catalog-ui.js`, `kconf-ui.js`, `auth-ui.js` | Trang CSDL & Xu hướng; danh mục Trạm – Ngăn – Thiết bị; hệ số K sứ; đăng nhập |
 | `supabase/migrations/` | Lược đồ CSDL, view xu hướng, RLS, Storage |

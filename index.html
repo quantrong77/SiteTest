@@ -60,6 +60,7 @@
   <input type="file" id="fileHitachi" accept=".xlsx,.xlsm" hidden>
   <input type="file" id="fileCpc" accept=".xml" multiple hidden>
   <input type="file" id="fileFra" accept=".docx" hidden>
+  <input type="file" id="fileNameplate" accept="image/*" hidden>
   <input type="file" id="file2293" accept=".csv,.bin" multiple hidden>
 
   <script src="js/vendor/jszip.min.js"></script>
@@ -84,10 +85,12 @@
   <script src="js/domain/types/mba/to-rows.js"></script>
   <script src="js/domain/types/mba/report.js"></script>
   <script src="js/domain/types/mba/import-2293.js"></script>
+  <script src="js/domain/types/mba/nameplate.js"></script>
   <script src="js/domain/types/mba/index.js"></script>
   <!-- Dữ liệu và tích hợp: .docx, Supabase, bảng hệ số K từ CSDL, bộ đọc máy đo -->
   <script src="js/data/docx.js"></script>
   <script src="js/data/file-store.js"></script>
+  <script src="js/data/ocr.js"></script>
   <script src="js/data/db.js"></script>
   <script src="js/data/bushing-k-repo.js"></script>
   <script src="js/data/instruments/cpc100.js"></script>
@@ -102,6 +105,7 @@
   <script src="js/ui/types/mba/cpc-dialog.js"></script>
   <script src="js/ui/types/mba/oltc-chart.js"></script>
   <script src="js/ui/types/mba/wa2293-dialog.js"></script>
+  <script src="js/ui/types/mba/nameplate-dialog.js"></script>
   <script src="js/ui/types/mba/ui.js"></script>
   <script src="js/ui/app.js"></script>
 </body>
