@@ -153,8 +153,14 @@
   // Sơ đồ đo tgδ (cột "Sơ đồ đo" mục 6)
   const TGD_MODES = ['UST', 'GAR', 'GND'];
 
+  // Cách đo R một chiều cuộn cao áp: A-N (cuộn nối tiếp + cuộn chung) hoặc A-Am (chỉ cuộn nối tiếp)
+  const HV_MEAS = [['SER+COM', 'A-N, B-N, C-N (nối tiếp + chung)'], ['SER', 'A-Am, B-Bm, C-Cm (nối tiếp)']];
+
   function build(cfg) {
     const taps = (cfg.taps && cfg.taps.length === 19) ? cfg.taps : DEFAULT_TAPS;
+    // Đầu đo theo pha cho bảng 7.1: app hiện "A-N" / "A-Am"; template ghi liền "AN" / "AAm"
+    const hvSer = cfg.hvMeas === 'SER';
+    const hvPairs = ['A', 'B', 'C'].map(ph => ({ ph, app: hvSer ? `${ph}-${ph}m` : `${ph}-N`, doc: hvSer ? `${ph}${ph}m` : `${ph}N` }));
     // Cách quy đổi tgδ sứ: HD Hitachi, bảng QĐ 1901, bảng theo hãng (admin cấu hình), nhập K
     const KMODES = typeof BushingK !== 'undefined' ? BushingK.modeOptions() : ['Hitachi Energy (RIP) – theo HD hãng', 'Nhập hệ số K'];
     // Đề mục cột người dùng sửa (cfg.hdr), đối tượng đo mục 6 sửa/thêm dòng (cfg.wtgdLabels, cfg.wtgdRows)
@@ -293,12 +299,19 @@
         id: 'dcr', no: 7, title: 'Điện trở một chiều các cuộn dây', en: 'Winding resistance (mΩ)',
         groups: [
           {
-            id: 'hv', title: '7.1 Cuộn cao áp — đo A-N / B-N / C-N (mΩ)',
-            fields: [{ k: 'dcr.hv.t', label: 'Nhiệt độ (°C)', num: true, doc: { before: 17, re: /t\s*=(?<v>\s*)oC/ } }],
+            id: 'hv', title: `7.1 Cuộn cao áp — đo ${hvPairs.map(p => p.app).join(' / ')} (mΩ)`,
+            fields: [
+              // Cách đo cuộn cao áp (cấu hình chung với mục 0): A-N (nối tiếp + chung) hoặc A-Am (chỉ cuộn nối tiếp)
+              { k: 'cfg.hvMeas', cfg: 'hvMeas', label: 'Phép đo cuộn cao áp', options: HV_MEAS },
+              { k: 'dcr.hv.t', label: 'Nhiệt độ (°C)', num: true, doc: { before: 17, re: /t\s*=(?<v>\s*)oC/ } },
+            ],
             grids: [{
               id: 'dcr.hv', title: 'Theo nấc', tables: [17, 18], rows: tapRows(taps),
-              cols: [col('A', 'AN', 1, { phase: true }), col('dA', 'ΔR_A vs XX (%)', 2, { calc: true }), col('B', 'BN', 3, { phase: true }), col('dB', 'ΔR_B vs XX (%)', 4, { calc: true }),
-                col('C', 'CN', 5, { phase: true }), col('dC', 'ΔR_C vs XX (%)', 6, { calc: true }), col('dP', 'ΔR(A,B,C) (%)', 7, { calc: true })],
+              // đề mục cột theo cách đo; docLabel: chữ ghi vào hàng tiêu đề bảng của template (mẫu ghi "AN", "ΔRAN(%)")
+              cols: hvPairs.flatMap((p, i) => [
+                col(p.ph, p.app, 1 + i * 2, { phase: true, docLabel: hvSer ? p.doc : undefined }),
+                col('d' + p.ph, `ΔR ${p.app} vs XX (%)`, 2 + i * 2, { calc: true, docLabel: hvSer ? `ΔR${p.doc}(%)` : undefined }),
+              ]).concat([col('dP', 'ΔR(A,B,C) (%)', 7, { calc: true })]),
             }],
           },
           {
@@ -393,5 +406,5 @@
   // Duyệt biểu mẫu: hàm chung ở js/domain/common.js (trường đầu/cuối biên bản lấy từ schema.head/tail)
   const { eachGrid, eachField } = Common;
 
-  window.Schema = { build, eachGrid, eachField, META, CLOSING, SUMMARY_ROWS, DEFAULT_TAPS, BCT_SIDES, BCT_TABLES };
+  window.Schema = { HV_MEAS, build, eachGrid, eachField, META, CLOSING, SUMMARY_ROWS, DEFAULT_TAPS, BCT_SIDES, BCT_TABLES };
 })();

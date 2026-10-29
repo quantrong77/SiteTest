@@ -363,6 +363,8 @@
   }
   function sectionField(f) {
     const custom = TU().field ? TU().field(f, App) : null;
+    // ô cấu hình đặt ngay trong hạng mục (vd 7.1 cách đo cuộn cao áp): ghi vào state.cfg, đồng bộ với mục 0
+    if (!custom && f.cfg) return cfgField(f.cfg, f.label, { options: f.options });
     return custom || fieldHTML(f);
   }
 
@@ -510,12 +512,12 @@
     } else if (el.dataset.cfg && e.type === 'change') {
       setCfg(el.dataset.cfg, el.value);
       clearFlag('cfg.' + el.dataset.cfg, el);
-      if (/^(taps|bctCores)/.test(el.dataset.cfg)) {
+      if (/^(taps|bctCores|hvMeas)/.test(el.dataset.cfg)) {
         if (el.dataset.cfg === 'taps' && state.cfg.taps.length !== 19) toast(`Cần đúng 19 nhãn nấc (đang có ${state.cfg.taps.length}) — tạm dùng mặc định`, true);
         schema = T().buildSchema(state.cfg);
       }
       recompute();
-      if (/^(template|bctCores|taps|oltcCharts)/.test(el.dataset.cfg)) renderMain(); else updateComputed();
+      if (/^(template|bctCores|taps|oltcCharts|hvMeas)/.test(el.dataset.cfg)) renderMain(); else updateComputed();
       persist();
     } else if (el.dataset.sumtick) {
       state.sum.tick[el.dataset.sumtick] = el.checked; persist();

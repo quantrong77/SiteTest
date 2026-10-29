@@ -30,7 +30,7 @@
           <div class="row-actions"><button class="btn small" data-nav="kconf">Xem bảng hệ số K</button><button class="btn small" data-act="fillBushingSN">Điền S/N sứ theo hồ sơ xuất xưởng (cần đối chiếu thực tế)</button></div></div>`;
       }
       case 'wtgd': return `<div class="callout">${mainLine}. Quy đổi về 20 °C theo <b>Bảng 7 QĐ 1901</b>: tgδ20 = tgδ(t) ÷ K2 (đo dưới 20 °C thì nhân K2); K2 tự tra theo độ chênh nhiệt độ. Tiêu chuẩn: <b>tgδ@20 °C ≤ 1 %</b>. Số liệu xuất xưởng (đo ${fm(FX.insT(s), 1)} °C) chỉ để tham khảo xu hướng.</div>`;
-      case 'dcr': return `<div class="callout">So sánh theo số chế tạo của từng cột pha (${ps}). Xuất xưởng cho R quy đổi ${D.dcr.refT} °C: cuộn SER theo nấc, COM, LV. Phép đo A–N hiện trường được so với <b>${state.cfg.hvMeas === 'SER' ? 'SER' : 'SER + COM'}</b>; cuộn hạ áp: ${state.cfg.lvMode === 'delta' ? 'tam giác đã đấu (×2/3)' : 'từng máy (a–x)'} — đổi ở mục 0. Nấc 9a/9b/9c ứng với nấc 9A xuất xưởng.</div>`;
+      case 'dcr': return `<div class="callout">So sánh theo số chế tạo của từng cột pha (${ps}). Xuất xưởng cho R quy đổi ${D.dcr.refT} °C: cuộn SER theo nấc, COM, LV. Cuộn cao áp đo <b>${state.cfg.hvMeas === 'SER' ? 'A-Am, B-Bm, C-Cm — so với cuộn SER' : 'A-N, B-N, C-N — so với SER + COM'}</b> (chọn ở ô “Phép đo cuộn cao áp” mục 7.1); cuộn hạ áp: ${state.cfg.lvMode === 'delta' ? 'tam giác đã đấu (×2/3)' : 'từng máy (a–x)'} — đổi ở mục 0. Nấc 9a/9b/9c ứng với nấc 9A xuất xưởng.</div>`;
       case 'ratio': return `<div class="callout">Tỷ số định mức lấy từ bảng xuất xưởng theo nấc (HV:MV), HV:LV = (U<sub>HV</sub>/√3)/U<sub>LV</sub>${state.cfg.lvMode === 'delta' ? ' × √3 (tổ đã đấu tam giác)' : ''}. ΔK tự tính nếu để trống; có thể nhập ΔK đọc từ máy đo. ${ps}.</div>`;
       case 'oltc': return `<div class="callout">OLTC theo hồ sơ xuất xưởng: <b>${esc(D.specs.oltc || '—')}</b>.</div>`;
       case 'moisture': return `<div class="callout">${mainLine}: độ ẩm cách điện cứng theo DFR xuất xưởng = <b>${fm(FX.moisture(s), 2)} %</b>. Phân loại theo Điều 28.</div>`;
@@ -188,7 +188,7 @@
     ['A', 'B', 'C'].forEach(p => { h += cfgField(`ps.${p}`, `Cột pha ${p} (a)`, serialOpts.length ? { options: [['', '—']].concat(serialOpts) } : {}); });
     h += '</div><h3>Thông số tính toán & quy ước so sánh</h3><div class="fields">';
     h += cfgField('taps', 'Nhãn 19 nấc (thứ tự hàng 1..19 của template)', { wide: true, note: 'Ngăn cách bằng dấu phẩy. Nhãn 9a/9b/9c được so với nấc 9A của xuất xưởng.' });
-    h += cfgField('hvMeas', 'Phép đo R một chiều cao áp (AN) so với', { options: [['SER+COM', 'Cuộn nối tiếp + cuộn chung (A–N)'], ['SER', 'Chỉ cuộn nối tiếp (A–Am)']] });
+    h += cfgField('hvMeas', 'Phép đo R một chiều cuộn cao áp (mục 7.1)', { options: Schema.HV_MEAS });
     h += cfgField('lvMode', 'Cuộn hạ áp khi đo', { options: [['unit', 'Từng máy 1 pha (chưa đấu tam giác)'], ['delta', 'Tổ 3 pha đã đấu tam giác']] });
     h += cfgField('iLV', 'Dòng định mức cuộn hạ áp I_LV (A)', { num: true });
     h += cfgField('sLV', 'Công suất cuộn hạ áp S_LV (MVA)', { num: true });
