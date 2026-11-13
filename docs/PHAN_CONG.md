@@ -1,0 +1,62 @@
+# Phân công Codex – Claude Code – Gemini
+
+Quy tắc chung: [AGENTS.md](../AGENTS.md). File này là bảng việc; agent nhận việc thì ghi tên, nhánh và trạng thái ngay tại đây.
+
+## Cách chia việc
+
+- **Claude Code — phần lõi và nghiệp vụ.** Kiến trúc lõi, thêm loại thiết bị, đọc template/biên bản của đơn vị, diễn giải QĐ 1901, việc phải sửa nhiều lớp cùng lúc. Review PR của Codex.
+- **Codex — việc có đặc tả rõ, ít chạm lõi:** hàm thuần có test riêng, hạ tầng (migration, Storage), test tự động. Review PR của Claude Code khi chủ dự án yêu cầu.
+- **Gemini — tính năng giao diện độc lập:** trang, hộp thoại, hiển thị dữ liệu đã có; không sửa lớp nghiệp vụ ngoài file mới của việc được giao. PR do Claude Code review.
+- **Chủ dự án:** giao việc (dùng mẫu ở cuối file), cung cấp file nội bộ (template, biên bản, file đo — không đưa lên Git), chạy migration trên Supabase, duyệt và gộp PR.
+
+Thứ tự gộp khi hai PR cùng sửa file dùng chung: PR mở trước gộp trước, PR sau rebase rồi chạy lại `npm test`.
+
+## Bảng việc
+
+Trạng thái: `Chưa nhận` · `Đang làm (agent, nhánh)` · `Chờ review (#PR)` · `Đã gộp` · `Chờ chủ dự án` (thiếu file / quyết định).
+
+| # | Việc | Giao cho | Vùng file được sửa | Điều kiện | Trạng thái |
+|---|---|---|---|---|---|
+| X1 | **Nhập số liệu bằng giọng nói**: chọn ô, bấm micro, đọc số tiếng Việt ("một trăm hai mươi lăm phẩy ba" → 125,3); chế độ đọc liên tục sang ô kế; lệnh "lùi", "xóa", "dừng" | Codex | `js/domain/vn-number.js` (mới), `js/ui/voice-input.js` (mới), `test/vn-number.test.js` (mới); thêm nhỏ: `index.html`, `test/harness.js`, `css/app.css`, `js/ui/app.js` (gắn nút) | Không | Chưa nhận |
+| X2 | **Xu hướng ngay tại ô nhập**: ô có số liệu các lần trước hiện biểu đồ nhỏ, % thay đổi so với xuất xưởng và lần trước; tô vàng khi lệch xa | Gemini | `js/domain/trend-inline.js` (mới, hàm thuần), `js/ui/trend-inline-ui.js` (mới), test mới; thêm nhỏ: `js/data/db.js` (hàm đọc lịch sử thiết bị), `js/ui/app.js`, `index.html`, `css/app.css` | Đã chạy migration 000100–000600 | Chưa nhận |
+| X3 | **Thư viện tiêu chuẩn**: bucket Storage riêng tư + bảng danh mục (số hiệu, phiên bản, loại thiết bị, file, tóm tắt .md); trang quản lý (Admin tải lên); khung "Tài liệu tham khảo" của từng hạng mục hiện tiêu chuẩn liên quan | Codex | migration mới, `js/data/db.js` (thêm hàm), `js/ui/standards-ui.js` (mới), `js/ui/workflow.js` (khung tham khảo), `index.html`, `css/app.css` | Danh mục mẫu: `TieuChuan/Danh_muc_tieu_chuan_IEC.xlsx` (ngoài repo). **Không** đưa file tiêu chuẩn lên Git | Chưa nhận |
+| X4 | **Test giao diện tự động** (Playwright) cho các luồng chính: nhập file 2293, xóa/hoàn tác, xuất .docx, bộ tiêu chí | Codex | `test/e2e/` (mới), workflow CI | **Chờ chủ dự án** đồng ý thêm gói npm `@playwright/test` | Chờ chủ dự án |
+| X5 | **Bộ đọc file máy đo cấu hình được**: Admin khai báo ánh xạ cột CSV/Excel của máy mới (DV Power, Megger…) vào hạng mục, không phải viết mã | Codex | `js/data/instruments/generic-csv.js` (mới), `js/ui/instrument-map-ui.js` (mới), migration mới | Sau X1–X3; cần 1–2 file mẫu của máy mới | Chưa nhận |
+| C1 | **Nhập BBTN cũ** (.docx, sau đó PDF có chữ) vào CSDL làm chuỗi xu hướng; màn soát; nhập cả thư mục | Claude Code | `js/data/docx.js` (đọc), `js/domain/types/mba/import-report.js` (mới), `js/ui/import-report-ui.js` (mới), migration mới | **Chờ chủ dự án:** 2–3 BBTN MBA đã ban hành, 1 thư mục BBTN của một máy | Chờ chủ dự án |
+| C2 | **MBA 3 pha và kháng điện** (thuộc tính cấu tạo 1 pha / 3 pha; mô-đun kháng) | Claude Code | `js/domain/types/mba/`, `js/domain/types/kh/` (mới), `js/ui/types/` | **Chờ chủ dự án:** template BBTN MBA 3 pha, kháng 1 pha / 3 pha, Test report mẫu | Chờ chủ dự án |
+| C3 | **TI, TU** (loại thiết bị thứ hai, kiểm chứng lõi) | Claude Code | `js/domain/types/ti/`, `js/domain/types/tu/` (mới), `js/ui/types/` | **Chờ chủ dự án:** template BBTN TI, TU | Chờ chủ dự án |
+| C4 | **Nhắc chu kỳ thí nghiệm định kỳ** theo QĐ 1901 (thiết bị sắp đến hạn, lập sẵn biên bản nháp) | Claude Code | `js/domain/periodic.js` (mới), `js/ui/db-ui.js` | Sau C1 (cần lịch sử thí nghiệm) | Chưa nhận |
+| C5 | **Review PR của Codex và Gemini** | Claude Code | — | Khi có PR | Thường xuyên |
+
+## Mẫu giao việc cho Codex / Gemini
+
+Dán vào Codex hoặc Gemini (Agent mode), thay `<X…>` bằng số việc và `<agent>` bằng `codex` hoặc `gemini`:
+
+```
+Đọc AGENTS.md và docs/PHAN_CONG.md. Nhận việc <X1> trong bảng phân công:
+1. Tạo nhánh <agent>/<ten-viec> từ main mới nhất; ghi "Đang làm (<agent>, <agent>/<ten-viec>)" vào dòng <X1> trong docs/PHAN_CONG.md.
+2. Chỉ sửa các file trong "Vùng file được sửa" của việc này; cần sửa file khác thì sửa nhỏ, chỉ thêm, và ghi lý do trong PR.
+3. Viết test cho phần hàm thuần; npm test phải xanh; test ảnh chụp (test/snapshots) không được đổi.
+4. Không commit số liệu thật, js/config.js, js/embedded.js, file .docx/.xlsx/.pdf.
+5. Mở PR vào main, mô tả bằng tiếng Việt: làm gì, đã thử gì, chưa thử gì, migration cần chạy (nếu có).
+```
+
+Gợi ý đặc tả thêm cho từng việc (dán kèm khi giao):
+
+- **X1 – giọng nói:**
+  - Dùng Web Speech API (`webkitSpeechRecognition`, `lang = 'vi-VN'`); trình duyệt không hỗ trợ thì ẩn nút.
+  - Hàm thuần `VnNumber.parse(text)` trong lớp nghiệp vụ hiểu:
+    - "phẩy" / "chấm" là dấu thập phân;
+    - "nghìn / ngàn", "triệu", "lẻ / linh", "mươi / mười", "mốt", "tư", "lăm / nhăm";
+    - số âm "âm …";
+    - chữ số đọc liền ("không phẩy không bốn").
+  - Chế độ liên tục đi theo thứ tự hàng → cột như phím Enter đang làm.
+  - Ghi vào ô bằng đúng đường nhập tay (sự kiện `input` + `change`), để hoàn tác theo hạng mục và tô nền đọc ảnh vẫn hoạt động.
+- **X2 – xu hướng tại ô:**
+  - Chuỗi so sánh theo cùng thiết bị, hạng mục, đại lượng, sơ đồ, pha, nấc; dùng **giá trị đã quy đổi** (20 °C, 75 °C) như trang Xu hướng (`v_trend_delta`).
+  - Tải một lần khi mở biên bản đã gắn thiết bị, lưu tạm để dùng khi mất mạng.
+  - Không đổi kết quả đánh giá: chỉ hiển thị.
+- **X3 – thư viện tiêu chuẩn:**
+  - Bucket riêng tư.
+  - RLS: người đã đăng nhập (vai trò khác `none`) xem; admin tải lên, sửa, xóa.
+  - Khung tham khảo: hiện QĐ 1901 (như hiện nay) cộng các tiêu chuẩn gắn với hạng mục; mở file qua URL ký tạm thời.
