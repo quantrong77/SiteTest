@@ -197,9 +197,9 @@ Phân quyền (RLS): viewer xem; editor nhập/sửa và xóa bản nháp của 
 - Trong app: mục 0 → **Nạp template khác** / **Nạp file xuất xưởng khác** (file mới phải cùng cấu trúc).
 - Hoặc nhúng lại vào bản phân phối: `python tools/build_embedded.py`.
 
-## Phát triển với agent (Codex, Claude Code, Gemini)
+## Phát triển với agent (Codex, Claude Code)
 
-Quy tắc chung cho agent lập trình: [AGENTS.md](AGENTS.md) (Claude Code đọc qua CLAUDE.md, Gemini qua GEMINI.md). Bảng phân công việc giữa Codex, Claude Code và Gemini, mẫu giao việc:
+Quy tắc chung cho agent lập trình: [AGENTS.md](AGENTS.md) (Claude Code đọc qua CLAUDE.md). Bảng phân công việc giữa Codex và Claude Code, mẫu giao việc:
 [docs/PHAN_CONG.md](docs/PHAN_CONG.md).
 
 ## Kiểm tra tự động

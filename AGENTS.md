@@ -1,6 +1,6 @@
-# Hướng dẫn cho agent lập trình (Codex, Claude Code, Gemini)
+# Hướng dẫn cho agent lập trình (Codex, Claude Code)
 
-Repo này do **ba agent cùng làm**: Codex, Claude Code và Gemini (Gemini Code Assist / Gemini CLI). Người dùng (chủ dự án) giao việc, duyệt và quyết định gộp.
+Repo này do **hai agent cùng làm**: Codex và Claude Code. Người dùng (chủ dự án) giao việc, duyệt và quyết định gộp.
 Đọc hết file này trước khi sửa mã. Bảng phân công và trạng thái từng việc: [docs/PHAN_CONG.md](docs/PHAN_CONG.md).
 
 ## Dự án
@@ -63,12 +63,12 @@ Repo là **công khai**.
 
 ## Phối hợp giữa các agent
 
-- **Mỗi việc một nhánh, một PR.** Nhánh `codex/<viec>`, `claude/<viec>` hoặc `gemini/<viec>`, tách từ `main` mới nhất. Không push thẳng `main`.
+- **Mỗi việc một nhánh, một PR.** Nhánh `codex/<viec>` hoặc `claude/<viec>`, tách từ `main` mới nhất. Không push thẳng `main`.
 - Trước khi bắt đầu, **ghi tên mình và nhánh vào dòng việc** trong `docs/PHAN_CONG.md`. Việc đang có người nhận thì không làm.
 - **Vùng file:** mỗi việc trong bảng phân công ghi rõ các file được sửa.
   - Cần sửa file ngoài vùng: sửa nhỏ, chỉ thêm, không tái cấu trúc, và ghi trong PR.
   - Các file dùng chung (`js/ui/app.js`, `index.html`, `css/app.css`, `README.md`, `test/harness.js`) hay xung đột: chỉ thêm đoạn mới, không sắp xếp lại; rebase lên `main` trước khi mở PR.
-- **Review chéo:** PR của Codex và Gemini do Claude Code review; PR của Claude Code do Codex review; chủ dự án duyệt và gộp. Review tập trung vào lỗi đúng/sai, ranh giới lớp, dữ liệu nhạy cảm, test ảnh chụp.
+- **Review chéo:** PR của Codex do Claude Code review; PR của Claude Code do Codex review; chủ dự án duyệt và gộp. Review tập trung vào lỗi đúng/sai, ranh giới lớp, dữ liệu nhạy cảm, test ảnh chụp.
 - **Xong việc:**
   - Cập nhật trạng thái trong `docs/PHAN_CONG.md`.
   - Cập nhật `README.md` nếu đổi chức năng người dùng thấy.
