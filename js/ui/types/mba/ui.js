@@ -11,9 +11,16 @@
     const { state, FX, esc } = A, fm = Common.fmt;
     if (!FX) return '<div class="callout warn">Chưa nạp số liệu xuất xưởng — chỉ đánh giá theo ngưỡng QĐ 1901.</div>';
     const D = FX.data, s = state.v['meta.serial'], u = FX.unit(s);
-    const mainLine = u ? `Máy chính <b>${esc(s)}</b> (pha ${esc(u.phase)})` : `<b>Số chế tạo “${esc(s || '')}” không có trong file xuất xưởng</b> — kiểm tra lại mục 0`;
+    const is3P = Schema.layoutOf(state.cfg) === Schema.LAYOUT_3P;
+    // mẫu chung 3 pha: hạng mục theo máy so với số liệu xuất xưởng của từng máy A, B, C
+    const mainLine = is3P ? `Mẫu chung 3 pha: mỗi pha so với xuất xưởng của máy cùng pha (${['A', 'B', 'C'].map(p => `${p}: <b>${esc(state.cfg.ps[p] || '—')}</b>`).join(', ')})`
+      : u ? `Máy chính <b>${esc(s)}</b> (pha ${esc(u.phase)})` : `<b>Số chế tạo “${esc(s || '')}” không có trong file xuất xưởng</b> — kiểm tra lại mục 0`;
     const cond = (D.conditions[s] || {});
     const ps = `Cột pha A/B/C ↔ ${['A', 'B', 'C'].map(p => esc(state.cfg.ps[p] || '—')).join(' / ')}`;
+    // mẫu 3 pha: giá trị xuất xưởng của từng máy A, B, C
+    const perUnit = f => ['A', 'B', 'C'].map(p => { const sn = state.cfg.ps[p]; const x = sn && FX.unit(sn) ? f(sn) : NaN; return `${p}: <b>${fm(x, 2)}</b>`; }).join(', ');
+    if (is3P && id === 'noload') return `<div class="callout">P0 xuất xưởng (kW) ${perUnit(sn => FX.unit(sn).noLoadLoss)}. Mỗi máy đưa điện áp vào phía hạ áp; P0 = Pm(1+d), d=(U′−U)/U′; I0% = Io/I<sub>LV</sub> × S<sub>LV</sub>/S<sub>r</sub> × 100 với I<sub>LV</sub>=${esc(state.cfg.iLV)} A, S<sub>LV</sub>=${esc(state.cfg.sLV)} MVA, S<sub>r</sub>=${esc(state.cfg.sR)} MVA (sửa ở mục 0).</div>`;
+    if (is3P && id === 'moisture') return `<div class="callout">Độ ẩm cách điện cứng theo DFR xuất xưởng (%) ${perUnit(sn => FX.moisture(sn))}. Phân loại theo Điều 28.</div>`;
     switch (id) {
       case 'noload': return `<div class="callout">${mainLine}: P0 xuất xưởng = <b>${u ? fm(u.noLoadLoss, 1) : '—'} kW</b> (đo ${fm(cond.noload, 1)} °C). P0 = Pm(1+d), d=(U′−U)/U′; I0% = Io/I<sub>LV</sub> × S<sub>LV</sub>/S<sub>r</sub> × 100 với I<sub>LV</sub>=${esc(state.cfg.iLV)} A, S<sub>LV</sub>=${esc(state.cfg.sLV)} MVA, S<sub>r</sub>=${esc(state.cfg.sR)} MVA (sửa ở mục 0).</div>`;
       case 'ir': return `<div class="callout">${mainLine}. Quy đổi về 20 °C theo <b>Bảng 4 QĐ 1901</b>: R20 = R(t) × K1 (đo dưới 20 °C thì chia K1); K1 tự tra theo độ chênh nhiệt độ, độ chênh không có trong bảng thì nhân các hệ số (vd 12 °C = K(10)×K(2)). Tiêu chuẩn: <b>R60@20 ≥ Bảng 5 tại 20 °C</b> (MBA ≥110 kV: 600 MΩ). Xuất xưởng (đo ${fm(cond.ins, 1)} °C) chỉ có Kht, PI và R lõi/gông.</div>`;
@@ -30,11 +37,11 @@
           <div class="row-actions"><button class="btn small" data-nav="kconf">Xem bảng hệ số K</button><button class="btn small" data-act="fillBushingSN">Điền S/N sứ theo hồ sơ xuất xưởng (cần đối chiếu thực tế)</button></div></div>`;
       }
       case 'wtgd': return `<div class="callout">${mainLine}. Quy đổi về 20 °C theo <b>Bảng 7 QĐ 1901</b>: tgδ20 = tgδ(t) ÷ K2 (đo dưới 20 °C thì nhân K2); K2 tự tra theo độ chênh nhiệt độ. Tiêu chuẩn: <b>tgδ@20 °C ≤ 1 %</b>. Số liệu xuất xưởng (đo ${fm(FX.insT(s), 1)} °C) chỉ để tham khảo xu hướng.</div>`;
-      case 'dcr': return `<div class="callout">So sánh theo số chế tạo của từng cột pha (${ps}). Xuất xưởng cho R quy đổi ${D.dcr.refT} °C: cuộn SER theo nấc, COM, LV. Cuộn cao áp đo <b>${state.cfg.hvMeas === 'SER' ? 'A-Am, B-Bm, C-Cm — so với cuộn SER' : 'A-N, B-N, C-N — so với SER + COM'}</b> (chọn ở ô “Phép đo cuộn cao áp” mục 7.1); cuộn hạ áp: ${state.cfg.lvMode === 'delta' ? 'tam giác đã đấu (×2/3)' : 'từng máy (a–x)'} — đổi ở mục 0. Nấc 9a/9b/9c ứng với nấc 9A xuất xưởng.</div>`;
+      case 'dcr': return `<div class="callout">So sánh theo số chế tạo của từng cột pha (${ps}). Xuất xưởng cho R quy đổi ${D.dcr.refT} °C: cuộn SER theo nấc, COM, LV. Cuộn cao áp đo <b>${state.cfg.hvMeas === 'SER' ? 'A-Am, B-Bm, C-Cm — so với cuộn SER' : 'A-N, B-N, C-N — so với SER + COM'}</b> (chọn ở ô “Phép đo cuộn cao áp”); cuộn hạ áp: ${state.cfg.lvMode === 'delta' ? 'tam giác đã đấu (×2/3)' : 'từng máy (a–x)'} — đổi ở mục 0. ${is3P ? 'Mẫu chung 3 pha: 17 nấc, nhiệt độ đo theo từng máy, ghi BBTN đơn vị mΩ.' : 'Nấc 9a/9b/9c ứng với nấc 9A xuất xưởng.'}</div>`;
       case 'ratio': return `<div class="callout">Tỷ số định mức lấy từ bảng xuất xưởng theo nấc (HV:MV), HV:LV = (U<sub>HV</sub>/√3)/U<sub>LV</sub>${state.cfg.lvMode === 'delta' ? ' × √3 (tổ đã đấu tam giác)' : ''}. ΔK tự tính nếu để trống; có thể nhập ΔK đọc từ máy đo. ${ps}.</div>`;
       case 'oltc': return `<div class="callout">OLTC theo hồ sơ xuất xưởng: <b>${esc(D.specs.oltc || '—')}</b>.</div>`;
       case 'moisture': return `<div class="callout">${mainLine}: độ ẩm cách điện cứng theo DFR xuất xưởng = <b>${fm(FX.moisture(s), 2)} %</b>. Phân loại theo Điều 28.</div>`;
-      case 'bct': return `<div class="callout">Tra số liệu BCT theo <b>số chế tạo MBA (cột pha) + ký hiệu đầu cuộn</b> (vd 2S1-2S3). Mã lõi CT ứng với “cuộn 1..n” của từng phía đặt ở mục 0 (HV: ${esc(state.cfg.ctNo.hv)}; MV: ${esc(state.cfg.ctNo.mv)}; N: ${esc(state.cfg.ctNo.n)}; LV: ${esc(state.cfg.ctNo.lv)}). Hồ sơ có ${D.bct.length} cuộn BCT. R một chiều quy về 75 °C.</div>`;
+      case 'bct': return `<div class="callout">Tra số liệu BCT theo <b>số chế tạo MBA (cột pha) + ký hiệu đầu cuộn</b> (vd 2S1-2S3). Mã lõi CT ứng với “cuộn 1..n” của từng phía đặt ở mục 0 (HV: ${esc(state.cfg.ctNo.hv)}; MV: ${esc(state.cfg.ctNo.mv)}; N: ${esc(state.cfg.ctNo.n)}; LV: ${esc(state.cfg.ctNo.lv)}). Hồ sơ có ${D.bct.length} cuộn BCT. R một chiều quy về 75 °C.${is3P ? ' <b>Mẫu chung 3 pha: số liệu mục này xuất thành Phụ lục biến dòng chân sứ</b> nối cuối BBTN.' : ''}</div>`;
       default: return '';
     }
   }

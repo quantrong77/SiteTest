@@ -20,6 +20,10 @@
     };
     const F = FX; // API xuất xưởng (có thể null)
     const add = f => findings.push(Object.assign({ status: 'info' }, f));
+    // Mẫu chung 3 pha: hạng mục theo máy (không tải, cách điện, tgδ cuộn dây, ẩm) lặp cho từng pha A, B, C
+    const is3P = schema.layout === Schema.LAYOUT_3P;
+    const PH3 = ['A', 'B', 'C'];
+    const sectionOf = id => schema.sections.find(s => s.id === id);
     const unitLabel = s => (F && F.unit(s) ? `${s} (pha ${F.unit(s).phase})` : s || '—');
 
     // ================= 1. Kiểm tra bên ngoài =================
@@ -29,8 +33,21 @@
         limit: 'Không hư hỏng, rò dầu…', basis: R.visual, note: e ? '' : 'Chưa chọn kết luận', keys: ['visual.eval'] });
     }
 
+    if (is3P) {
+      const vg = findGrid(schema, 'visual.items');
+      const ev = vg.rows.map(r => ({ r, e: txt(`visual.items.${r.k}.e`) }));
+      const done = ev.filter(x => x.e);
+      if (done.length) {
+        const bad = done.filter(x => /Không/i.test(x.e));
+        add({ sec: 'visual', item: 'Kiểm tra bên ngoài theo hạng mục', meas: `${done.length}/${ev.length} hạng mục đã đánh giá`,
+          status: bad.length ? 'fail' : done.length === ev.length ? 'pass' : 'missing', limit: 'Không hư hỏng, rò dầu…', basis: R.visual,
+          note: bad.length ? `Không đạt: ${bad.map(x => x.r.label).join('; ')}` : done.length < ev.length ? 'Còn hạng mục chưa đánh giá' : '',
+          keys: ev.map(x => `visual.items.${x.r.k}.e`) });
+      }
+    }
+
     // ================= 2. Không tải =================
-    ['nl.lv', 'nl.hv'].forEach(g => {
+    if (!is3P) ['nl.lv', 'nl.hv'].forEach(g => {
       const rows = g === 'nl.lv' ? ['ab', 'bc', 'ca'] : ['AB', 'BC', 'CA'];
       const ps = rows.map(r => val(`${g}.${r}.p`));
       if (ps.some(ok)) {
@@ -40,10 +57,11 @@
       }
     });
     const iLV = toNum(cfg.iLV), sLV = toNum(cfg.sLV), sR = toNum(cfg.sR);
-    ['r0', 'r1'].forEach(r => {
-      const p = `nl.rated.${r}`;
+    // base: 'nl.rated' (mẫu theo pha) | 'nl.A.rated' (mẫu 3 pha); curCols: cột dòng không tải; unit: số chế tạo máy
+    const noloadRated = (base, curCols, unit) => ['r0', 'r1'].forEach(r => {
+      const p = `${base}.${r}`;
       const um = val(`${p}.um`), ur = val(`${p}.ur`), pm = val(`${p}.pm`);
-      const cur = ['ia', 'ib', 'ic'].map(c => val(`${p}.${c}`)).filter(ok);
+      const cur = curCols.map(c => val(`${p}.${c}`)).filter(ok);
       if (ok(pm) && ok(um) && ok(ur) && um) calc[`${p}.p0`] = fmt(pm * (1 + (um - ur) / um), 2);
       if (cur.length && ok(iLV) && ok(sLV) && ok(sR) && iLV) {
         const io = cur.reduce((a, b) => a + b, 0) / cur.length;
@@ -51,10 +69,10 @@
       }
       const p0 = ok(val(`${p}.p0`)) ? val(`${p}.p0`) : toNum(calc[`${p}.p0`]);
       if (ok(p0)) {
-        const ref = F && F.unit(main) ? F.unit(main).noLoadLoss : null;
+        const ref = F && F.unit(unit) ? F.unit(unit).noLoadLoss : null;
         const lim = isNew ? L.NOLOAD_1PH_NEW : L.NOLOAD_OPER;
         const d = devPct(p0, ref);
-        add({ sec: 'noload', item: `Tổn hao không tải P0 tại Uđm (${r === 'r0' ? 'lần 1' : 'lần 2'})`, loc: unitLabel(main), meas: `${fmt(p0, 2)} kW`,
+        add({ sec: 'noload', item: `Tổn hao không tải P0 tại Uđm (${r === 'r0' ? 'lần 1' : 'lần 2'})`, loc: unitLabel(unit), meas: `${fmt(p0, 2)} kW`,
           ref: ok(ref) ? `${fmt(ref, 2)} kW (XX)` : '', dev: sgn(d), limit: `±${lim}% giá trị khởi đầu (MBA 1 pha ≥110 kV, ${isNew ? 'sau lắp đặt/sửa chữa' : 'vận hành'})`,
           status: ok(d) ? (Math.abs(d) <= lim ? 'pass' : 'fail') : 'missing', basis: R.noload,
           note: ok(ref) ? 'P0 = Pm(1+d), d=(U′−U)/U′' : 'Không có tổn hao không tải xuất xưởng cho số chế tạo này', keys: [`${p}.p0`, `${p}.pm`] });
@@ -63,26 +81,31 @@
       const i0ref = toNum(cfg.i0Ref);
       if (ok(i0)) {
         const d = devPct(i0, i0ref);
-        add({ sec: 'noload', item: `Dòng không tải I0 (${r === 'r0' ? 'lần 1' : 'lần 2'})`, loc: unitLabel(main), meas: `${fmt(i0, 4)} %`,
+        add({ sec: 'noload', item: `Dòng không tải I0 (${r === 'r0' ? 'lần 1' : 'lần 2'})`, loc: unitLabel(unit), meas: `${fmt(i0, 4)} %`,
           ref: ok(i0ref) ? `${fmt(i0ref, 4)} % (NSX)` : '', dev: sgn(d), limit: ok(i0ref) ? '≤ +30% số liệu NSX (tham khảo)' : '',
           status: ok(d) ? (d <= 30 ? 'pass' : 'warn') : 'info', basis: R.noload,
           note: ok(i0ref) ? 'Tiêu chí 30% QĐ 1901 nêu cho MBA 3 pha — dùng tham khảo' : 'Nhập I0 nameplate ở Cấu hình để so sánh', keys: [`${p}.i0`] });
       }
     });
+    if (is3P) PH3.forEach(ph => noloadRated(`nl.${ph}.rated`, ['ia'], serialOf(ph)));
+    else noloadRated('nl.rated', ['ia', 'ib', 'ic'], main);
 
     // ================= 3. Điện trở cách điện =================
-    const tIR = val('ir.t');
-    const irRows = schema.sections.find(s => s.id === 'ir').grids[0].rows;
+    // base: 'ir' (mẫu theo pha) | 'ir.A' (mẫu 3 pha); unit: số chế tạo máy được đo
+    const irBlock = (base, irRows, unit) => {
+    const tIR = val(`${base}.t`);
+    const main = unit;
     let k1info = null;
+    const convCols = findGrid(schema, `${base}.meas`).cols.some(c => c.k === 'r180') ? ['r15', 'r60', 'r180', 'r360', 'r600'] : ['r15', 'r60', 'r600'];
     irRows.forEach(row => {
-      const p = `ir.meas.${row.k}`;
+      const p = `${base}.meas.${row.k}`;
       const r15 = val(`${p}.r15`), r60 = val(`${p}.r60`), r600 = val(`${p}.r600`);
       if (!row.core) {
         if (ok(r15) && ok(r60) && r15) calc[`${p}.kht`] = fmt(r60 / r15, 2);
         if (ok(r600) && ok(r60) && r60) calc[`${p}.pi`] = fmt(r600 / r60, 2);
-        const c = `ir.c20.${row.k}`;
+        const c = `${base}.c20.${row.k}`;
         if (ok(tIR)) {
-          ['r15', 'r60', 'r600'].forEach(x => {
+          convCols.forEach(x => {
             const m = val(`${p}.${x}`);
             if (ok(m)) { const cv = QD.convIR(m, tIR, 20); calc[`${c}.${x}`] = fmt(cv.val, 0); k1info = cv; }
           });
@@ -112,7 +135,7 @@
             + (tIR < 10 || tIR > 40 ? ' Khuyến cáo đo khi nhiệt độ dầu 10–40 °C (Điều 9 mục 4).' : '')
             + ' XX không có R60 tuyệt đối → chưa áp tiêu chí “giảm ≤30%”; lần đo này là giá trị khởi đầu.', keys: [`${p}.r60`] });
       } else {
-        add({ sec: 'ir', item: `R60 ${row.label}`, meas: `${fmt(r60, 0)} MΩ`, status: 'missing', basis: R.ir, note: 'Thiếu nhiệt độ đo → chưa quy đổi/so Bảng 5', keys: ['ir.t'] });
+        add({ sec: 'ir', item: `R60 ${row.label}`, meas: `${fmt(r60, 0)} MΩ`, status: 'missing', basis: R.ir, note: 'Thiếu nhiệt độ đo → chưa quy đổi/so Bảng 5', keys: [`${base}.t`] });
       }
       const kht = ok(val(`${p}.kht`)) ? val(`${p}.kht`) : toNum(String(calc[`${p}.kht`] || '').replace(',', '.'));
       if (ok(kht)) {
@@ -129,7 +152,13 @@
           dev: sgn(devPct(pi, ref), 1), limit: 'PI ≥ 1,25 (IEEE C57.152)', status: c.status, basis: R.pi, note: c.text, keys: [`${p}.pi`] });
       }
     });
-    if (k1info) notes['ir.k1'] = ` ${fmt(k1info.k, 3)} (Bảng 4 QĐ 1901, ∆t = ${k1info.dt} °C; ${k1info.expr}; R20 = R${ok(tIR) && tIR < 20 ? ' ÷ ' : ' × '}K1)`;
+    if (k1info) notes[`${base}.k1`] = ` ${fmt(k1info.k, 3)} (Bảng 4 QĐ 1901, ∆t = ${k1info.dt} °C; ${k1info.expr}; R20 = R${ok(tIR) && tIR < 20 ? ' ÷ ' : ' × '}K1)`;
+    };
+    if (is3P) PH3.forEach(ph => {
+      notes[`ir.${ph}.sn`] = cfg.ps[ph] ? ` ${cfg.ps[ph]}` : '';
+      irBlock(`ir.${ph}`, findGrid(schema, `ir.${ph}.meas`).rows, serialOf(ph));
+    });
+    else irBlock('ir', sectionOf('ir').grids[0].rows, main);
 
     // ================= 4. Tổ đấu dây =================
     const vg = txt('vector.result');
@@ -144,7 +173,10 @@
     const amb = val('meta.ambT');
     const sideGroups = schema.sections.find(s => s.id === 'bushing').groups.filter(g => g.term);
     // Ur mặc định khi test report không có sứ (phân nhóm dung sai Bảng 15 Hitachi)
-    const UR_DEFAULT = { hv: 550, mv: 252, N: 126, lv: 40.5 };
+    const UR_DEFAULT = { hv: 550, mv: 252, N: 126, n: 126, lv: 40.5, lv2: 40.5 };
+    // mẫu 3 pha ghi một nhiệt độ cho mọi nhóm sứ: nhóm để trống lấy nhiệt độ của sứ cao áp
+    const tOilOf = side => (is3P && !ok(val(`b.${side}.t`)) ? val('b.hv.t') : val(`b.${side}.t`));
+    const bLoc = (gr, c, bs) => `${gr.title.replace(/^5\.\d\s*/, '').replace(/^[a-e]\.\s*/, '').replace('Sứ phía ', '')} – ${c.label}${bs ? ` [${bs}]` : ''}`;
     // Cách quy đổi của từng phía: hitachi | table (QĐ 1901 / theo hãng) | manual
     const kmodeOf = side => (typeof BushingK !== 'undefined' ? BushingK.resolve(txt(`b.${side}.kmode`))
       : { kind: /Nhập/i.test(txt(`b.${side}.kmode`)) ? 'manual' : 'hitachi' });
@@ -152,7 +184,7 @@
       const side = gr.id, mg = gr.grids[0];
       if (kmodeOf(side).kind !== 'hitachi' || typeof HitachiBushing === 'undefined') return; // bảng K / nhập K: xử lý ở khối dưới
       const H = HitachiBushing, HK = H.consts;
-      const tOil = val(`b.${side}.t`);
+      const tOil = tOilOf(side);
       const mount = txt(`b.${side}.mount`) || 'Đã lắp';
       const tAmb = ok(val(`b.${side}.tamb`)) ? val(`b.${side}.tamb`) : amb;
       const btype = txt(`b.${side}.btype`) || 'RIP';
@@ -168,11 +200,16 @@
       mg.cols.filter(c => c.phase).forEach(c => {
         const p = `b.${side}.meas`, q = `b.${side}.c20`;
         ['type', 'manuf', 'serial'].forEach(r => { calc[`${q}.${r}.${c.k}`] = txt(`${p}.${r}.${c.k}`); });
-        const m = { mount, tAmb, tOil, c1: val(`${p}.c1.${c.k}`), tgd1: val(`${p}.tgd1.${c.k}`), c2: val(`${p}.c2.${c.k}`), tgd2: val(`${p}.tgd2.${c.k}`) };
+        // mẫu 3 pha: nhiệt độ đo riêng của sứ thay nhiệt độ chung (đã lắp: nhiệt độ dầu; chưa lắp: nhiệt độ môi trường)
+        const tC = is3P ? val(`${p}.t.${c.k}`) : NaN;
+        const unm = mount === 'Chưa lắp';
+        const m = { mount, tAmb: ok(tC) && unm ? tC : tAmb, tOil: ok(tC) && !unm ? tC : tOil,
+          c1: val(`${p}.c1.${c.k}`), tgd1: val(`${p}.tgd1.${c.k}`), c2: val(`${p}.c2.${c.k}`), tgd2: val(`${p}.tgd2.${c.k}`) };
         const bs = txt(`${p}.serial.${c.k}`);
         const tr = H.report(bs);
         const urDef = tr && ok(tr.raw.ur) ? tr.raw.ur : UR_DEFAULT[c.k === 'N' ? 'N' : side];
-        calc[`${p}.ur.${c.k}`] = fmt(urDef, 1);
+        // mẫu 3 pha ghi Ur vào BBTN: chỉ điền sẵn cho sứ đã có số liệu đo hoặc S/N
+        if (!is3P || bs || [m.c1, m.tgd1, m.c2, m.tgd2].some(ok)) calc[`${p}.ur.${c.k}`] = fmt(urDef, 1);
         m.ur = ok(val(`${p}.ur.${c.k}`)) ? val(`${p}.ur.${c.k}`) : urDef;
         const f = H.to20(m);
         if (ok(f.tgd1)) calc[`${q}.tgd1.${c.k}`] = fmt(f.tgd1, 3);
@@ -188,7 +225,7 @@
           if (fb && (ok(fb.c1np) || ok(fb.tdnp))) { ref = { c1: fb.c1np, tgd1: fb.tdnp, c2: NaN, tgd2: NaN }; refName = 'giá trị nhãn sứ trong hồ sơ xuất xưởng MBA (không có test report hãng)'; }
         }
         const cmp = H.compare(f, ref, m.ur);
-        const loc = `${gr.title.replace(/^5\.\d\s*/, '').replace('Sứ phía ', '')} – ${c.label}${bs ? ` [${bs}]` : ''}`;
+        const loc = bLoc(gr, c, bs);
         const grp = `${cmp.group}`;
         const base = { sec: 'bushing', loc, basis: 'HD sứ Hitachi Energy 19.6–19.8 (Bảng 13–15); QĐ 1901 Điều 38.3' };
         const st = (x, has) => (!has ? null : !ref || x.pass === null ? 'missing' : x.pass ? 'pass' : 'fail');
@@ -227,7 +264,7 @@
     });
     sideGroups.forEach(gr => {
       const side = gr.id, mg = gr.grids[0], cg = gr.grids[1];
-      const tOil = val(`b.${side}.t`);
+      const tOil = tOilOf(side);
       const btype = txt(`b.${side}.btype`) || 'RIP';
       const rip = false; // quy đổi C theo HD Hitachi chỉ dùng ở khối trên
       const mode = kmodeOf(side);
@@ -256,10 +293,15 @@
 
       mg.cols.filter(c => c.phase).forEach(c => {
         const p = `b.${side}.meas`, q = `b.${side}.c20`;
+        // mẫu 3 pha: sứ có nhiệt độ đo riêng → tra K theo nhiệt độ đó (bảng K); trống thì dùng K của nhiệt độ chung
+        const tC = is3P ? val(`${p}.t.${c.k}`) : NaN;
+        let Kc = K, kWhyC = kWhy, tBc = tB;
+        if (ok(tC) && mode.kind === 'table') { const lk = BushingK.lookup(tbl, btype, tC); Kc = lk.k; kWhyC = lk.why || ''; tBc = tC; }
+        const to20c = x => (!ok(Kc) || !ok(x) ? NaN : tbl ? BushingK.convert(tbl, x, Kc) : x * Kc);
         ['type', 'manuf', 'serial'].forEach(r => { calc[`${q}.${r}.${c.k}`] = txt(`${p}.${r}.${c.k}`); });
         const tgd1 = val(`${p}.tgd1.${c.k}`), c1 = val(`${p}.c1.${c.k}`), tgd2 = val(`${p}.tgd2.${c.k}`), c2 = val(`${p}.c2.${c.k}`);
-        if (ok(tgd1) && ok(K)) calc[`${q}.tgd1.${c.k}`] = fmt(to20(tgd1), 3);
-        if (ok(tgd2) && ok(K)) calc[`${q}.tgd2.${c.k}`] = fmt(to20(tgd2), 3);
+        if (ok(tgd1) && ok(Kc)) calc[`${q}.tgd1.${c.k}`] = fmt(to20c(tgd1), 3);
+        if (ok(tgd2) && ok(Kc)) calc[`${q}.tgd2.${c.k}`] = fmt(to20c(tgd2), 3);
         if (ok(c1)) calc[`${q}.c1.${c.k}`] = fmt(cCorr(c1), 1);
         if (ok(c2)) calc[`${q}.c2.${c.k}`] = fmt(cCorr(c2), 1);
         if (!ok(tgd1) && !ok(c1)) return;
@@ -269,7 +311,7 @@
         const unitS = serialOf(c.k);
         let fb = F ? F.bushingBySerial(bs) : null, how = 'theo S/N sứ';
         if (!fb && F) { fb = F.bushingByUnit(unitS, term); how = bs ? `S/N “${bs}” không có trong XX → so theo vị trí ${term} của MBA ${unitS}` : `chưa nhập S/N → so theo vị trí ${term} của MBA ${unitS}`; }
-        const loc = `${gr.title.replace(/^5\.\d\s*/, '').replace('Sứ phía ', '')} – ${c.label}${bs ? ` [${bs}]` : ''}`;
+        const loc = bLoc(gr, c, bs);
         const keysT = [`${p}.tgd1.${c.k}`], keysC = [`${p}.c1.${c.k}`];
         // Quy đổi giá trị XX về 20 °C cùng phương pháp để so sánh cùng nhiệt độ
         // bảng K: quy đổi giá trị XX bằng chính bảng đó tại nhiệt độ đo xuất xưởng
@@ -278,7 +320,7 @@
         const fC20 = fb && ok(fb.c1) ? (rip && ok(fb.t) ? fb.c1 * (1 - (fb.t - 20) * 0.0004) : fb.c1) : NaN;
 
         if (ok(tgd1)) {
-          const td20 = to20(tgd1);
+          const td20 = to20c(tgd1);
           const lim52 = QD.BUSHING_TGD_NEW[btype];
           const nsx = toNum(cfg.bTgdMax);
           const st52 = tgd1 < lim52 ? 'pass' : 'fail';
@@ -286,8 +328,9 @@
           const rise = devPct(td20, fTd20);
           let stRise = null;
           if (!isNew && ok(rise)) stRise = rise > L.BUSHING_TGD_RISE_FAIL ? 'fail' : rise >= L.BUSHING_TGD_RISE_WARN ? 'warn' : 'pass';
-          const tWarn = (ok(tOil) && (tOil < 10 || tOil > 40) ? ' Nhiệt độ ngoài 10–40 °C (IEC 60137).' : '')
-            + (tbl && ok(K) ? ` K = ${fmt(K, 3)} theo ${tbl.name}.` : '') + (kWhy ? ` Chưa quy đổi: ${kWhy}.` : '');
+          const tW = ok(tC) ? tC : tOil;
+          const tWarn = (ok(tW) && (tW < 10 || tW > 40) ? ' Nhiệt độ ngoài 10–40 °C (IEC 60137).' : '')
+            + (tbl && ok(Kc) ? ` K = ${fmt(Kc, 3)} theo ${tbl.name}${ok(tC) ? ` tại nhiệt độ sứ ${fmt(tC, 1)} °C` : ''}.` : '') + (kWhyC ? ` Chưa quy đổi: ${kWhyC}.` : '');
           add({ sec: 'bushing', item: 'tgδ C1 sứ', loc, meas: `${fmt(tgd1, 3)} %`, conv: ok(td20) ? `${fmt(td20, 3)} % @20 °C` : 'chưa quy đổi',
             ref: fb ? `${fmt(fb.td, 3)} % @${fmt(fb.t, 1)} °C${ok(fK) ? ` → ${fmt(fTd20, 3)} % @20 °C` : ''} (XX)` : '', dev: ok(rise) ? `${sgn(rise, 1)} %` : '',
             limit: `${ok(nsx) ? `NSX ≤ ${fmt(nsx, 2)} %; ` : ''}Bảng 52 (${btype}) < ${fmt(lim52, 1)} %${isNew ? '' : '; vận hành: tăng ≤100% (70–100% cần đo 15/400 Hz)'}`,
@@ -298,7 +341,7 @@
           const lim = ok(toNum(cfg.bC1Dev)) ? toNum(cfg.bC1Dev) : L.BUSHING_C1_DEV;
           const dF = devPct(c20, fC20), dN = devPct(c20, fb ? fb.c1np : NaN);
           const st = !fb ? 'missing' : Math.max(Math.abs(ok(dF) ? dF : 0), Math.abs(ok(dN) ? dN : 0)) <= lim ? 'pass' : 'fail';
-          add({ sec: 'bushing', item: 'Điện dung C1 sứ', loc, meas: `${fmt(c1, 1)} pF`, conv: rip && ok(tB) ? `${fmt(c20, 1)} pF @20 °C` : '',
+          add({ sec: 'bushing', item: 'Điện dung C1 sứ', loc, meas: `${fmt(c1, 1)} pF`, conv: rip && ok(tBc) ? `${fmt(c20, 1)} pF @20 °C` : '',
             ref: fb ? `XX ${fmt(fb.c1, 1)} pF${rip && ok(fb.t) ? ` @${fmt(fb.t, 1)} °C → ${fmt(fC20, 1)} pF @20 °C` : ''}; nhãn ${fmt(fb.c1np, 0)} pF` : '', dev: fb ? `${sgn(dF)} % / ${sgn(dN)} %` : '',
             limit: `±${fmt(lim, 1)} % so với XX & nhãn${ok(toNum(cfg.bC1Dev)) ? ' (tiêu chí NSX)' : ' (Điều 38.3.c)'}`, status: st, basis: R.bushing,
             note: fb ? how + (rip ? '. C quy đổi 20 °C: C·(1−∆T·0,0004)' : '') : 'Không tìm thấy sứ trong số liệu XX (kiểm tra S/N)', keys: keysC });
@@ -330,15 +373,18 @@
     });
 
     // ================= 6. Tgδ cuộn dây =================
-    const tW = val('wtgd.t');
+    // base: 'wtgd' (mẫu theo pha: bảng quy đổi riêng wtgd.c20) | 'wtgd.A' (mẫu 3 pha: cột tgδ@20 °C ngay trong bảng đo)
+    const wtgdBlock = (base, rows, unit) => {
+    const main = unit;
+    const tW = val(`${base}.t`);
     const tF = F ? F.insT(main) : null;
     let k2info = null;
-    schema.sections.find(s => s.id === 'wtgd').grids[0].rows.forEach(row => {
-      const p = `wtgd.meas.${row.k}`, q = `wtgd.c20.${row.k}`;
+    rows.forEach(row => {
+      const p = `${base}.meas.${row.k}`, q = is3P ? null : `${base}.c20.${row.k}`;
       const tg = val(`${p}.tgd`), C = val(`${p}.c`);
-      calc[`${q}.c`] = txt(`${p}.c`); calc[`${q}.u`] = txt(`${p}.u`); calc[`${q}.d`] = txt(`${p}.d`);
+      if (q) { calc[`${q}.c`] = txt(`${p}.c`); calc[`${q}.u`] = txt(`${p}.u`); calc[`${q}.d`] = txt(`${p}.d`); }
       let tg20 = NaN;
-      if (ok(tg) && ok(tW)) { const cv = QD.convTgd(tg, tW, 20); tg20 = cv.val; k2info = cv; calc[`${q}.tgd`] = fmt(tg20, 3); }
+      if (ok(tg) && ok(tW)) { const cv = QD.convTgd(tg, tW, 20); tg20 = cv.val; k2info = cv; calc[q ? `${q}.tgd` : `${p}.t20`] = fmt(tg20, 3); }
       if (ok(tg)) {
         const fref = F && row.fcfg ? F.ins(row.fcfg, 'tgd', main) : null;
         let rise = NaN, refStr = '';
@@ -371,7 +417,11 @@
           basis: R.wtgd, note: ok(fref) ? '' : 'Không có điện dung XX cho sơ đồ đo này → lưu làm giá trị khởi đầu', keys: [`${p}.c`] });
       }
     });
-    if (k2info) notes['wtgd.k2'] = ` ${fmt(k2info.k, 3)} (Bảng 7 QĐ 1901, ∆t = ${k2info.dt} °C; ${k2info.expr}; tgδ20 = tgδ${ok(tW) && tW < 20 ? ' × ' : ' ÷ '}K2)`;
+    if (k2info) notes[`${base}.k2`] = ` ${fmt(k2info.k, 3)} (Bảng 7 QĐ 1901, ∆t = ${k2info.dt} °C; ${k2info.expr}; tgδ20 = tgδ${ok(tW) && tW < 20 ? ' × ' : ' ÷ '}K2)`;
+    if (is3P) notes[`${base}.th`] = ok(tW) ? ` ${fmt(tW, 1)}` : '';
+    };
+    if (is3P) PH3.forEach(ph => wtgdBlock(`wtgd.${ph}`, findGrid(schema, `wtgd.${ph}.meas`).rows, serialOf(ph)));
+    else wtgdBlock('wtgd', sectionOf('wtgd').grids[0].rows, main);
 
     // ================= 7. Điện trở một chiều =================
     const dcrGroups = [
@@ -381,10 +431,11 @@
     ];
     dcrGroups.forEach(G => {
       const grid = findGrid(schema, G.g);
-      const t = val(G.t);
       grid.rows.forEach(row => {
         const vals = [];
         ['A', 'B', 'C'].forEach(ph => {
+          // mẫu 3 pha: nhiệt độ đo theo từng máy; mẫu theo pha: theo cuộn dây
+          const t = is3P ? val(`dcr.${ph}.t`) : val(G.t);
           const k = `${G.g}.${row.k}.${ph}`;
           const m = val(k);
           vals.push(m);
@@ -463,7 +514,13 @@
         note: ref && !same ? 'Ký hiệu khác số liệu XX — đối chiếu lại nameplate OLTC' : '', keys: ['oltc.type'] });
     }
     const oe = txt('oltc.eval');
-    if (oe || ['d1', 'd2'].some(d => txt(`oltc.rounds.${d}.k`) || txt(`oltc.rounds.${d}.cyc`))) {
+    if (is3P) {
+      // mẫu 3 pha: bảng số vòng theo pha (oltc.r), 6 lần tăng + 6 lần giảm nấc
+      const og = findGrid(schema, 'oltc.r');
+      const filled = og.rows.filter(r => PH3.some(ph => txt(`oltc.r.${r.k}.k${ph}`) || txt(`oltc.r.${r.k}.c${ph}`)));
+      if (oe || filled.length) add({ sec: 'oltc', item: 'Thí nghiệm OLTC (vòng quay, chụp công tắc K)', meas: `${filled.length} lần chuyển nấc có số vòng quay`,
+        status: oe === 'Đạt' ? 'pass' : oe === 'Không đạt' ? 'fail' : 'missing', basis: R.oltc, note: oe ? 'Căn cứ kết quả thí nghiệm & hướng dẫn NSX' : 'Chưa chọn kết luận OLTC', keys: ['oltc.eval'] });
+    } else if (oe || ['d1', 'd2'].some(d => txt(`oltc.rounds.${d}.k`) || txt(`oltc.rounds.${d}.cyc`))) {
       add({ sec: 'oltc', item: 'Thí nghiệm OLTC (vòng quay, chụp công tắc K)', meas: ['d1', 'd2'].map(d => `${txt(`oltc.rounds.${d}.k`) || '?'} / ${txt(`oltc.rounds.${d}.cyc`) || '?'}`).join('; '),
         status: oe === 'Đạt' ? 'pass' : oe === 'Không đạt' ? 'fail' : 'missing', basis: R.oltc, note: oe ? 'Căn cứ kết quả thí nghiệm & hướng dẫn NSX' : 'Chưa chọn kết luận OLTC', keys: ['oltc.eval'] });
     }
@@ -476,13 +533,17 @@
     });
 
     // ================= 10. Độ ẩm cách điện cứng =================
-    const mo = val('moist.val');
-    if (ok(mo)) {
+    // mẫu 3 pha: ẩm theo từng máy (moist.r.A/B/C); mẫu theo pha: một giá trị của máy chính
+    const moistOf = (key, unit) => {
+      const mo = val(key);
+      if (!ok(mo)) return;
       const c = QD.classifyMoisture(mo);
-      const ref = F ? F.moisture(main) : null;
-      add({ sec: 'moisture', item: 'Độ ẩm cách điện cứng', loc: unitLabel(main), meas: `${fmt(mo, 2)} %`, ref: ok(ref) ? `${fmt(ref, 2)} % (DFR xuất xưởng)` : '',
-        dev: ok(ref) ? `${sgn(mo - ref, 2)} điểm %` : '', limit: '< 2,2 %: khô', status: c.status, basis: R.moisture, note: c.text, keys: ['moist.val'] });
-    }
+      const ref = F ? F.moisture(unit) : null;
+      add({ sec: 'moisture', item: 'Độ ẩm cách điện cứng', loc: unitLabel(unit), meas: `${fmt(mo, 2)} %`, ref: ok(ref) ? `${fmt(ref, 2)} % (DFR xuất xưởng)` : '',
+        dev: ok(ref) ? `${sgn(mo - ref, 2)} điểm %` : '', limit: '< 2,2 %: khô', status: c.status, basis: R.moisture, note: c.text, keys: [key] });
+    };
+    if (is3P) PH3.forEach(ph => moistOf(`moist.r.${ph}`, serialOf(ph)));
+    else moistOf('moist.val', main);
 
     // ================= 11. Biến dòng chân sứ =================
     const tCT = val('bct.t_dcr');

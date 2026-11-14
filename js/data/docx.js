@@ -128,6 +128,20 @@
       }
     }
 
+    // Chèn một hàng sau hàng thứ `after` của bảng (sao định dạng hàng đó, xóa số liệu, giữ ô "/"), ô đầu ghi nhãn
+    insertRowAfter(tblIdx, after, label) {
+      const tbl = this.tables[tblIdx];
+      const ref = tbl && kids(tbl, 'tr')[after];
+      if (!ref) return false;
+      const tr = ref.cloneNode(true);
+      kids(tr, 'tc').forEach((tc, k) => {
+        if (k === 0) this.setCellText(tc, label);
+        else if (tc.textContent.trim() !== '/') this.setCellText(tc, '');
+      });
+      tbl.insertBefore(tr, ref.nextSibling);
+      return true;
+    }
+
     // Chèn hàng tiêu đề (sao định dạng hàng đầu tiên) lên đầu bảng
     insertHeaderRow(tblIdx, labels) {
       const tbl = this.tables[tblIdx];
@@ -262,6 +276,13 @@
       const owner = desc(this.body, 'sectPr').reverse().find(defOf);
       // phụ lục thứ hai trở đi: section cuối đã trỏ chân trang phụ lục, chỉ cần đánh số trang lại
       if (owner && !this.appxFooter) {
+        // đánh dấu trang cuối biên bản: chân trang biên bản dùng NUMPAGES (vd mẫu chung 3 pha) đổi thành PAGEREF tới dấu này
+        // để tổng số trang không tính trang phụ lục (biên bản có thể gồm nhiều section, đánh số liên tục)
+        const bs = this.doc.createElementNS(W, 'w:bookmarkStart');
+        bs.setAttributeNS(W, 'w:id', '90001'); bs.setAttributeNS(W, 'w:name', '_BBTN_END');
+        const be = this.doc.createElementNS(W, 'w:bookmarkEnd');
+        be.setAttributeNS(W, 'w:id', '90001');
+        p.appendChild(bs); p.appendChild(be);
         this.appxFooter = { from: defOf(owner).getAttributeNS(R_NS, 'id') };
         kids(last, 'footerReference').forEach(f => last.removeChild(f));
         const ref = this.doc.createElementNS(W, 'w:footerReference');
@@ -393,7 +414,11 @@
       const target = m && (m[0].match(/Target="([^"]+)"/) || [])[1];
       const src = target && this.zip.file('word/' + target.replace(/^\/?word\//, ''));
       if (!src) return;
-      const fd = new DOMParser().parseFromString(await src.async('string'), 'application/xml');
+      const srcXml = await src.async('string');
+      // chân trang dùng trường tổng số trang (NUMPAGES): biên bản đếm tới trang cuối biên bản, phụ lục đếm theo section
+      const numPages = /NUMPAGES/.test(srcXml);
+      if (numPages) this.zip.file(src.name, srcXml.replace(/NUMPAGES(\s*\\\*\s*\w+)?/g, 'PAGEREF _BBTN_END'));
+      const fd = new DOMParser().parseFromString(numPages ? srcXml.replace(/NUMPAGES/g, 'SECTIONPAGES') : srcXml, 'application/xml');
       const mk = (rPr, inner) => {
         const r = fd.createElementNS(W, 'w:r');
         if (rPr) r.appendChild(rPr.cloneNode(true));

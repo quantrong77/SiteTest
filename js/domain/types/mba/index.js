@@ -38,6 +38,7 @@
 
   // Template BBTN theo pha của máy chính (BBTN_MBA_500_A/B/C); null nếu không xác định được
   function templateKeyFor(state, FX) {
+    if (Schema.layoutOf(state.cfg) === Schema.LAYOUT_3P) return null; // mẫu chung 3 pha: không đổi theo pha máy chính
     const u = FX && FX.unit(state.v['meta.serial']);
     return u && u.phase ? u.phase : null;
   }

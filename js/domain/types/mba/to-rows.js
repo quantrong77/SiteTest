@@ -50,13 +50,52 @@
       });
     };
     const val = k => str(v[k]) || str(res.calc[k]);
+    // Mẫu chung 3 pha: hạng mục theo máy lưu cho từng máy A, B, C (khóa nl.A.*, ir.A.*, wtgd.A.*, moist.r.A)
+    const is3P = schema.layout === Schema.LAYOUT_3P;
+    const PH3 = ['A', 'B', 'C'];
 
     // 1. Bên ngoài, 4. tổ đấu dây, 10. độ ẩm
     put(mainRef, 'VISUAL', 'RESULT', { value: v['visual.text'] });
     put(mainRef, 'VISUAL', 'EVAL', { value: v['visual.eval'], key: 'visual.eval' });
+    if (is3P) findGrid(schema, 'visual.items').rows.forEach(r => put(mainRef, 'VISUAL', 'ITEM', { config: r.label, value: v[`visual.items.${r.k}.e`], key: `visual.items.${r.k}.e` }));
     put(mainRef, 'VECTOR', 'RESULT', { value: v['vector.result'], key: 'vector.result' });
-    put(mainRef, 'MOISTURE', 'WC', { value: v['moist.val'], unit: '%', key: 'moist.val', note: str(v['moist.method']) || null });
+    if (is3P) PH3.forEach(ph => put(unitRef(ph), 'MOISTURE', 'WC', { value: v[`moist.r.${ph}`], unit: '%', key: `moist.r.${ph}`, note: str(v['moist.method']) || null }));
+    else put(mainRef, 'MOISTURE', 'WC', { value: v['moist.val'], unit: '%', key: 'moist.val', note: str(v['moist.method']) || null });
 
+    if (is3P) rows3P();
+    else rows1P();
+    function rows3P() {
+      PH3.forEach(ph => {
+        const eq = unitRef(ph);
+        // 2. Không tải: đo từng máy ở điện áp định mức
+        ['r0', 'r1'].forEach((r, i) => [['um', 'U_MEAN', 'kV'], ['ur', 'U_RMS', 'kV'], ['ia', 'I0_A', 'A'], ['i0', 'I0', '%'], ['pm', 'PM', 'kW'], ['p0', 'P0', 'kW']].forEach(([c, p, u]) => {
+          const k = `nl.${ph}.rated.${r}.${c}`;
+          put(eq, 'NOLOAD', p, { config: 'RATED', tap: String(i + 1), value: val(k), unit: u, key: k });
+        }));
+        // 3. Cách điện (R quy đổi 20 °C)
+        const tIR = toNum(v[`ir.${ph}.t`]);
+        findGrid(schema, `ir.${ph}.meas`).rows.forEach(row => {
+          const code = IR_CFG[row.k];
+          ['r15', 'r60', 'r180', 'r360', 'r600'].forEach(c => {
+            const k = `ir.${ph}.meas.${row.k}.${c}`, m = toNum(v[k]);
+            const norm = ok(m) && ok(tIR) ? QD.convIR(m, tIR, 20).val : NaN;
+            put(eq, 'IR', c.toUpperCase(), { config: code, value: v[k], unit: 'MΩ', temp: tIR, norm, normT: 20, key: k });
+          });
+          ['kht', 'pi'].forEach(c => { const k = `ir.${ph}.meas.${row.k}.${c}`; put(eq, 'IR', c.toUpperCase(), { config: code, value: val(k), key: k }); });
+          put(eq, 'IR', 'U_TEST', { config: code, value: v[`ir.${ph}.meas.${row.k}.u`], unit: 'V' });
+        });
+        // 6. tgδ cuộn dây (quy đổi 20 °C)
+        const tW = toNum(v[`wtgd.${ph}.t`]);
+        findGrid(schema, `wtgd.${ph}.meas`).rows.forEach(row => {
+          const code = IR_CFG[row.k];
+          const kt = `wtgd.${ph}.meas.${row.k}.tgd`, tg = toNum(v[kt]);
+          put(eq, 'WTGD', 'TGD', { config: code, value: v[kt], unit: '%', temp: tW, norm: ok(tg) && ok(tW) ? QD.convTgd(tg, tW, 20).val : NaN, normT: 20, key: kt });
+          put(eq, 'WTGD', 'C', { config: code, value: v[`wtgd.${ph}.meas.${row.k}.c`], unit: 'pF', temp: tW, key: `wtgd.${ph}.meas.${row.k}.c` });
+        });
+      });
+    }
+
+    function rows1P() {
     // 2. Không tải
     ['nl.lv', 'nl.hv'].forEach(g => {
       const rowsK = g === 'nl.lv' ? ['ab', 'bc', 'ca'] : ['AB', 'BC', 'CA'];
@@ -90,20 +129,29 @@
       put(mainRef, 'WTGD', 'TGD', { config: code, value: v[kt], unit: '%', temp: tW, norm: ok(tg) && ok(tW) ? QD.convTgd(tg, tW, 20).val : NaN, normT: 20, key: kt });
       put(mainRef, 'WTGD', 'C', { config: code, value: v[`wtgd.meas.${rk}.c`], unit: 'pF', temp: tW, key: `wtgd.meas.${rk}.c` });
     });
+    }
 
     // 5. Sứ — khóa theo số chế tạo sứ; chưa có S/N thì gắn vào MBA của cột pha
     const amb = toNum(v['meta.ambT']);
-    [['hv', '1.1', ['A', 'B', 'C']], ['mv', '2.1', ['A', 'B', 'C', 'N']], ['lv', '3.1', ['a', 'b', 'c']]].forEach(([side, term, cols]) => {
-      const t = toNum(v[`b.${side}.t`]);
+    const BSIDES = is3P
+      ? [['hv', '1.1', PH3], ['mv', '2.1', PH3], ['n', '2', PH3], ['lv', '3.1', ['a', 'b', 'c']], ['lv2', '3.2', ['a', 'b', 'c']]]
+      : [['hv', '1.1', ['A', 'B', 'C']], ['mv', '2.1', ['A', 'B', 'C', 'N']], ['lv', '3.1', ['a', 'b', 'c']]];
+    BSIDES.forEach(([side, term, cols]) => {
+      // mẫu 3 pha ghi một nhiệt độ chung: nhóm sứ để trống lấy nhiệt độ của sứ cao áp
+      const t = is3P && !ok(toNum(v[`b.${side}.t`])) ? toNum(v['b.hv.t']) : toNum(v[`b.${side}.t`]);
       cols.forEach(c => {
         const p = `b.${side}.meas`, q = `b.${side}.c20`;
         const bs = str(v[`${p}.serial.${c}`]);
         const terminal = c === 'N' ? '2' : term;
         const parent = unitRef(c);
         const eq = bs ? addRef('SU', bs, { parent, position: terminal, phase: c.toUpperCase(), model: str(v[`${p}.type.${c}`]) || undefined, manufacturer: str(v[`${p}.manuf.${c}`]) || undefined }) : parent;
-        const tAmbS = ok(toNum(v[`b.${side}.tamb`])) ? toNum(v[`b.${side}.tamb`]) : amb;
-        const tB = window.HitachiBushing ? HitachiBushing.bodyTemp(HitachiBushing.isMounted(v[`b.${side}.mount`] || 'Đã lắp'), tAmbS, t)
-          : (ok(amb) && ok(t) ? (2 * amb + t) / 3 : t);
+        // mẫu 3 pha: nhiệt độ đo riêng của sứ (đã lắp: nhiệt độ dầu; chưa lắp: nhiệt độ môi trường) thay nhiệt độ chung
+        const tC = is3P ? toNum(v[`${p}.t.${c}`]) : NaN;
+        const mounted = window.HitachiBushing ? HitachiBushing.isMounted(v[`b.${side}.mount`] || 'Đã lắp') : true;
+        const tAmbS = ok(tC) && !mounted ? tC : (ok(toNum(v[`b.${side}.tamb`])) ? toNum(v[`b.${side}.tamb`]) : amb);
+        const tOil = ok(tC) && mounted ? tC : t;
+        const tB = window.HitachiBushing ? HitachiBushing.bodyTemp(mounted, tAmbS, tOil)
+          : (ok(amb) && ok(tOil) ? (2 * amb + tOil) / 3 : tOil);
         [['tgd1', 'TGD1', '%'], ['c1', 'C1', 'pF'], ['r1', 'R1', 'MΩ'], ['tgd2', 'TGD2', '%'], ['c2', 'C2', 'pF'], ['r2', 'R2', 'MΩ']].forEach(([r, prm, u]) => {
           const k = `${p}.${r}.${c}`;
           const n = toNum(res.calc[`${q}.${r}.${c}`]);
@@ -123,8 +171,9 @@
     // 7. Điện trở một chiều (mΩ, quy đổi 75 °C) & 8. tỷ số biến
     Object.entries(DCR_CFG).forEach(([g, code]) => {
       const grid = findGrid(schema, g);
-      const t = toNum(v[`${g}.t`]);
       grid.rows.forEach(r => ['A', 'B', 'C'].forEach(ph => {
+        // mẫu 3 pha: nhiệt độ đo theo từng máy; mẫu theo pha: theo cuộn dây
+        const t = is3P ? toNum(v[`dcr.${ph}.t`]) : toNum(v[`${g}.t`]);
         const k = `${g}.${r.k}.${ph}`, m = toNum(v[k]);
         put(unitRef(ph), 'DCR', 'R', { config: code, phase: ph, tap: r.tap || '', value: v[k], unit: 'mΩ', temp: t, norm: ok(m) && ok(t) ? QD.convDCR(m, t, 75) : NaN, normT: 75, key: k });
       }));
@@ -142,7 +191,14 @@
     const os = str(v['oltc.serial']);
     const oeq = os ? addRef('OLTC', os, { parent: mainRef, model: str(v['oltc.type']) || undefined, manufacturer: str(v['oltc.manuf']) || undefined, year_made: toNum(v['oltc.year']) || undefined }) : mainRef;
     put(oeq, 'OLTC', 'TYPE', { value: v['oltc.type'], key: 'oltc.type' });
-    ['d1', 'd2'].forEach((d, i) => {
+    if (is3P) findGrid(schema, 'oltc.r').rows.forEach(r => {
+      const note = str(v[`oltc.r.${r.k}.tap`]) || null;
+      PH3.forEach(ph => {
+        put(oeq, 'OLTC', 'ROUNDS_K', { config: r.k.toUpperCase(), phase: ph, value: v[`oltc.r.${r.k}.k${ph}`], note });
+        put(oeq, 'OLTC', 'ROUNDS_CYCLE', { config: r.k.toUpperCase(), phase: ph, value: v[`oltc.r.${r.k}.c${ph}`], note });
+      });
+    });
+    else ['d1', 'd2'].forEach((d, i) => {
       const dir = `${str(v[`oltc.${d}from`])}→${str(v[`oltc.${d}to`])}`;
       put(oeq, 'OLTC', 'ROUNDS_K', { config: `DIR${i + 1}`, value: v[`oltc.rounds.${d}.k`], note: dir });
       put(oeq, 'OLTC', 'ROUNDS_CYCLE', { config: `DIR${i + 1}`, value: v[`oltc.rounds.${d}.cyc`], note: dir });

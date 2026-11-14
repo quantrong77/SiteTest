@@ -36,7 +36,7 @@
     errors.forEach(m => Notify.show({ type: 'error', msg: m }));
     entries = entries.filter(x => (x.csv && (x.csv.rdc.length || x.csv.ratio.length || x.csv.oltc.length)) || (x.bin && x.bin.waves.length));
     if (!entries.length) { if (!errors.length) Notify.show({ type: 'warn', msg: 'Không có số liệu điện trở, tỷ số biến hay chụp sóng trong các file đã chọn (chọn file .csv và .bin cùng tên).' }); return; }
-    const st = App.state, taps = st.cfg.taps;
+    const st = App.state, taps = App.schema.taps; // nhãn nấc của biểu mẫu (mẫu 3 pha: 17 nấc)
     entries.forEach(x => {
       const p = x.csv;
       const conn = p ? ((p.oltc[0] || p.rdc[0] || p.ratio[0] || {}).conn) : (x.bin.waves[0] || {}).conn;
@@ -67,6 +67,7 @@
 
   // Các pha ghi vào cùng lưới điện trở nhưng đo ở nhiệt độ khác nhau (biểu mẫu chỉ có một ô nhiệt độ mỗi cuộn)
   const conflicts = () => {
+    if (App.schema.layout === Schema.LAYOUT_3P) return []; // mẫu chung 3 pha có ô nhiệt độ riêng cho từng máy
     const v = App.state.v;
     const items = entries.flatMap(x => x.rdc.filter(g => g.use).map(g => ({ g, phase: x.phase })));
     return Mba2293.rdcTempConflicts(items, { hv: v['dcr.hv.t'], mv: v['dcr.mv.t'], lv: v['dcr.lv.t'] });
@@ -74,7 +75,7 @@
   const TARGET_NAME = Object.fromEntries(RDC_TARGETS);
 
   const needMid = () => {
-    const taps = App.state.cfg.taps;
+    const taps = App.schema.taps;
     return taps.some(t => /^\d+[a-z]$/i.test(t)) && entries.some(x => x.csv && x.csv.nTaps && x.csv.nTaps !== taps.length);
   };
 
@@ -125,7 +126,7 @@
   // Một bước hoàn tác cho mỗi hạng mục được điền (7, 8, 9)
   const apply = () => App.track('Nhập file Haefely 2293', doApply);
   function doApply() {
-    const st = App.state, taps = st.cfg.taps;
+    const st = App.state, taps = App.schema.taps; // nhãn nấc của biểu mẫu (mẫu 3 pha: 17 nấc)
     st.att = st.att || {};
     const writes = {}, temps = {};
     const done = { rdc: 0, ratio: 0, oltc: [], conv: [] };
@@ -137,7 +138,9 @@
         const w = Mba2293.rdcWrites(g, g.target, x.phase, taps, p.nTaps, opt.mid, toT[g.target]);
         Object.assign(writes, w); done.rdc += Object.keys(w).length;
         const t = toT[g.target] ?? g.t;
-        if (Number.isFinite(t) && !temps[`dcr.${g.target}.t`]) temps[`dcr.${g.target}.t`] = String(t);
+        // mẫu chung 3 pha: nhiệt độ đo ghi theo từng máy (pha của file), mẫu theo pha: theo cuộn dây
+        const tk = App.schema.layout === Schema.LAYOUT_3P ? `dcr.${x.phase}.t` : `dcr.${g.target}.t`;
+        if (Number.isFinite(t) && !temps[tk]) temps[tk] = String(t);
       });
       if (x.useRatio) { const w = Mba2293.ratioWrites(p, x.ratioTarget, x.phase, taps, opt.mid); Object.assign(writes, w); done.ratio += Object.keys(w).length; }
       if (x.useOltc) {

@@ -11,10 +11,20 @@ import pathlib
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 APP = pathlib.Path(__file__).resolve().parents[1]
 
+# Template theo pha máy chính (A, B, C) và template chung 3 pha (3P, bản trống của "BBTN MBA 500kV 3 pha chung.docx").
+# Tìm trong Template/Mau BBTN trước, sau đó Template/.
+def tpl(name):
+    for d in (ROOT / "Template" / "Mau BBTN", ROOT / "Template"):
+        if (d / name).exists():
+            return d / name
+    return ROOT / "Template" / "Mau BBTN" / name
+
+
 TEMPLATES = {
-    "A": ROOT / "Template" / "BBTN_MBA_500_A.docx",
-    "B": ROOT / "Template" / "BBTN_MBA_500_B.docx",
-    "C": ROOT / "Template" / "BBTN_MBA_500_C.docx",
+    "A": tpl("BBTN_MBA_500_A.docx"),
+    "B": tpl("BBTN_MBA_500_B.docx"),
+    "C": tpl("BBTN_MBA_500_C.docx"),
+    "3P": tpl("BBTN MBA 500kV 3 pha chung (trong).docx"),
 }
 FACTORY = ROOT / "ThinghiemHientruongMBA" / "Bao_Cao_Thu_Nghiem_3_MBA_500kV_Di_Linh-v4.xlsx"
 # Test report sứ RIP Hitachi + bảng hệ số quy đổi (sheet TestReport, TraCuu)

@@ -209,6 +209,22 @@ Phân quyền (RLS): viewer xem; editor nhập/sửa và xóa bản nháp của 
 - Trong app: mục 0 → **Nạp template khác** / **Nạp file xuất xưởng khác** (file mới phải cùng cấu trúc).
 - Hoặc nhúng lại vào bản phân phối: `python tools/build_embedded.py`.
 
+### Mẫu chung 3 pha (một BBTN cho tổ 3 máy 1 pha A, B, C)
+
+Mục 0 → *Template BBTN dùng để xuất* → **3P** (bản trống của "BBTN MBA 500kV 3 pha chung", đặt ở
+`../Template/Mau BBTN/BBTN MBA 500kV 3 pha chung (trong).docx` rồi chạy `tools/build_embedded.py`; template tùy chỉnh
+28 bảng cũng được nhận là mẫu 3 pha). Biểu mẫu đổi bố cục theo mẫu:
+
+- Không tải, điện trở cách điện (R15, R60, R180, R360, R600, Kht, PI; lõi/gông), tgδ cuộn dây (có cột tgδ@20 °C trong bảng) nhập
+  **theo từng máy A, B, C**, mỗi máy một nhiệt độ; mỗi máy so với số liệu xuất xưởng của chính nó (số chế tạo theo cột pha ở mục 0).
+- Kiểm tra bên ngoài theo 9 hạng mục; sứ 5 nhóm (cao áp, trung áp, trung tính từng máy, hạ áp a-b-c, x-y-z) có **nhiệt độ đo
+  riêng từng sứ** (đã lắp: nhiệt độ dầu, chưa lắp: nhiệt độ môi trường; dùng để quy đổi tgδ về 20 °C, trống thì theo nhiệt độ chung
+  ở đầu mục 5). Template không có hàng này nên khi xuất app chèn hàng "Nhiệt độ đo (°C)" vào mỗi bảng sứ (template đã có thì giữ nguyên);
+  R một chiều 17 nấc, đơn vị mΩ, nhiệt độ đo theo từng máy; tỷ số HV:MV, HV:LV theo nấc, MV:LV nấc 9; ẩm theo pha; OLTC số vòng theo pha.
+- Biến dòng chân sứ: nhập ở mục 13 như mẫu theo pha, khi xuất thành **Phụ lục biến dòng chân sứ** nối cuối BBTN.
+- BBTN ghi số chế tạo cả 3 máy; chân trang "Page x of y" của biên bản không tính trang phụ lục (phụ lục đánh số riêng).
+- Đổi template giữa chừng: số liệu chung (R một chiều, tỷ số, sứ, OLTC, BCT) giữ nguyên; hạng mục theo máy dùng ô riêng của mỗi bố cục.
+
 ## Phát triển với agent (Codex, Claude Code)
 
 Quy tắc chung cho agent lập trình: [AGENTS.md](AGENTS.md) (Claude Code đọc qua CLAUDE.md). Bảng phân công việc giữa Codex và Claude Code, mẫu giao việc:
@@ -230,6 +246,10 @@ npm test
   pha, nấc, giá trị quy đổi mà trang Xu hướng dùng để nối các lần đo.
 - `test/wa2293.test.js`: đọc file Haefely 2293 (dữ liệu tổng hợp đúng định dạng máy), ánh xạ nấc/pha/mΩ, quy đổi nhiệt độ,
   nén dạng sóng, phụ lục; có thư mục số liệu thật `../MBA/Rdc/Chup song` trên máy thì kiểm tra thêm.
+- `npm run test:e2e` (`tools/e2e_export_3p.py`, cần Playwright cho Python và `js/embedded.js` có template 3P; thiếu thì bỏ qua):
+  mở app trong trình duyệt, chọn mẫu chung 3 pha, điền số liệu giả, xuất BBTN và kiểm từng ô của file .docx (thông tin chung,
+  tổng hợp, số liệu theo máy, hàng nhiệt độ sứ, mΩ, OLTC, phụ lục BCT, chân trang); kiểm thêm mẫu theo pha A vẫn xuất đúng.
+- `test/mba-3p.test.js`: bố cục, đánh giá theo từng máy, dòng CSDL, phụ lục BCT, nhiệt độ riêng từng sứ của mẫu chung 3 pha.
 - `test/mrct.test.js`: đọc `.pdbxml` Megger MRCT (khối nhị phân đường từ hóa dựng lại) và chữ báo cáo PDF PowerDB (theo tọa độ cột,
   ô trống, mục chữ gộp nhiều số).
 - `test/nameplate.test.js`: đọc nameplate từ chữ OCR (giá trị giả): đủ trường, ghép cột theo toạ độ, trường cần kiểm tra / thiếu.

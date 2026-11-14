@@ -118,6 +118,13 @@
     if (!data) return;
     Object.assign(state.v, Report.readDefaults(await DocxTemplate.load(data), schema));
   }
+  // Đổi template giữa biên bản: chỉ điền giá trị mặc định của template mới vào ô còn trống
+  async function fillTemplateDefaults() {
+    const data = templateData();
+    if (!data) return;
+    const d = Report.readDefaults(await DocxTemplate.load(data), schema);
+    Object.entries(d).forEach(([k, x]) => { if (!String(state.v[k] ?? '').trim()) state.v[k] = x; });
+  }
 
   let saveT = null;
   function persist() {
@@ -345,7 +352,7 @@
         if (gr.fields) body += '<div class="fields">' + gr.fields.map(f => sectionField(f)).join('') + '</div>';
         gr.grids.forEach(g => { body += gridHTML(g); });
       });
-      if (s.extraDoc) body += '<div class="fields">' + s.extraDoc.map(x => `<div class="field"><label>${x.k === 'ir.k1' ? 'Hệ số quy đổi K1 (ghi vào BBTN)' : 'Hệ số quy đổi K2 (ghi vào BBTN)'}</label><div class="calcval" data-n="${x.k}"></div></div>`).join('') + '</div>';
+      if (s.extraDoc) body += '<div class="fields">' + s.extraDoc.map(x => `<div class="field"><label>${esc(x.label || (x.k === 'ir.k1' ? 'Hệ số quy đổi K1 (ghi vào BBTN)' : 'Hệ số quy đổi K2 (ghi vào BBTN)'))}</label><div class="calcval" data-n="${x.k}"></div></div>`).join('') + '</div>';
       if (U.sectionFooter) body += U.sectionFooter(s.id, App);
       body += `<div class="wf-sum" data-fsum="${s.id}"></div>`;
     }
@@ -486,7 +493,7 @@
     else o[last] = value;
   }
 
-  function onInput(e) {
+  async function onInput(e) {
     const el = e.target;
     if (el.dataset.k) {
       state.v[el.dataset.k] = el.value;
@@ -512,9 +519,16 @@
     } else if (el.dataset.cfg && e.type === 'change') {
       setCfg(el.dataset.cfg, el.value);
       clearFlag('cfg.' + el.dataset.cfg, el);
-      if (/^(taps|bctCores|hvMeas)/.test(el.dataset.cfg)) {
+      if (/^(taps|bctCores|hvMeas|template)/.test(el.dataset.cfg)) {
         if (el.dataset.cfg === 'taps' && state.cfg.taps.length !== 19) toast(`Cần đúng 19 nhãn nấc (đang có ${state.cfg.taps.length}) — tạm dùng mặc định`, true);
+        const before = schema.layout;
         schema = T().buildSchema(state.cfg);
+        // đổi giữa mẫu theo pha và mẫu chung 3 pha: biểu mẫu đổi bố cục, lấy giá trị mặc định của template mới cho ô còn trống
+        if (el.dataset.cfg === 'template' && schema.layout !== before) {
+          await fillTemplateDefaults();
+          renderNav();
+          toast(schema.layout === '3P' ? 'Đã chuyển sang mẫu chung 3 pha: không tải, cách điện, tgδ cuộn dây, ẩm nhập theo từng máy A, B, C' : 'Đã chuyển sang mẫu theo pha máy chính');
+        }
       }
       recompute();
       if (/^(template|bctCores|taps|oltcCharts|hvMeas)/.test(el.dataset.cfg)) renderMain(); else updateComputed();
@@ -677,7 +691,8 @@
     const data = templateData();
     if (!data) { toast('Chưa có template BBTN — nạp file .docx ở mục 0 “Thông tin chung & cấu hình”', true); return; }
     const tpl = await DocxTemplate.load(data), R = T().report;
-    if (tpl.tables.length < R.minTables) toast(`Cảnh báo: template có ${tpl.tables.length} bảng (mẫu chuẩn ${R.stdTables}) — vị trí điền có thể lệch`, true);
+    const std = schema.tables || R.stdTables; // mẫu chung 3 pha: 28 bảng
+    if (tpl.tables.length < std - 1) toast(`Cảnh báo: template có ${tpl.tables.length} bảng (mẫu chuẩn ${std}) — vị trí điền có thể lệch`, true);
     // Tài nguyên cần trình duyệt dựng (vd ảnh đồ thị chụp sóng cho phụ lục)
     const assets = Object.assign(TU().reportAssets ? await TU().reportAssets(App) : {}, await AppendixUI.reportAssets(App));
     const { cells, miss } = R.fill(tpl, { state, res, schema, assets });
@@ -775,10 +790,14 @@
     $('#fileDocx').addEventListener('change', e => readFile(e.target, async f => {
       const buf = await f.arrayBuffer();
       const t = await DocxTemplate.load(buf);
-      if (t.tables.length < T().report.minTables) toast(`Template có ${t.tables.length} bảng, khác mẫu chuẩn (${T().report.stdTables}) — kiểm tra kỹ file xuất`, true);
+      // template tùy chỉnh: nhận dạng bố cục theo số bảng (mẫu chung 3 pha 28 bảng, mẫu theo pha 73 bảng)
+      const is3P = t.tables.length >= 26 && t.tables.length <= 32;
+      if (!is3P && t.tables.length < T().report.minTables) toast(`Template có ${t.tables.length} bảng, khác mẫu chuẩn (${T().report.stdTables}) — kiểm tra kỹ file xuất`, true);
       lsSet(LS_TPL, JSON.stringify({ name: f.name, b64: abToB64(buf) }));
       state.cfg.template = 'custom';
-      renderMain(); persist(); toast('Đã nạp template ' + f.name);
+      state.cfg.layout = is3P ? '3P' : '1P';
+      schema = T().buildSchema(state.cfg); recompute(); renderNav();
+      renderMain(); persist(); toast('Đã nạp template ' + f.name + (is3P ? ' (mẫu chung 3 pha)' : ''));
     }));
     window.addEventListener('beforeunload', () => lsSet(LS_STATE, JSON.stringify(state)));
   }

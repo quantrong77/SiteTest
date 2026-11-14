@@ -26,6 +26,8 @@
     const out = [];
     if (att.oltc && Object.keys(att.oltc).length) out.push({ kind: 'oltc' });
     if (att.fra && has.fra !== false) out.push({ kind: 'fra' });
+    // mẫu chung 3 pha: biến dòng chân sứ không có bảng trong thân BBTN → phụ lục dựng từ số liệu mục BCT
+    if (has.bct) out.push({ kind: 'bct' });
     out.forEach((a, i) => { a.label = out.length > 1 ? `PHỤ LỤC ${i + 1}` : 'PHỤ LỤC'; });
     return out;
   }

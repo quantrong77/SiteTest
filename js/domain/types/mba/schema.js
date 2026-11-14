@@ -156,7 +156,253 @@
   // Cách đo R một chiều cuộn cao áp: A-N (cuộn nối tiếp + cuộn chung) hoặc A-Am (chỉ cuộn nối tiếp)
   const HV_MEAS = [['SER+COM', 'A-N, B-N, C-N (nối tiếp + chung)'], ['SER', 'A-Am, B-Bm, C-Cm (nối tiếp)']];
 
+  // ======================================================================= Template chung 3 pha
+  // "BBTN MBA 500kV 3 pha chung": một biên bản cho tổ 3 máy 1 pha A, B, C. Hạng mục theo từng máy (không tải, cách điện,
+  // tgδ cuộn dây) lặp lại cho mỗi pha với nhiệt độ riêng; sứ 5 nhóm; R một chiều mΩ, 17 nấc; ẩm và OLTC theo pha.
+  // Biến dòng chân sứ không có bảng trong thân biên bản → xuất thành phụ lục.
+  const LAYOUT_3P = '3P';
+  const layoutOf = cfg => (cfg && (cfg.template === LAYOUT_3P || (cfg.template === 'custom' && cfg.layout === LAYOUT_3P)) ? LAYOUT_3P : '1P');
+  const PH3 = ['A', 'B', 'C'];
+  const TAPS_17 = range(17, i => String(i + 1));
+  // Hàng tổng hợp hạng mục ở bảng 0 của từng mẫu: cột ✓ và cột Đánh giá; mục 4 (cách điện lõi từ) lấy theo mục 3; mục 12 SFRA theo phụ lục
+  const SUMMARY = {
+    '1P': { rows: SUMMARY_ROWS, tick: 3, ev: 4 },
+    '3P': { rows: { visual: 11, noload: 12, ir: [13, 14], vector: 15, bushing: 16, wtgd: 17, dcr: 18, ratio: 19, oltc: 20, moisture: 21, bct: 23 }, fra: 22, tick: 6, ev: 7 },
+  };
+  const VISUAL_ITEMS = ['Sứ xuyên 500kV, 220kV, 35kV và trung tính', 'Các kẹp cực', 'Hàng kẹp đấu dây nhị thứ', 'Rơ le bảo vệ nội bộ', 'Đồng hồ nhiệt độ dầu, cuộn dây',
+    'Đồng hồ chỉ thị mức dầu', 'Cánh tản nhiệt', 'Độ kín', 'Tiếp địa'];
+  const IR3_ROWS = IR_ROWS.slice(0, 4).concat([
+    { k: 'r6', label: 'Lõi từ ~ Gông từ + Vỏ (Core–Clamp+E)', fcfg: 'CORE', core: true },
+    { k: 'r7', label: 'Gông từ ~ Lõi từ + Vỏ (Clamp–Core+E)', fcfg: 'CLAMP', core: true },
+    { k: 'r8', label: 'Lõi từ + Gông từ ~ Vỏ (Core+Clamp)', core: true },
+  ]);
+  const IR3_COLS = [
+    col('r15', 'R15″ (MΩ)', 1), col('r60', 'R60″ (MΩ)', 2), col('r180', 'R180″ (MΩ)', 3), col('r360', 'R360″ (MΩ)', 4), col('r600', 'R600″ (MΩ)', 5),
+    col('kht', 'Kht = R60/R15', 6, { auto: true }), col('pi', 'PI = R600/R60', 7, { auto: true }), col('u', 'Điện áp đo (V)', 8, { text: true }),
+  ];
+  // Thứ tự hàng bảng tgδ cuộn dây của mẫu 3 pha (khóa hàng giữ như mẫu theo pha để so xuất xưởng/xu hướng)
+  const WTGD3_ORDER = ['r4', 'r0', 'r1', 'r5', 'r3', 'r2'];
+  const BUSHING3 = [
+    { id: 'hv', title: 'a. Sứ phía cao áp (HV)', term: '1.1', table: 11, phases: [['A', 'A'], ['B', 'B'], ['C', 'C']] },
+    { id: 'mv', title: 'b. Sứ phía trung áp (MV)', term: '2.1', table: 12, phases: [['A', 'Am'], ['B', 'Bm'], ['C', 'Cm']] },
+    { id: 'n', title: 'c. Sứ trung tính (N của từng máy)', term: '2', table: 13, phases: [['A', 'N (máy A)'], ['B', 'N (máy B)'], ['C', 'N (máy C)']] },
+    { id: 'lv', title: 'd. Sứ hạ áp a, b, c', term: '3.1', table: 14, phases: [['a', 'a'], ['b', 'b'], ['c', 'c']] },
+    { id: 'lv2', title: 'e. Sứ hạ áp x, y, z', term: '3.2', table: 15, phases: [['a', 'x'], ['b', 'y'], ['c', 'z']] },
+  ];
+  function bushing3Grid(B) {
+    const rows = [
+      { k: 'serial', label: 'Số chế tạo (Serial)', doc: 0, text: true, serial: true }, { k: 'type', label: 'Kiểu loại (Type)', doc: 1, text: true },
+      { k: 'code', label: 'Mã hiệu (Code)', doc: 2, text: true }, { k: 'ur', label: 'Điện áp định mức (kV)', doc: 3, auto: true },
+      { k: 'ir', label: 'Dòng điện định mức (A)', doc: 4, text: true },
+      // nhiệt độ đo riêng từng sứ: template không có hàng này → chèn khi xuất (ensureRow); trống thì dùng nhiệt độ chung của mục 5
+      { k: 't', label: 'Nhiệt độ đo (°C)', doc: 5 },
+      { k: 'tgd1', label: 'C1: tgδ (%)', doc: 6 }, { k: 'c1', label: 'C1 (pF)', doc: 7 }, { k: 'tgd2', label: 'C2: tgδ (%)', doc: 8 }, { k: 'c2', label: 'C2 (pF)', doc: 9 },
+    ];
+    const cols = B.phases.map(([k, label], i) => col(k, label, 2 + i, { phase: true }))
+      .concat([col('u', 'U đo (kV)', 5, { text: true }), col('d', 'Sơ đồ đo', 6, { text: true })]);
+    const first = B.phases[0][0];
+    // kiểu loại: một ô gộp cho cả 3 pha (ghi ở cột pha đầu); U đo, sơ đồ đo chỉ ở hàng tgδ
+    const skip = (r, c) => (r === 'type' && c !== first && c !== 'u' && c !== 'd') || ((c === 'u' || c === 'd') && !['tgd1', 'tgd2'].includes(r));
+    return { id: `b.${B.id}.meas`, title: 'Số liệu đo', tables: [B.table], rows, cols, skip, transposed: true,
+      ensureRow: { after: 4, label: 'Nhiệt độ đo (°C)\n(Temperature)', match: /Nhiệt độ|Temperature/i } };
+  }
+  function bushing3C20(B) {
+    const rows = [{ k: 'tgd1', label: 'C1: tgδ@20 °C (%)', doc: 1 }, { k: 'c1', label: 'C1@20 °C (pF)', doc: 2 }, { k: 'tgd2', label: 'C2: tgδ@20 °C (%)', doc: 3 }, { k: 'c2', label: 'C2@20 °C (pF)', doc: 4 }];
+    return { id: `b.${B.id}.c20`, title: 'Quy đổi về 20 °C (tự tính, không ghi vào BBTN mẫu 3 pha)', rows, cols: B.phases.map(([k, label]) => col(k, label, undefined, { calc: true })),
+      transposed: true, readonly: true };
+  }
+
+  function build3P(cfg) {
+    const taps = TAPS_17;
+    const ps = cfg.ps || {};
+    const unitTitle = ph => `Pha ${ph}${ps[ph] ? ` — máy ${ps[ph]}` : ''}`;
+    const hvSer = cfg.hvMeas === 'SER';
+    const hvPairs = PH3.map(ph => ({ ph, app: hvSer ? `${ph}-${ph}m` : `${ph}-N`, doc: hvSer ? `${ph}${ph}m` : `${ph}N` }));
+    const KMODES = typeof BushingK !== 'undefined' ? BushingK.modeOptions() : ['Hitachi Energy (RIP) – theo HD hãng', 'Nhập hệ số K'];
+    const hdr = (gid, cols) => cols.map(c => Object.assign({}, c, { label: (cfg.hdr || {})[`${gid}.${c.k}`] || c.label, defLabel: c.label }));
+    const wtgdRows = WTGD3_ORDER.map((k, i) => Object.assign({}, WTGD_ROWS.find(r => r.k === k), { doc: i + 1 }));
+    // R một chiều / tỷ số: cột ΔR, ΔK so xuất xưởng của từng pha chỉ hiện trong app (mẫu 3 pha không có cột này)
+    const phaseCols = (labels, firstDoc, devLabel, devOpt) => PH3.flatMap((ph, i) => [
+      col(ph, labels[i], firstDoc + i, { phase: true }), col('d' + ph, devLabel(labels[i]), undefined, Object.assign({ nodoc: true }, devOpt)),
+    ]);
+    const sections = [
+      {
+        id: 'visual', no: 1, title: 'Kiểm tra bên ngoài', en: 'Visual inspection',
+        fields: [
+          { k: 'visual.text', label: 'Ghi chú kiểm tra', type: 'textarea' },
+          { k: 'visual.eval', label: 'Đánh giá chung', type: 'select', options: ['', 'Đạt', 'Không đạt'] },
+        ],
+        grids: [{
+          id: 'visual.items', title: 'Hạng mục kiểm tra', tables: [1], rows: VISUAL_ITEMS.map((t, i) => ({ k: `i${i + 1}`, label: t, doc: i + 1 })),
+          cols: [col('e', 'Đánh giá', 2, { text: true, options: ['Đạt/Pass', 'Không đạt/Fail'] })],
+        }],
+      },
+      {
+        id: 'noload', no: 2, title: 'Dòng điện và tổn hao không tải ở điện áp định mức', en: 'No-load current & loss',
+        groups: PH3.map((ph, i) => ({
+          id: ph, title: unitTitle(ph),
+          grids: [{
+            id: `nl.${ph}.rated`, title: 'Đưa điện áp vào phía hạ áp', tables: [2 + i],
+            rows: [{ k: 'r0', label: 'Lần 1', doc: 1 }, { k: 'r1', label: 'Lần 2', doc: 2 }],
+            cols: [col('pu', '%Uđm', 0, { text: true }), col('um', "U' mean (kV)", 1), col('ur', 'U rms (kV)', 2), col('ia', 'I0 (A)', 3), col('i0', 'I0 (%)', 4, { auto: true }),
+              col('pm', 'Pmean (kW)', 5), col('p0', 'P0 (kW)', 6, { auto: true })],
+          }],
+        })),
+      },
+      {
+        id: 'ir', no: 3, title: 'Điện trở cách điện cuộn dây, lõi từ, gông từ', en: 'Insulation resistance',
+        groups: PH3.map((ph, i) => ({
+          id: ph, title: unitTitle(ph),
+          fields: [{ k: `ir.${ph}.t`, label: 'Nhiệt độ đo (°C)', num: true, doc: { before: 5 + 2 * i, re: /temperature\)\s*\/(?<v>\s*)oC/ } }],
+          grids: [
+            { id: `ir.${ph}.meas`, title: 'Số liệu đo', tables: [5 + 2 * i], rows: IR3_ROWS.map((r, j) => Object.assign({ doc: j + 1 }, r)), cols: IR3_COLS,
+              skip: (r, c) => ['r6', 'r7', 'r8'].includes(r) && !['r60', 'u'].includes(c) },
+            { id: `ir.${ph}.c20`, title: 'Quy đổi về 20 °C (tự tính)', tables: [6 + 2 * i], readonly: true,
+              rows: IR3_ROWS.filter(r => !r.core).map((r, j) => Object.assign({ doc: j + 1 }, r)), cols: IR3_COLS.map(c => Object.assign({}, c, { calc: true, auto: false })) },
+          ],
+        })),
+        extraDoc: PH3.flatMap((ph, i) => [
+          { k: `ir.${ph}.k1`, label: `Hệ số quy đổi K1 pha ${ph} (ghi vào BBTN)`, doc: { before: 6 + 2 * i, re: /K1\s*=(?<v>\s*)\(/ } },
+          { k: `ir.${ph}.sn`, label: `Số chế tạo máy pha ${ph} (ghi vào BBTN)`, doc: { before: 5 + 2 * i, re: /N0:(?<v>\s*)\)/ } },
+        ]),
+      },
+      {
+        id: 'vector', no: 4, title: 'Kiểm tra tổ đấu dây', en: 'Vector group',
+        fields: [{ k: 'vector.result', label: 'Tổ đấu dây đo được', doc: { before: 11, re: /group\)\s*\/(?<v>.*)$/ } }],
+      },
+      {
+        id: 'bushing', no: 5, title: 'Tgδ và điện dung các sứ đầu vào', en: 'Bushings',
+        groups: BUSHING3.map((B, i) => ({
+          id: B.id, title: B.title, term: B.term,
+          fields: [
+            { k: `b.${B.id}.t`, label: i ? 'Nhiệt độ chung (°C) — trống: lấy theo nhóm sứ cao áp' : 'Nhiệt độ chung khi đo sứ (°C) — sứ không nhập nhiệt độ riêng', num: true,
+              doc: i ? undefined : { before: 11, re: /t\s*=(?<v>\s*)oC/ } },
+            { k: `b.${B.id}.btype`, label: 'Loại cách điện sứ', type: 'select', options: ['RIP', 'OIP', 'RIS', 'RBP', 'GIF'] },
+            { k: `b.${B.id}.kmode`, label: 'Cách quy đổi về 20 °C', type: 'select', options: KMODES },
+            { k: `b.${B.id}.mount`, label: 'Trạng thái sứ khi đo', type: 'select', options: ['Đã lắp', 'Chưa lắp'] },
+            { k: `b.${B.id}.tamb`, label: 'Nhiệt độ môi trường khi đo sứ (°C)', num: true, placeholder: 'mặc định: nhiệt độ môi trường ở mục 0' },
+            { k: `b.${B.id}.k`, label: 'Hệ số K (tgδ20 = tgδ × K)', num: true },
+          ],
+          grids: [bushing3Grid(B), bushing3C20(B)],
+        })),
+      },
+      {
+        id: 'wtgd', no: 7, title: 'Tgδ và điện dung các cuộn dây', en: 'Winding tgδ',
+        groups: PH3.map((ph, i) => ({
+          id: ph, title: unitTitle(ph),
+          fields: [{ k: `wtgd.${ph}.t`, label: 'Nhiệt độ cuộn dây/dầu (°C)', num: true, doc: { before: 16 + i, re: /t\s*=(?<v>\s*)oC/ } }],
+          grids: [{
+            id: `wtgd.${ph}.meas`, title: 'Số liệu đo', tables: [16 + i], rows: wtgdRows, corner: 'Đối tượng đo',
+            cols: [col('tgd', 'tgδ (%) ở t đo', 1), col('t20', 'tgδ (%) ở 20 °C', 2, { calc: true }), col('c', 'C (pF)', 3), col('u', 'U đo (kV)', 4, { text: true }),
+              col('d', 'Sơ đồ đo', 5, { text: true, options: TGD_MODES })],
+          }],
+        })),
+        extraDoc: PH3.flatMap((ph, i) => [
+          { k: `wtgd.${ph}.k2`, label: `Hệ số quy đổi K2 pha ${ph} (ghi vào BBTN)`, doc: { before: 16 + i, re: /k\s*=(?<v>.*)$/ } },
+          { k: `wtgd.${ph}.th`, label: `Nhiệt độ ở tiêu đề cột bảng pha ${ph}`, doc: { t: 16 + i, r: 0, c: 1, re: /ở(?<v>\s*)oC/ } },
+        ]),
+      },
+      {
+        id: 'dcr', no: 8, title: 'Điện trở một chiều các cuộn dây', en: 'Winding resistance (mΩ)',
+        groups: [
+          {
+            id: 'hv', title: `8a. Cuộn cao áp — đo ${hvPairs.map(p => p.app).join(' / ')} (mΩ)`,
+            fields: [{ k: 'cfg.hvMeas', cfg: 'hvMeas', label: 'Phép đo cuộn cao áp', options: HV_MEAS }]
+              .concat(PH3.map(ph => ({ k: `dcr.${ph}.t`, label: `Nhiệt độ đo máy pha ${ph} (°C)`, num: true,
+                doc: { before: 19, re: new RegExp(`Pha ${ph}:\\s*t\\s*=(?<v>\\s*)oC`) } }))),
+            grids: [{
+              id: 'dcr.hv', title: 'Theo nấc', tables: [19], rows: tapRows(taps),
+              cols: hvPairs.flatMap((p, i) => [
+                col(p.ph, p.app, 1 + i, { phase: true, docLabel: p.doc }), col('d' + p.ph, `ΔR ${p.app} vs XX (%)`, undefined, { calc: true, nodoc: true }),
+              ]).concat([col('dP', 'ΔR(A,B,C) (%)', 4, { calc: true })]),
+            }],
+          },
+          {
+            id: 'mv', title: '8b. Cuộn trung áp — Am-N / Bm-N / Cm-N (mΩ)',
+            grids: [{ id: 'dcr.mv', title: '', tables: [20], rows: [{ k: 'r', label: 'Giá trị', doc: 1 }],
+              cols: phaseCols(['AmN', 'BmN', 'CmN'], 0, () => 'ΔR vs XX (%)', { calc: true }).concat([col('dP', 'ΔR(A,B,C) (%)', 3, { calc: true })]) }],
+          },
+          {
+            id: 'lv', title: '8c. Cuộn hạ áp — a-x / b-y / c-z (mΩ)',
+            grids: [{ id: 'dcr.lv', title: '', tables: [21], rows: [{ k: 'r', label: 'Giá trị', doc: 1 }],
+              cols: phaseCols(['ax', 'by', 'cz'], 0, () => 'ΔR vs XX (%)', { calc: true }).concat([col('dP', 'ΔR(ax,by,cz) (%)', 3, { calc: true })]) }],
+          },
+        ],
+      },
+      {
+        id: 'ratio', no: 9, title: 'Tỷ số biến', en: 'Voltage ratio',
+        groups: [
+          { id: 'hm', title: '9a. HV : MV', grids: [{ id: 'ratio.hm', title: 'Theo nấc', tables: [22], rows: tapRows(taps), corner: 'Nấc', editHdr: true,
+            cols: hdr('ratio.hm', phaseCols(['UAN/UAmN', 'UBN/UBmN', 'UCN/UCmN'], 1, () => 'ΔK so Kđm (%)', { auto: true }).concat([col('dP', 'ΔKmax (%)', 4, { calc: true })])) }] },
+          { id: 'hl', title: '9b. HV : LV', grids: [{ id: 'ratio.hl', title: 'Theo nấc', tables: [23], rows: tapRows(taps), corner: 'Nấc', editHdr: true,
+            cols: hdr('ratio.hl', phaseCols(['UAN/Uax', 'UBN/Uby', 'UCN/Ucz'], 1, () => 'ΔK so Kđm (%)', { auto: true }).concat([col('dP', 'ΔKmax (%)', 4, { calc: true })])) }] },
+          { id: 'ml', title: '9c. MV : LV (nấc 9)', grids: [{ id: 'ratio.ml', title: '', tables: [24], rows: [{ k: 'r', label: 'Nấc 9', doc: 1 }], editHdr: true,
+            cols: hdr('ratio.ml', phaseCols(['UAmN/Uax', 'UBmN/Uby', 'UCmN/Ucz'], 1, () => 'ΔK so Kđm (%)', { auto: true }).concat([col('dP', 'ΔKmax (%)', 4, { calc: true })])) }] },
+        ],
+      },
+      {
+        id: 'moisture', no: 10, title: 'Hàm lượng ẩm trong cách điện cứng', en: 'Moisture in solid insulation',
+        fields: [{ k: 'moist.method', label: 'Phương pháp / thiết bị', placeholder: 'vd: FDS/PDC – Omicron Dirana' }],
+        grids: [{ id: 'moist', title: 'Theo pha', tables: [25], rows: [{ k: 'r', label: 'Hàm lượng ẩm (%)', doc: 1 }],
+          cols: PH3.map((ph, i) => col(ph, `CHL${ph} (%)`, i, { phase: true })) }],
+      },
+      {
+        id: 'oltc', no: 11, title: 'Kiểm tra bộ điều áp dưới tải', en: 'OLTC',
+        fields: [
+          { k: 'oltc.type', label: 'Kiểu (Type)', doc: { t: 26, r: 0, c: 0, re: /\(Type\):(?<v>.*)$/ } },
+          { k: 'oltc.serial', label: 'Số chế tạo', doc: { t: 26, r: 0, c: 1, re: /\(Serial No\):(?<v>.*)$/ } },
+          { k: 'oltc.manuf', label: 'Hãng sản xuất', doc: { t: 26, r: 1, c: 0, re: /\(Manufacturer\):(?<v>.*)$/ } },
+          { k: 'oltc.year', label: 'Năm sản xuất', doc: { t: 26, r: 1, c: 1, re: /manufacture\):(?<v>.*)$/ } },
+          { k: 'oltc.osc', label: 'Kết quả chụp công tắc K', type: 'textarea', doc: { before: 27, re: /\(Oscillograph\s*result\):(?<v>.*)$/ } },
+          { k: 'oltc.eval', label: 'Đánh giá OLTC', type: 'select', options: ['', 'Đạt', 'Không đạt'] },
+        ],
+        grids: [{
+          id: 'oltc.r', title: 'Số vòng quay theo pha', tables: [26],
+          rows: range(6, i => ({ k: `up${i + 1}`, label: `Tăng nấc ${i + 1}`, doc: 4 + i })).concat(range(6, i => ({ k: `dn${i + 1}`, label: `Giảm nấc ${i + 1}`, doc: 12 + i }))),
+          cols: [col('tap', 'Nấc đến', 0, { text: true, slot: /Nấc đến:(?<v>[^(]*)/ })]
+            .concat(PH3.map((ph, i) => col('k' + ph, `K tác động – ${ph}`, 1 + i, { text: true })))
+            .concat(PH3.map((ph, i) => col('c' + ph, `Hết chu trình – ${ph}`, 4 + i, { text: true }))),
+        }],
+      },
+      {
+        id: 'bct', no: 13, title: 'Biến dòng chân sứ (phụ lục)', en: 'Bushing CT',
+        fields: [
+          { k: 'bct.visual', label: 'Kiểm tra bên ngoài' },
+          { k: 'bct.t_ir', label: 'Nhiệt độ đo cách điện (°C)', num: true },
+          { k: 'bct.polarity', label: 'Kết quả kiểm tra cực tính', placeholder: 'vd: Đúng cực tính (giảm)' },
+          { k: 'bct.t_dcr', label: 'Nhiệt độ đo điện trở 1 chiều (°C)', num: true },
+        ],
+        // không có bảng trong thân BBTN mẫu 3 pha: số liệu xuất thành Phụ lục biến dòng chân sứ
+        groups: ['hv', 'mv', 'lv'].map(side => ({ id: side, title: BCT_SIDES[side].label, bct: side, grids: bctGrids(side, +cfg.bctCores[side]).map(noDoc) }))
+          .concat([{ id: 'n', title: 'Phía trung tính — đặc tính từ hóa', grids: [noDoc(exGrid('bct.n.ex.N', 'Đặc tính từ hóa — Trung tính', [50], 3, 4))] }]),
+      },
+    ];
+    return { sections, taps, head: META_3P, tail: CLOSING_3P, layout: LAYOUT_3P, summary: SUMMARY[LAYOUT_3P], tables: 28 };
+  }
+  const noDoc = g => Object.assign({}, g, { tables: undefined });
+  // Thông tin chung mẫu 3 pha (bảng 0: cột phải bắt đầu ở cột lưới 3; "Serial N0" ghi số 0)
+  const META_3P = META.map(f => {
+    const d = Object.assign({}, f.doc);
+    if (d.c === 2) d.c = 3;
+    if (f.k === 'meta.project') d.re = /\(\s*Project\):(?<v>.*)$/;
+    if (f.k === 'meta.year') d.re = /[Mm]anufacture\):(?<v>.*)$/;
+    if (f.k === 'meta.serial') d.re = /\(Serial N[0O]\):(?<v>.*)$/;
+    if (f.k === 'meta.type') d.re = /\(Type\):(?<v>.*)$/;
+    if (f.k === 'meta.power') d.re = /\(MVA\):(?<v>.*)$/;
+    if (f.k === 'meta.voltage') { d.re = /\(kV\):(?<v>.*)$/; delete d.joinNext; }
+    if (f.k === 'meta.current') d.re = /\(A\):(?<v>.*)$/;
+    if (f.k === 'meta.reason') d.re = /test\):(?<v>.*)$/;
+    if (f.k === 'meta.ambT') d.re = /\(Temp[,.]?\):(?<v>\s*)[0o]C/;
+    if (f.k === 'meta.hum') d.re = /\(Humidity\):(?<v>\s*)%/;
+    return Object.assign({}, f, { doc: d }, f.k === 'meta.serial' ? { label: 'Số chế tạo máy chính (ghi vào BBTN cùng số chế tạo 3 pha)' } : {});
+  });
+  const CLOSING_3P = [
+    { k: 'meta.remark', label: 'Ghi chú (Remark)', type: 'textarea', doc: { t: 0, r: 24, c: 0, re: /\(Remark\):(?<v>.*)$/ } },
+    { k: 'meta.conclusion', label: 'Kết luận (Conclusion)', type: 'textarea', doc: { t: 0, r: 25, c: 0, re: /\(Conclusion\):(?<v>.*)$/ } },
+  ];
+
   function build(cfg) {
+    if (layoutOf(cfg) === LAYOUT_3P) return build3P(cfg);
     const taps = (cfg.taps && cfg.taps.length === 19) ? cfg.taps : DEFAULT_TAPS;
     // Đầu đo theo pha cho bảng 7.1: app hiện "A-N" / "A-Am"; template ghi liền "AN" / "AAm"
     const hvSer = cfg.hvMeas === 'SER';
@@ -399,12 +645,12 @@
           .concat([{ id: 'n', title: 'Phía trung tính — đặc tính từ hóa', grids: [exGrid('bct.n.ex.N', 'Đặc tính từ hóa — Trung tính', [50], 3, 4)] }]),
       },
     ];
-    return { sections, taps, head: META, tail: CLOSING };
+    return { sections, taps, head: META, tail: CLOSING, layout: '1P', summary: SUMMARY['1P'], tables: 73 };
   }
 
   // Duyệt mọi grid/field của schema
   // Duyệt biểu mẫu: hàm chung ở js/domain/common.js (trường đầu/cuối biên bản lấy từ schema.head/tail)
   const { eachGrid, eachField } = Common;
 
-  window.Schema = { HV_MEAS, build, eachGrid, eachField, META, CLOSING, SUMMARY_ROWS, DEFAULT_TAPS, BCT_SIDES, BCT_TABLES };
+  window.Schema = { HV_MEAS, LAYOUT_3P, layoutOf, TAPS_17, build, eachGrid, eachField, META, CLOSING, SUMMARY_ROWS, DEFAULT_TAPS, BCT_SIDES, BCT_TABLES };
 })();
