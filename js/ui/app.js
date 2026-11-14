@@ -145,7 +145,7 @@
       .concat([{ id: 'summary', no: 'Σ', title: 'Tổng hợp & kết luận' }, { id: 'appendix', no: 'PL', title: 'Phụ lục BBTN' }, { id: 'factory', no: 'XX', title: 'Số liệu xuất xưởng' },
         { id: 'db', no: 'DB', title: 'CSDL – biên bản đã lưu' }, { id: 'catalog', no: '≡', title: 'Trạm – Ngăn – Thiết bị' }, { id: 'trend', no: '↗', title: 'Xu hướng' },
         { id: 'kconf', no: 'K', title: 'Hệ số quy đổi sứ' }, { id: 'criteria', no: 'TC', title: 'Bộ tiêu chí đánh giá' }, { id: 'standards', no: 'TV', title: 'Thư viện tài liệu' },
-        { id: 'importReport', no: 'NB', title: 'Nhập BBTN cũ' }]);
+        { id: 'importReport', no: 'NB', title: 'Nhập BBTN cũ' }, { id: 'help', no: '?', title: 'Hướng dẫn sử dụng' }]);
   }
   // Thanh điều hướng vẽ như sơ đồ một sợi: mỗi hạng mục là một ngăn lộ, trạng thái là ký hiệu máy cắt
   const BRK_LABEL = { pass: 'Đạt — máy cắt đóng', warn: 'Cần xem xét', fail: 'Không đạt — máy cắt cắt', missing: 'Thiếu dữ liệu', info: 'Tham khảo' };
@@ -158,6 +158,7 @@
     let html = Workflow.progressHTML(schema.sections, res ? res.sec : {}, esc);
     items.forEach((it, i) => {
       if (i === 1) html += '<div class="nav-group">Hạng mục thí nghiệm</div>';
+      if (it.id === 'help') html += '<div class="nav-group">Trợ giúp</div>';
       if (it.id === 'summary') html += '<div class="nav-group">Kết quả</div>';
       if (it.id === 'db') html += '<div class="nav-group">Cơ sở dữ liệu</div>';
       const S = res && res.sec[it.id];
@@ -618,6 +619,7 @@
   async function onClick(e) {
     const b = e.target.closest('button');
     if (!b) return;
+    if (b.dataset.nav === 'help') { HelpUI.open(App); return; }
     if (b.dataset.nav) { current = b.dataset.nav; renderNav(); renderMain(); $('#main').scrollTop = 0; window.scrollTo(0, 0); return; }
     if (b.dataset.filter) { filters[b.dataset.fsec] = b.dataset.filter; updateComputed(); return; }
     if (b.dataset.ftab !== undefined) { factoryTab = +b.dataset.ftab; renderMain(); return; }
@@ -628,6 +630,7 @@
     const act = b.dataset.act;
     try {
       if (act === 'new') openTypeDialog();
+      else if (act === 'help') HelpUI.open(App);
       else if (act === 'save') await saveJson();
       else if (act === 'open') $('#fileJson').click();
       else if (act === 'loadXlsx') $('#fileXlsx').click();
@@ -891,6 +894,7 @@
     rebuild(schemaChanged) { if (schemaChanged) schema = T().buildSchema(state.cfg); recompute(); renderNav(); renderMain(); persist(); },
     render() { renderNav(); renderMain(); },
     go(id) { current = id; renderNav(); renderMain(); window.scrollTo(0, 0); },
+    currentSection() { return current; },
     openState(st, db) { loadState(st); state.db = db; recompute(); current = 'general'; renderMain(); persist(); loadInlineTrend(); },
   };
   boot().catch(err => { console.error(err); toast('Lỗi khởi động: ' + err.message, true); });

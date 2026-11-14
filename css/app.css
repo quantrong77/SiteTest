@@ -63,6 +63,8 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .btn.primary:hover { filter: brightness(1.08); }
 .topbar .btn.ghost { background: transparent; color: var(--top-ink); border-color: #3d4b5c; }
 .topbar .btn.ghost:hover { border-color: #8fb3d9; }
+.help-icon { width: 40px; height: 40px; padding: 8px; display: grid; place-items: center; }
+.help-icon svg { width: 22px; height: 22px; }
 .btn.small { padding: 3px 9px; font-size: 12px; }
 .btn:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 
@@ -148,6 +150,17 @@ h4 { font-size: 13px; margin: 14px 0 6px; color: var(--muted); font-weight: 600;
 .field input, .field select, .field textarea {
   border: 1px solid #c9cfd5; border-radius: var(--radius); padding: 6px 8px; background: #fff; min-width: 0;
 }
+.help-layout { display: grid; grid-template-columns: minmax(180px, 240px) minmax(0, 1fr); gap: 16px; }
+.help-toc { position: sticky; top: 84px; align-self: start; max-height: calc(100vh - 110px); overflow: auto; }
+.help-toc a { display: block; padding: 5px 8px; border-radius: 4px; color: var(--accent); text-decoration: none; font-size: 12px; }
+.help-toc a:hover { background: var(--calc); }
+.help-content { min-width: 0; overflow-wrap: anywhere; }
+.help-content table { display: block; max-width: 100%; overflow-x: auto; border-collapse: collapse; }
+.help-content th, .help-content td { border: 1px solid var(--line); padding: 6px 9px; text-align: left; }
+.help-content th { background: var(--calc); }
+.help-result { background: var(--warn-bg); }
+.help-back { margin-bottom: 12px; }
+@media (max-width: 600px) { .help-layout { grid-template-columns: minmax(0, 1fr); } .help-toc { position: static; max-height: 180px; } }
 .field textarea { min-height: 62px; resize: vertical; }
 .field .note { font-size: 11.5px; color: var(--faint); }
 .field input.st-pass, .field select.st-pass { border-color: var(--pass); background: #f6fbf8; }

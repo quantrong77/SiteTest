@@ -4,6 +4,8 @@ Tài liệu hướng dẫn theo tên nút và nội dung đang có trong repo.
 Một số chức năng cần Supabase hoặc file template nội bộ của đơn vị.
 Luôn dùng số liệu thật trong môi trường được phép; ví dụ trong repo phải là giả.
 
+Mở hướng dẫn này trong app bằng nút ? trên header hoặc phím F1. Khi đang ở một hạng mục, app sẽ đưa bạn tới phần hướng dẫn liên quan; nhấn **Quay lại hạng mục** để trở về.
+
 ## Bắt đầu nhanh: 10 bước
 
 1. Mở site trên Chrome hoặc Edge, hoặc chạy `start.bat` để mở local.

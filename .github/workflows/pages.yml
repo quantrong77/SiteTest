@@ -47,6 +47,8 @@ jobs:
         run: |
           mkdir -p _site
           cp -r index.html css js _site/
+          mkdir -p _site/docs
+          cp docs/HUONG_DAN_SU_DUNG.md _site/docs/
           touch _site/.nojekyll
 
       - uses: actions/configure-pages@v5

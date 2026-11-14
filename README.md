@@ -4,6 +4,8 @@
 
 Hiện app hỗ trợ **máy biến áp (MBA)**; các thiết bị nhất thứ khác (TI, TU, MC, DCL, CSV…) sẽ được bổ sung dần.
 
+Mở **Hướng dẫn sử dụng** bằng nút ? trên header hoặc phím **F1**; khi đang ở hạng mục, hướng dẫn mở đúng phần liên quan.
+
 Nhập số liệu thí nghiệm MBA theo template `Template/BBTN_MBA_500_x.docx`, tự so sánh từng hạng mục với
 số liệu xuất xưởng (`ThinghiemHientruongMBA/Bao_Cao_Thu_Nghiem_3_MBA_500kV_Di_Linh-v4.xlsx`) theo
 **số chế tạo**, đánh giá theo QĐ 1901/QĐ-EVNNPT, rồi xuất lại biên bản Word đúng template.
