@@ -162,6 +162,25 @@
       { onConflict: 'storage_path' }));
     return safe;
   }
+  // Thư viện tài liệu dùng bucket riêng tư; xóa mục sẽ xóa cả file đã gắn.
+  const listLibrary = async () => chk(await need().from('library_docs').select('*').order('priority', { ascending: false }).order('code'));
+  const saveLibraryDoc = async row => chk(await need().from('library_docs').upsert(row).select().single());
+  async function deleteLibraryDoc(id) {
+    const row = chk(await need().from('library_docs').select('file_path').eq('id', id).maybeSingle());
+    // xóa file trước: lỗi Storage thì bản ghi còn nguyên để thử lại (không để file mồ côi)
+    if (row && row.file_path) chk(await need().storage.from('library').remove([row.file_path]));
+    return chk(await need().from('library_docs').delete().eq('id', id).select('id'));
+  }
+  async function uploadLibraryFile(id, file) {
+    const previous = chk(await need().from('library_docs').select('file_path').eq('id', id).maybeSingle());
+    const safeName = String(file.name || 'tai_lieu').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/g, 'd').replace(/Đ/g, 'D').replace(/[^\w.-]+/g, '_').replace(/^_+|_+$/g, '') || 'tai_lieu';
+    const path = `${id}/${safeName}`;
+    chk(await need().storage.from('library').upload(path, file, { upsert: true, contentType: file.type || undefined }));
+    const saved = chk(await need().from('library_docs').update({ file_path: path, file_name: file.name, size_bytes: file.size }).eq('id', id).select().single());
+    if (previous && previous.file_path && previous.file_path !== path) chk(await need().storage.from('library').remove([previous.file_path]));
+    return saved;
+  }
+  const libraryFileUrl = async path => chk(await need().storage.from('library').createSignedUrl(path, 600));
   async function downloadDoc(path) { return chk(await need().storage.from(BUCKET).download(path)); }
 
   const listSessions = async () => chk(await need().from('v_session_list').select('*').order('test_date', { ascending: false }).limit(500));
@@ -207,7 +226,7 @@
 
   window.DB = {
     connect, cfgGet, checkConfig, siteCfg, refreshUser, signIn, signUp, signOut, signInWithGoogle, resetPassword, updatePassword, onAuthChange, authInit, saveField, importFactory, uploadDoc, downloadDoc,
-    listSessions, loadSession, deleteSession, listDocs, listEquipment, trend, trendForSerials, listSubstations, listBays, listClasses, listKTables, listCriteria, saveCriteria, deleteCriteria, crud,
+    listSessions, loadSession, deleteSession, listDocs, listEquipment, trend, trendForSerials, listSubstations, listBays, listClasses, listKTables, listCriteria, saveCriteria, deleteCriteria, listLibrary, saveLibraryDoc, deleteLibraryDoc, uploadLibraryFile, libraryFileUrl, crud,
     get client() { return client; }, get user() { return user; }, get role() { return role; }, get profile() { return profile; },
     get busy() { return inflight; },
     canEdit: () => role === 'editor' || role === 'admin',

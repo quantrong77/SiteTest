@@ -144,7 +144,7 @@
       .concat(schema.sections.map(s => ({ id: s.id, no: String(s.no), title: s.title })))
       .concat([{ id: 'summary', no: 'Σ', title: 'Tổng hợp & kết luận' }, { id: 'appendix', no: 'PL', title: 'Phụ lục BBTN' }, { id: 'factory', no: 'XX', title: 'Số liệu xuất xưởng' },
         { id: 'db', no: 'DB', title: 'CSDL – biên bản đã lưu' }, { id: 'catalog', no: '≡', title: 'Trạm – Ngăn – Thiết bị' }, { id: 'trend', no: '↗', title: 'Xu hướng' },
-        { id: 'kconf', no: 'K', title: 'Hệ số quy đổi sứ' }, { id: 'criteria', no: 'TC', title: 'Bộ tiêu chí đánh giá' }]);
+        { id: 'kconf', no: 'K', title: 'Hệ số quy đổi sứ' }, { id: 'criteria', no: 'TC', title: 'Bộ tiêu chí đánh giá' }, { id: 'standards', no: 'TV', title: 'Thư viện tài liệu' }]);
   }
   // Thanh điều hướng vẽ như sơ đồ một sợi: mỗi hạng mục là một ngăn lộ, trạng thái là ký hiệu máy cắt
   const BRK_LABEL = { pass: 'Đạt — máy cắt đóng', warn: 'Cần xem xét', fail: 'Không đạt — máy cắt cắt', missing: 'Thiếu dữ liệu', info: 'Tham khảo' };
@@ -362,7 +362,7 @@
       body += `<div class="wf-sum" data-fsum="${s.id}"></div>`;
     }
     const h = headHTML(String(s.no), s.title, s.en, s.id) + `<div class="wf-bar">${Workflow.stepsHTML(s.id, S)}${editToolsHTML(s.id)}</div>`
-      + `<div class="wf-layout"><div class="wf-main" data-step="${step}">${body}</div>${Workflow.referencesHTML(T(), s.id, esc)}</div>`;
+      + `<div class="wf-layout"><div class="wf-main" data-step="${step}">${body}</div>${Workflow.referencesHTML(T(), s.id, esc, StandardsUI.docs || [], EquipmentTypes.codeOf(state), (id, path) => DB.libraryFileUrl(path))}</div>`;
     return `<section class="panel" data-sec="${s.id}">${h}</section>`;
   }
   // Tóm tắt kết quả cuối bước Nhập số liệu (chi tiết ở bước Đánh giá)
@@ -433,6 +433,7 @@
     else if (current === 'kconf') html = KConf.render();
     else if (current === 'appendix') html = AppendixUI.render(App);
     else if (current === 'criteria') html = CriteriaUI.render();
+    else if (current === 'standards') html = StandardsUI.render();
     else html = renderSection(schema.sections.find(s => s.id === current));
     const dl = FX ? `<datalist id="dlSerials">${FX.data.order.map(s => `<option value="${esc(s)}">`).join('')}</datalist>` : '';
     main.innerHTML = html + dl;
@@ -442,6 +443,7 @@
     if (current === 'kconf') KConf.afterRender();
     if (current === 'appendix') AppendixUI.afterRender(App);
     if (current === 'criteria') CriteriaUI.afterRender();
+    if (current === 'standards') StandardsUI.afterRender();
   }
 
   // Xu hướng tại ô: tải lịch sử đo của thiết bị trong biên bản (đã lưu CSDL, đã đăng nhập); không dựng lại trang
@@ -815,12 +817,16 @@
     if (restored && !new URLSearchParams(location.search).has('code')) Notify.show({ type: 'info', msg: 'Đã mở lại biên bản đang nhập dở trên máy này.' });
     // Đăng nhập / đăng xuất / đổi kết nối → làm mới dữ liệu CSDL đang hiển thị
     document.addEventListener('auth:changed', () => {
-      DbUI.reset(); Catalog.reset(); KConf.reset(); CriteriaUI.reset(); renderNav(); renderMain();
+      DbUI.reset(); Catalog.reset(); KConf.reset(); CriteriaUI.reset(); StandardsUI.reset(); renderNav(); renderMain();
       if (DB.user) loadInlineTrend(); else TrendInlineUI.reset();
       // bảng hệ số quy đổi sứ trong CSDL (admin cấu hình) → dựng lại lựa chọn ở mục 5
       if (DB.user) KConf.load(true);
       // bộ tiêu chí đơn vị (admin cấu hình) → đánh giá lại biên bản đang mở
       if (DB.user) CriteriaUI.load(true);
+      if (DB.user) StandardsUI.load(true).then(() => App.render()).catch(e => {
+        if (/library_docs|does not exist|schema cache/i.test(e.message || '')) Notify.show({ type: 'error', msg: 'Chưa chạy migration 20261114000700 trên Supabase' });
+        else console.warn('Không tải được thư viện tiêu chuẩn:', e);
+      });
     });
     DB.connect();
     AuthUI.init().catch(e => console.warn(e));
