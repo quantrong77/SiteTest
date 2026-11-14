@@ -3,7 +3,8 @@
 (function () {
   'use strict';
   const $ = (s, r = document) => r.querySelector(s);
-  const LS_HIT = 'bbtn-mba.customHitachi';
+  const LS_HIT = 'bbtn-mba.customHitachi'; // (cũ) một file
+  const LS_HITS = 'bbtn-mba.hitachiFiles'; // các file test report sứ nạp thêm: [{ name, b64 }]
   let cpcTarget = null; // ô pha/phía đang tải XML CPC 100
 
   // ---------------------------------------------------------------- chú thích đầu mỗi hạng mục
@@ -184,8 +185,9 @@
 
   function generalFiles(A) {
     const HB = HitachiBushing;
-    return `<div class="field"><label>Test report sứ Hitachi (quy đổi 20 °C)</label><div class="calcval file" title="${A.esc(HB.source || '')}">${A.esc(HB.source || 'chưa nạp')}${HB.source ? ` · ${HB.reports.length} sứ` : ''}</div></div>`
-      + '<div class="field"><label>Nạp test report sứ khác (.xlsx, sheet TestReport + TraCuu)</label><button class="btn" data-act="loadHitachi">Chọn file .xlsx…</button></div>';
+    const extra = hitFiles(A).length;
+    return `<div class="field"><label>Test report sứ Hitachi (quy đổi 20 °C)</label><div class="calcval file" title="${A.esc(HB.sources.join('; '))}">${A.esc(HB.sources.length ? `${HB.sources.length} file` : 'chưa nạp')}${HB.sources.length ? ` · ${HB.reports.length} sứ` : ''}</div></div>`
+      + `<div class="field"><label>Thêm test report sứ (.xlsx, sheet TestReport + TraCuu; gộp theo S/N sứ)</label><div class="row-actions"><button class="btn" data-act="loadHitachi">Thêm file .xlsx…</button>${extra ? `<button class="btn" data-act="resetHitachi">Bỏ ${extra} file đã thêm</button>` : ''}</div></div>`;
   }
 
   function generalConfig(A) {
@@ -251,6 +253,11 @@
       A.rebuild(true);
     },
     loadHitachi: () => $('#fileHitachi').click(),
+    resetHitachi(b, A) {
+      A.lsSet(LS_HITS, null); A.lsSet(LS_HIT, null);
+      loadHitachiDefault(A); A.recompute(); A.renderMain();
+      A.toast('Đã bỏ các file test report sứ nạp thêm — dùng file nhúng sẵn');
+    },
     load2293: () => $('#file2293').click(),
     loadNameplate: () => $('#fileNameplate').click(),
     delOltc(b, A) {
@@ -272,13 +279,23 @@
   };
 
   // ---------------------------------------------------------------- khởi động
-  // Test report sứ Hitachi + hằng số quy đổi: file nạp tay (lưu trình duyệt) ưu tiên hơn file nhúng sẵn
-  function loadHitachiDefault(A) {
+  // Test report sứ Hitachi + hằng số quy đổi: file nhúng sẵn rồi gộp các file nạp thêm (lưu trình duyệt) theo S/N sứ
+  const hitFiles = A => {
     try {
-      const custom = A.lsGet(LS_HIT);
-      if (custom) { const o = JSON.parse(custom); HitachiBushing.fromBase64(o.b64, o.name); return; }
-      if (A.EMB.bushingTR) HitachiBushing.fromBase64(A.EMB.bushingTR.b64, A.EMB.bushingTR.name);
-    } catch (e) { console.warn('Hitachi test report:', e); A.toast('Không đọc được file test report sứ: ' + e.message, true); }
+      const list = JSON.parse(A.lsGet(LS_HITS) || '[]');
+      const old = A.lsGet(LS_HIT); // chuyển dữ liệu dạng cũ (một file) sang danh sách
+      if (old) { const o = JSON.parse(old); if (!list.some(x => x.name === o.name)) list.push(o); A.lsSet(LS_HITS, JSON.stringify(list)); A.lsSet(LS_HIT, null); }
+      return list;
+    } catch (e) { return []; }
+  };
+  function loadHitachiDefault(A) {
+    HitachiBushing.clear();
+    if (A.EMB.bushingTR) {
+      try { HitachiBushing.fromBase64(A.EMB.bushingTR.b64, A.EMB.bushingTR.name, { append: true }); } catch (e) { console.warn('Hitachi test report:', e); }
+    }
+    hitFiles(A).forEach(o => {
+      try { HitachiBushing.fromBase64(o.b64, o.name, { append: true }); } catch (e) { A.toast(`Không đọc được file test report sứ ${o.name}: ${e.message}`, true); }
+    });
   }
 
   // Gọi một lần khi app khởi động, trước khi đánh giá biên bản đầu tiên
@@ -291,9 +308,10 @@
     $('#fileCpc').addEventListener('change', e => { const fl = Array.from(e.target.files); e.target.value = ''; if (fl.length) CpcImport.open(fl, cpcTarget); });
     $('#fileHitachi').addEventListener('change', e => A.readFile(e.target, async f => {
       const buf = await f.arrayBuffer();
-      const info = HitachiBushing.fromArrayBuffer(buf, f.name);
-      if (!A.lsSet(LS_HIT, JSON.stringify({ name: f.name, b64: A.abToB64(buf) }))) A.toast('File lớn — chỉ dùng trong phiên này', true);
-      A.recompute(); A.renderMain(); A.toast(`Đã nạp test report sứ ${f.name}: ${info.count} sứ`);
+      const info = HitachiBushing.fromArrayBuffer(buf, f.name, { append: true });
+      const list = hitFiles(A).filter(x => x.name !== f.name).concat([{ name: f.name, b64: A.abToB64(buf) }]);
+      if (!A.lsSet(LS_HITS, JSON.stringify(list))) A.toast('File lớn — chỉ dùng trong phiên này', true);
+      A.recompute(); A.renderMain(); A.toast(`Đã thêm test report sứ ${f.name}: ${info.count} sứ (tổng ${info.total} sứ)`);
     }));
   }
 

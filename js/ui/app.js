@@ -5,7 +5,8 @@
   'use strict';
   const LS_STATE = 'bbtn-mba.state.v1';
   const LS_TPL = 'bbtn-mba.customTemplate';
-  const LS_FAC = 'bbtn-mba.customFactory';
+  const LS_FAC = 'bbtn-mba.customFactory'; // (cũ) một file xuất xưởng nạp tay
+  const LS_FACS = 'bbtn-mba.factoryFiles'; // các file xuất xưởng nạp thêm: [{ name, b64 }]
   const ST_TEXT = Common.ST_TEXT;
   // Loại thiết bị sẽ thêm sau (đã có trong danh mục CSDL); nút Mới hiện để người dùng biết lộ trình
   const PLANNED = [['TI', 'Biến dòng điện (TI)'], ['TU', 'Biến điện áp (TU)'], ['KH', 'Kháng điện'], ['MC', 'Máy cắt'], ['DCL', 'Dao cách ly'],
@@ -20,6 +21,7 @@
   const lsSet = (k, v) => { try { v === null ? localStorage.removeItem(k) : localStorage.setItem(k, v); return true; } catch (e) { return false; } };
 
   let FX = null, state = null, schema = null, res = null, current = 'general';
+  let FXS = []; // các file xuất xưởng đã nạp: [{ name, api, emb }] — FX là file đang dùng (chọn theo số chế tạo)
   const filters = {};
 
   // ---------------------------------------------------------------- helpers
@@ -328,10 +330,13 @@
     h += '<h3>Template & số liệu xuất xưởng</h3><div class="fields">';
     h += cfgField('template', 'Template BBTN dùng để xuất', { options: (Object.keys(EMB.templates).length ? Object.keys(EMB.templates).map(k => [k, EMB.templates[k].name]) : [['A', '(chưa có — nạp template .docx)']]).concat(lsGet(LS_TPL) ? [['custom', 'Tùy chỉnh: ' + JSON.parse(lsGet(LS_TPL)).name]] : []) });
     h += `<div class="field"><label>Nạp template khác (.docx cùng cấu trúc)</label><button class="btn" data-act="loadDocx">Chọn file template…</button></div>`;
-    h += `<div class="field"><label>File số liệu xuất xưởng</label><div class="calcval file" title="${esc(D ? D.fileName : '')}">${esc(D ? D.fileName : 'chưa nạp')}</div></div>`;
-    h += `<div class="field"><label>Nạp file xuất xưởng khác (.xlsx)</label><button class="btn" data-act="loadXlsx">Chọn file .xlsx…</button></div>`;
+    // nhiều file (vd AT1, AT2): chọn file đang dùng; app tự chọn theo số chế tạo máy chính khi nhập hoặc mở biên bản
+    h += FXS.length > 1
+      ? `<div class="field"><label>File số liệu xuất xưởng (${FXS.length} file — tự chọn theo số chế tạo)</label><select data-fxsel>${FXS.map((x, i) => `<option value="${i}" ${x.api === FX ? 'selected' : ''}>${esc(x.name)} — ${esc(x.api.data.order.join(', '))}</option>`).join('')}</select></div>`
+      : `<div class="field"><label>File số liệu xuất xưởng</label><div class="calcval file" title="${esc(D ? D.fileName : '')}">${esc(D ? D.fileName : 'chưa nạp')}</div></div>`;
+    h += `<div class="field"><label>Thêm file xuất xưởng (.xlsx, giữ cả các file đã nạp)</label><button class="btn" data-act="loadXlsx">Thêm file .xlsx…</button></div>`;
     h += (U.generalFiles ? U.generalFiles(App) : '') + '</div>';
-    if (D && D.warnings.length) h += `<div class="callout warn">${D.warnings.map(esc).join('<br>')}</div>`;
+    if (D && D.warnings.length) h += `<div class="callout warn"><b>${esc(D.fileName)}:</b><br>${D.warnings.map(esc).join('<br>')}</div>`;
     h += U.generalConfig ? U.generalConfig(App) : '';
     h += U.factoryUnits ? U.factoryUnits(App) : '';
     return `<section class="panel">${h}</section>`;
@@ -403,7 +408,12 @@
     let h = headHTML('XX', 'Số liệu xuất xưởng', FX ? FX.data.fileName : '');
     if (!FX) return `<section class="panel">${h}<div class="empty">Chưa nạp file.</div></section>`;
     const sh = FX.data.sheets;
-    h += `<div class="row-actions"><button class="btn" data-act="loadXlsx">Nạp file .xlsx khác…</button>${lsGet(LS_FAC) ? '<button class="btn" data-act="resetXlsx">Dùng lại file mặc định</button>' : ''}</div>`;
+    h += '<div class="grid-wrap"><table class="grid"><thead><tr><th>File</th><th>Các máy (số chế tạo – pha)</th><th>Cảnh báo</th><th></th></tr></thead><tbody>'
+      + FXS.map(x => { const d = x.api.data; return `<tr><th>${esc(x.name)}${x.emb ? ' <span class="badge">nhúng sẵn</span>' : ''}${x.api === FX ? ' <span class="badge st-pass">đang dùng</span>' : ''}</th>`
+        + `<td>${esc(d.order.map(sn => `${sn} – ${d.units[sn].phase || '?'}`).join(', '))}</td><td>${d.warnings.length ? `<span title="${esc(d.warnings.join('\n'))}">${d.warnings.length}</span>` : '—'}</td>`
+        + `<td class="row-actions">${x.api === FX ? '' : `<button class="btn small" data-act="useFx" data-name="${esc(x.name)}">Dùng file này</button>`}${x.emb ? '' : `<button class="btn small danger" data-act="delFx" data-name="${esc(x.name)}">Bỏ</button>`}</td></tr>`; }).join('')
+      + '</tbody></table></div>';
+    h += `<div class="row-actions"><button class="btn" data-act="loadXlsx">Thêm file .xlsx…</button></div>`;
     h += '<div class="tabs">' + sh.map((s, i) => `<button data-ftab="${i}" class="${i === factoryTab ? 'on' : ''}">${esc(s.name)}</button>`).join('') + '</div>';
     const rows = sh[factoryTab].rows;
     h += '<div class="raw"><table>' + rows.map(r => '<tr>' + (r || []).map(c => `<td title="${esc(c)}">${esc(typeof c === 'number' ? +c.toFixed(6) : c)}</td>`).join('') + '</tr>').join('') + '</table></div>';
@@ -533,6 +543,9 @@
       recompute();
       if (/^(template|bctCores|taps|oltcCharts|hvMeas)/.test(el.dataset.cfg)) renderMain(); else updateComputed();
       persist();
+    } else if (el.dataset.fxsel !== undefined && e.type === 'change') {
+      const entry = FXS[+el.value];
+      if (entry) { setFactory(entry); recompute(); renderNav(); renderMain(); persist(); }
     } else if (el.dataset.sumtick) {
       state.sum.tick[el.dataset.sumtick] = el.checked; persist();
     } else if (el.dataset.sumev !== undefined && e.type === 'change') {
@@ -540,6 +553,7 @@
     }
   }
   function onSerialChange() {
+    pickFactory(); // số chế tạo thuộc file xuất xưởng khác (vd AT2) → chuyển sang file đó
     const u = FX && FX.unit(state.v['meta.serial']);
     if (!u) { toast('Số chế tạo không có trong file xuất xưởng — các so sánh với máy chính sẽ thiếu tham chiếu', true); return; }
     const key = T().templateKeyFor ? T().templateKeyFor(state, FX) : null;
@@ -606,7 +620,14 @@
       else if (act === 'open') $('#fileJson').click();
       else if (act === 'loadXlsx') $('#fileXlsx').click();
       else if (act === 'loadDocx') $('#fileDocx').click();
-      else if (act === 'resetXlsx') { lsSet(LS_FAC, null); loadFactoryDefault(); applyFactoryDefaults(state.cfg); recompute(); renderMain(); toast('Đã dùng lại file xuất xưởng mặc định'); }
+      else if (act === 'useFx') { const e = FXS.find(x => x.name === b.dataset.name); if (e) { setFactory(e); recompute(); renderNav(); renderMain(); persist(); } }
+      else if (act === 'delFx') {
+        lsSet(LS_FACS, JSON.stringify(factoryFiles().filter(x => x.name !== b.dataset.name)));
+        const wasActive = FX && FXS.some(x => x.name === b.dataset.name && x.api === FX);
+        FXS = FXS.filter(x => x.name !== b.dataset.name);
+        if (wasActive) { if (!pickFactory(true) && FXS.length) setFactory(FXS[FXS.length - 1], true); if (!FXS.length) FX = null; }
+        recompute(); renderNav(); renderMain(); persist(); toast(`Đã bỏ file xuất xưởng ${b.dataset.name}`);
+      }
       else if (act === 'docx') await exportDocx();
       else if (act === 'xlsx') exportXlsx();
       else if (act === 'flagsDone') { if (state.att) delete state.att.ocr; renderMain(); persist(); toast('Đã bỏ tô nền các ô đọc từ ảnh'); }
@@ -666,6 +687,7 @@
     state = { type, v: st.v, cfg, sum: st.sum || { tick: {}, ev: {} }, att: st.att || {}, created: st.created, db: st.db || null };
     EditHistory.reset();
     state.sum.tick = state.sum.tick || {}; state.sum.ev = state.sum.ev || {};
+    pickFactory(true);
     applyFactoryDefaults(state.cfg);
     schema = T().buildSchema(state.cfg);
   }
@@ -676,12 +698,47 @@
     try { await fn(f); } catch (err) { console.error(err); toast('Lỗi đọc file: ' + err.message, true); }
   }
 
+  // Danh sách file xuất xưởng nạp thêm (chuyển dữ liệu dạng cũ một file sang danh sách)
+  function factoryFiles() {
+    let list = [];
+    try { list = JSON.parse(lsGet(LS_FACS) || '[]'); } catch (e) { list = []; }
+    const old = lsGet(LS_FAC);
+    if (old) {
+      try { const o = JSON.parse(old); if (!list.some(x => x.name === o.name)) list.push(o); } catch (e) { /* bỏ dữ liệu hỏng */ }
+      lsSet(LS_FACS, JSON.stringify(list)); lsSet(LS_FAC, null);
+    }
+    return list;
+  }
+  // File nhúng sẵn + các file nạp thêm; mặc định dùng file nạp sau cùng, biên bản có số chế tạo thì chọn đúng file chứa máy đó
   function loadFactoryDefault() {
-    const custom = lsGet(LS_FAC);
-    try {
-      if (custom) { const o = JSON.parse(custom); FX = factoryReader().fromBase64(o.b64, o.name); return; }
-    } catch (e) { console.warn('custom factory invalid', e); }
-    FX = EMB.factory ? factoryReader().fromBase64(EMB.factory.b64, EMB.factory.name) : null;
+    FXS = [];
+    const add = (o, emb) => {
+      try { FXS = FXS.filter(x => x.name !== o.name).concat([{ name: o.name, api: factoryReader().fromBase64(o.b64, o.name), emb }]); }
+      catch (e) { console.warn('factory', o.name, e); toast(`Không đọc được file xuất xưởng ${o.name}: ${e.message}`, true); }
+    };
+    if (EMB.factory) add(EMB.factory, true);
+    factoryFiles().forEach(o => add(o, false));
+    FX = FXS.length ? FXS[FXS.length - 1].api : null;
+  }
+  // Dùng file xuất xưởng `entry`: cột pha đang trỏ tới máy của file khác thì đặt lại theo các máy của file này
+  function setFactory(entry, quiet) {
+    FX = entry.api;
+    if (state) {
+      const ps = state.cfg.ps || {};
+      Object.keys(ps).forEach(k => { if (ps[k] && !FX.has(ps[k])) ps[k] = ''; });
+      applyFactoryDefaults(state.cfg);
+      schema = T().buildSchema(state.cfg);
+    }
+    if (!quiet) toast(`Dùng số liệu xuất xưởng ${entry.name} (${FX.data.order.join(', ')})`);
+  }
+  // Chọn file chứa số chế tạo máy chính (rồi đến các cột pha) của biên bản đang mở
+  function pickFactory(quiet) {
+    if (!state || FXS.length < 2) return false;
+    const sns = [state.v['meta.serial']].concat(Object.values(state.cfg.ps || {})).map(x => String(x || '').trim()).filter(Boolean);
+    const hit = sns.map(sn => FXS.find(x => x.api.has(sn))).find(Boolean);
+    if (!hit || hit.api === FX) return false;
+    setFactory(hit, quiet);
+    return true;
   }
   // Bộ đọc Test report xuất xưởng của loại thiết bị (trước khi có biên bản: loại mặc định)
   const factoryReader = () => EquipmentTypes.get(EquipmentTypes.codeOf(state)).factory;
@@ -781,11 +838,15 @@
     }));
     $('#fileXlsx').addEventListener('change', e => readFile(e.target, async f => {
       const buf = await f.arrayBuffer();
-      FX = factoryReader().fromArrayBuffer(buf, f.name);
-      if (!lsSet(LS_FAC, JSON.stringify({ name: f.name, b64: abToB64(buf) }))) toast('File lớn — chỉ dùng trong phiên này', true);
-      applyFactoryDefaults(state.cfg);
-      recompute(); renderMain(); persist();
-      toast(`Đã nạp ${f.name}: ${FX.data.order.length} máy${FX.data.warnings.length ? ' — có cảnh báo' : ''}`, FX.data.warnings.length > 0);
+      const entry = { name: f.name, api: factoryReader().fromArrayBuffer(buf, f.name), emb: false };
+      if (!entry.api.data.order.length) throw new Error('không xác định được số chế tạo các máy trong file');
+      const list = factoryFiles().filter(x => x.name !== f.name).concat([{ name: f.name, b64: abToB64(buf) }]);
+      if (!lsSet(LS_FACS, JSON.stringify(list))) toast('File lớn — chỉ dùng trong phiên này', true);
+      FXS = FXS.filter(x => x.name !== f.name).concat([entry]);
+      setFactory(entry, true);
+      recompute(); renderNav(); renderMain(); persist();
+      const D = entry.api.data;
+      toast(`Đã thêm ${f.name}: ${D.order.length} máy (${D.order.join(', ')})${D.warnings.length ? ' — có cảnh báo, xem mục 0' : ''}`, D.warnings.length > 0);
     }));
     $('#fileDocx').addEventListener('change', e => readFile(e.target, async f => {
       const buf = await f.arrayBuffer();

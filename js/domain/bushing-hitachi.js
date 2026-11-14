@@ -16,7 +16,8 @@
   };
   let K = JSON.parse(JSON.stringify(DEFAULTS));
   let TR = [];          // test report hãng: [{ serial, ur, mount, tAmb, tOil, c1, tgd1, c2, tgd2, date, where }]
-  let source = null;    // tên file
+  let source = null;    // tên file (nhiều file: nối bằng " + ")
+  let sources = [];
 
   const num = v => (v === null || v === undefined || v === '' ? NaN : typeof v === 'number' ? v : Number(String(v).replace(',', '.')));
   const ok = Number.isFinite;
@@ -122,15 +123,23 @@
     return out;
   }
 
-  function load(wb, name) {
+  // append: gộp với các file đã nạp (vd test report sứ AT1 + AT2), trùng S/N thì lấy file nạp sau; không append: thay toàn bộ
+  function load(wb, name, opts = {}) {
     const ws = n => (wb.SheetNames.includes(n) ? rowsOf(wb.Sheets[n]) : null);
     const tc = ws('TraCuu'), tr = ws('TestReport');
     if (!tr) throw new Error('File không có sheet "TestReport"');
-    K = tc ? readConsts(tc) : JSON.parse(JSON.stringify(DEFAULTS));
-    TR = readTR(tr);
-    source = name;
-    return { count: TR.length, consts: K };
+    const add = readTR(tr);
+    if (tc) K = readConsts(tc);
+    else if (!opts.append || !sources.length) K = JSON.parse(JSON.stringify(DEFAULTS));
+    if (opts.append) {
+      const keys = new Set(add.map(r => norm(r.serial)));
+      TR = TR.filter(r => !keys.has(norm(r.serial))).concat(add);
+      sources = sources.filter(n => n !== name).concat([name]);
+    } else { TR = add; sources = [name]; }
+    source = sources.join(' + ');
+    return { count: add.length, total: TR.length, consts: K };
   }
+  function clear() { TR = []; sources = []; source = null; K = JSON.parse(JSON.stringify(DEFAULTS)); }
 
   // Test report @20 °C của một sứ (quy đổi bằng chính quy trình trên)
   function report(serial) {
@@ -141,9 +150,9 @@
   }
 
   window.HitachiBushing = {
-    DEFAULTS, bodyTemp, fc, deltaC, to20, compare, load, report, isMounted,
-    fromBase64(b64, name) { return load(XLSX.read(b64, { type: 'base64' }), name); },
-    fromArrayBuffer(buf, name) { return load(XLSX.read(buf, { type: 'array' }), name); },
-    get consts() { return K; }, get reports() { return TR; }, get source() { return source; },
+    DEFAULTS, bodyTemp, fc, deltaC, to20, compare, load, clear, report, isMounted,
+    fromBase64(b64, name, opts) { return load(XLSX.read(b64, { type: 'base64' }), name, opts); },
+    fromArrayBuffer(buf, name, opts) { return load(XLSX.read(buf, { type: 'array' }), name, opts); },
+    get consts() { return K; }, get reports() { return TR; }, get source() { return source; }, get sources() { return sources.slice(); },
   };
 })();

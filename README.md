@@ -206,8 +206,19 @@ Phân quyền (RLS): viewer xem; editor nhập/sửa và xóa bản nháp của 
 
 ## Cập nhật template hoặc file xuất xưởng
 
-- Trong app: mục 0 → **Nạp template khác** / **Nạp file xuất xưởng khác** (file mới phải cùng cấu trúc).
+- Trong app: mục 0 → **Nạp template khác** / **Thêm file xuất xưởng** / **Thêm test report sứ**.
 - Hoặc nhúng lại vào bản phân phối: `python tools/build_embedded.py`.
+
+### Nhiều MBA (vd AT1, AT2): file xuất xưởng và test report sứ
+
+- **File xuất xưởng** (`Bao_Cao_Thu_Nghiem_….xlsx`): mục 0 → *Thêm file .xlsx…*. App giữ mọi file đã thêm (lưu trình duyệt) cùng
+  file nhúng sẵn và **tự chọn file chứa số chế tạo máy chính** khi nhập số chế tạo hoặc mở biên bản; các cột pha A/B/C đặt lại
+  theo các máy của file đó. Chọn tay ở ô "File số liệu xuất xưởng" (mục 0) hoặc trang **Số liệu xuất xưởng** (Dùng file này / Bỏ).
+- Bộ đọc nhận hai bố cục: cột theo "Máy N (số chế tạo)" và cột theo "Pha A (số chế tạo)" (nấc ở cột riêng, sứ và BCT mỗi dòng
+  một mục, cách điện ghi R60/Kht/PI/C/tgδ từng dòng). Phần không có trong file (vd bảng điều kiện thí nghiệm, độ ẩm DFR, thông số
+  chịu đựng của sứ) hiện thành cảnh báo ở mục 0; các so sánh cần số liệu đó để trống tham chiếu.
+- **Test report sứ Hitachi** (`SuRIP_Hitachi_….xlsx`): mục 0 → *Thêm file .xlsx…*; các file được **gộp theo S/N sứ** (trùng S/N
+  lấy file thêm sau), dùng chung cho mọi MBA. *Bỏ n file đã thêm* để về file nhúng sẵn.
 
 ### Mẫu chung 3 pha (một BBTN cho tổ 3 máy 1 pha A, B, C)
 
@@ -250,6 +261,7 @@ npm test
   mở app trong trình duyệt, chọn mẫu chung 3 pha, điền số liệu giả, xuất BBTN và kiểm từng ô của file .docx (thông tin chung,
   tổng hợp, số liệu theo máy, hàng nhiệt độ sứ, mΩ, OLTC, phụ lục BCT, chân trang); kiểm thêm mẫu theo pha A vẫn xuất đúng.
 - `test/mba-3p.test.js`: bố cục, đánh giá theo từng máy, dòng CSDL, phụ lục BCT, nhiệt độ riêng từng sứ của mẫu chung 3 pha.
+- `test/factory-layouts.test.js`: đọc file xuất xưởng bố cục theo pha (số liệu giả), gộp test report sứ Hitachi theo S/N.
 - `test/mrct.test.js`: đọc `.pdbxml` Megger MRCT (khối nhị phân đường từ hóa dựng lại) và chữ báo cáo PDF PowerDB (theo tọa độ cột,
   ô trống, mục chữ gộp nhiều số).
 - `test/nameplate.test.js`: đọc nameplate từ chữ OCR (giá trị giả): đủ trường, ghép cột theo toạ độ, trường cần kiểm tra / thiếu.

@@ -1,5 +1,7 @@
 // Đọc file số liệu xuất xưởng (.xlsx) → cấu trúc tra cứu theo SỐ CHẾ TẠO.
 // Định vị theo nhãn/tiêu đề cột thay vì địa chỉ ô cố định, để file sửa đổi nhẹ vẫn đọc được.
+// Nhận hai bố cục: cột theo "Máy N (số chế tạo)" (vd test report AT1) và cột theo "Pha A (số chế tạo)" với nấc, cuộn dây,
+// sứ ghi từng dòng (vd test report máy 2). Phần nào không có trong file thì ghi cảnh báo, không làm hỏng cả file.
 (function () {
   'use strict';
 
@@ -20,15 +22,32 @@
     return name ? { name, rows: rowsOf(wb.Sheets[name]) } : null;
   }
 
-  // Cột thuộc "Máy N" → số chế tạo
-  function machineCols(header, machines) {
+  // Cột số liệu của từng máy → số chế tạo: tiêu đề "Máy N…", có ghi số chế tạo, hoặc "Pha A/B/C…".
+  // skip: bỏ cột phụ (vd "Pha A Đánh giá").
+  function unitCols(header, F, skip) {
     const out = [];
     (header || []).forEach((h, c) => {
-      const m = String(h || '').match(/Máy\s*(\d+)/i);
-      if (m && machines[m[1]]) out.push({ c, serial: machines[m[1]], text: String(h) });
+      const t = String(h || '');
+      if (!t || (skip && skip.test(t))) return;
+      const m = t.match(/Máy\s*(\d+)/i);
+      let serial = m && F.machines[m[1]] ? F.machines[m[1]] : null;
+      if (!serial) serial = F.order.find(sn => t.includes(sn)) || null;
+      if (!serial) {
+        // "Pha A" (chữ pha viết hoa, đứng riêng) — không nhầm "Độ lệch pha cực đại"
+        const p = t.match(/[Pp][Hh][Aa]\s*([ABC])(?!\p{L})/u);
+        if (p) serial = F.order.find(sn => F.units[sn].phase === p[1].toUpperCase()) || null;
+      }
+      if (serial) out.push({ c, serial, text: t });
     });
     return out;
   }
+  // "SN001 - Pha A" | "Pha A - SN001" → { serial, phase }
+  function unitOf(inner) {
+    const phase = ((inner.match(/Pha\s*([ABC])/i) || [])[1] || '').toUpperCase();
+    const serial = inner.replace(/Pha\s*[ABC]/i, '').replace(/^[\s\-–]+|[\s\-–]+$/g, '').trim();
+    return { serial, phase };
+  }
+  const serialIn = v => (String(v || '').match(/[A-Z]{1,3}\d{5,}[A-Z0-9-]*/i) || [String(v || '').trim()])[0];
 
   function parse(wb, fileName) {
     const F = {
@@ -42,20 +61,23 @@
     let hdrIdx = ov.rows.findIndex(r => r && r.some(c => /Máy\s*\d+\s*\(/i.test(String(c || ''))));
     if (hdrIdx >= 0) {
       ov.rows[hdrIdx].forEach(c => {
-        const m = String(c || '').match(/Máy\s*(\d+)\s*\(\s*([A-Za-z0-9\-]+)\s*(?:-\s*Pha\s*([ABC]))?/i);
-        if (m) {
-          F.machines[m[1]] = m[2];
-          F.units[m[2]] = { serial: m[2], machine: +m[1], phase: m[3] || '' };
-          F.order.push(m[2]);
-        }
+        const m = String(c || '').match(/Máy\s*(\d+)\s*\(([^)]*)\)/i);
+        if (!m) return;
+        const u = unitOf(m[2]);
+        if (!u.serial) return;
+        F.machines[m[1]] = u.serial;
+        F.units[u.serial] = { serial: u.serial, machine: +m[1], phase: u.phase };
+        F.order.push(u.serial);
       });
-      const mc = machineCols(ov.rows[hdrIdx], F.machines);
+      const mc = unitCols(ov.rows[hdrIdx], F);
+      // cột nhãn: "Hạng mục…" (cột 1 nếu có cột STT, cột 0 nếu không)
+      const lc = Math.max(0, ov.rows[hdrIdx].findIndex(x => /Hạng mục/i.test(String(x || ''))));
       for (let r = hdrIdx + 1; r < ov.rows.length; r++) {
         const row = ov.rows[r];
-        if (!row || !row[1]) continue;
+        if (!row || !row[lc]) continue;
         const vals = {};
         mc.forEach(({ c, serial }) => { vals[serial] = row[c]; });
-        F.overview.push({ label: String(row[1]), unit: row[2], guarantee: row[3], vals });
+        F.overview.push({ label: String(row[lc]), unit: row[lc + 1], guarantee: row[lc + 2], vals });
       }
       const nl = F.overview.find(o => /Tổn hao không tải/i.test(o.label));
       if (nl) Object.entries(nl.vals).forEach(([s, v]) => { F.units[s].noLoadLoss = num(v); });
@@ -65,7 +87,22 @@
 
     // --- Thông số / nameplate
     const sp = findSheet(wb, /spec|nameplate/i);
-    if (sp) sp.rows.forEach(r => {
+    // bố cục theo pha: mỗi dòng một thông số, các cột là pha A/B/C (lấy giá trị pha A); phía HV/MV/LV ghi trong nhãn
+    const spPerPhase = sp && sp.rows.some(r => r && r.slice(2).some(c => /Pha\s*[ABC]\b/i.test(String(c || ''))));
+    if (sp && spPerPhase) sp.rows.forEach(r => {
+      if (!r || !r[0] || r[2] === null || r[2] === undefined) return;
+      const label = String(r[0]), val = r[2];
+      const side = /\(HV\)|\bHV\b|Cao áp/i.test(label) ? 'HV' : /\(MV\)|\bMV\b|Trung áp/i.test(label) ? 'MV' : /\(LV\)|\bLV\b|Hạ áp/i.test(label) ? 'LV' : null;
+      const put = key => { F.specs[key] = F.specs[key] || { label: label.replace(/\s*(HV|MV|LV|cuộn.*)$/i, ''), unit: r[1] }; if (side) F.specs[key][side] = val; };
+      if (/^Kiểu máy/i.test(label)) F.specs.type = val;
+      else if (/OLTC/i.test(label)) { if (!F.specs.oltc && !/Dòng|Mức cách điện/i.test(label)) F.specs.oltc = val; }
+      else if (/Dung lượng/i.test(label)) put('power');
+      else if (/Điện áp định mức/i.test(label)) put('voltage');
+      else if (/Dòng điện định mức/i.test(label)) put('current');
+      else if (/Tổ đấu dây/i.test(label)) F.specs.vector = val;
+      else if (/Nhà sản xuất/i.test(label)) F.specs.manufacturer = val;
+    });
+    else if (sp) sp.rows.forEach(r => {
       if (!r || !r[0]) return;
       const label = String(r[0]);
       const rec = { label, unit: r[1], HV: r[2], MV: r[3], LV: r[4], note: r[5] };
@@ -81,17 +118,23 @@
     // --- Tỷ số biến
     const vr = findSheet(wb, /ratio/i);
     if (vr) {
-      const h = vr.rows.findIndex(r => r && /Nấc/i.test(String(r[0] || '')));
-      const mc = machineCols(vr.rows[h], F.machines);
-      for (let r = h + 1; r < vr.rows.length; r++) {
+      // dòng tiêu đề cột: ô đầu "Nấc…" và có cột số liệu của các máy (bỏ qua dòng tên bảng "…17 NẤC PHÂN ÁP")
+      let h = vr.rows.findIndex(r => r && /Nấc/i.test(String(r[0] || '')) && unitCols(r, F).length >= 2);
+      if (h < 0) h = vr.rows.findIndex(r => r && /Nấc/i.test(String(r[0] || '')));
+      const head = (vr.rows[h] || []).map(x => String(x || ''));
+      const mc = unitCols(head, F, /Đánh giá|Evaluation|Cực tính|Polarity/i);
+      const limC = head.findIndex(x => /Giới hạn|Limit/i.test(x)), polC = head.findIndex(x => /Cực tính|Polarity/i.test(x));
+      for (let r = h + 1; h >= 0 && r < vr.rows.length; r++) {
         const row = vr.rows[r];
         if (!row || row[0] === null) continue;
         const err = {};
         mc.forEach(({ c, serial }) => { err[serial] = row[c]; });
-        const tap = String(row[0]).trim();
+        const tap = String(row[0]).trim().replace(/^Tap\s*/i, '');
+        // cột cực tính theo từng nấc (bố cục theo pha): lấy làm cực tính chung của các máy
+        if (polC >= 0 && row[polC] && !Object.keys(F.ratio.polarity).length) F.order.forEach(sn => { F.ratio.polarity[sn] = row[polC]; });
         if (/^\d+[A-Z]?$/i.test(tap)) {
-          F.ratio.taps.push({ tap: tap.toUpperCase(), hvKV: num(row[1]), mvKV: num(row[2]), nominal: num(row[3]), err, limit: row[7] });
-        } else if (/MV.?LV/i.test(tap)) {
+          F.ratio.taps.push({ tap: tap.toUpperCase(), hvKV: num(row[1]), mvKV: num(row[2]), nominal: num(row[3]), err, limit: limC >= 0 ? row[limC] : null });
+        } else if (/MV\s*[-–]?\s*LV/i.test(tap)) {
           F.ratio.mvlv = { mvKV: num(row[1]), lvKV: num(row[2]), nominal: num(row[3]), err };
         } else if (/Polar/i.test(tap)) {
           F.ratio.polarity = err;
@@ -102,35 +145,64 @@
     // --- Điện trở một chiều
     const dr = findSheet(wb, /DC Resist/i);
     if (dr) {
-      const h = dr.rows.findIndex(r => r && r.some(c => /Máy\s*\d/i.test(String(c || ''))));
-      const head = dr.rows[h];
-      const refM = String(dr.rows[0] && dr.rows[0][0] || '').match(/(\d+)\s*°C/) || head.map(String).join(' ').match(/(\d+)\s*°C/);
+      const h = dr.rows.findIndex(r => r && unitCols(r, F).length >= 2); // ≥ 2 cột máy: bỏ qua dòng tên bảng "…3 PHA A, B, C"
+      const head = (dr.rows[h] || []).map(x => String(x || ''));
+      const refM = String(dr.rows[0] && dr.rows[0][0] || '').match(/(\d+)\s*°C/) || head.join(' ').match(/(\d+)\s*°C/);
       if (refM) F.dcr.refT = +refM[1];
       const meas = {}, conv = {};
-      head.forEach((t, c) => {
-        const m = String(t || '').match(/Máy\s*(\d+)/i);
-        if (!m || !F.machines[m[1]]) return;
-        (/Quy đổi/i.test(t) ? conv : meas)[F.machines[m[1]]] = c;
-      });
-      for (let r = h + 1; r < dr.rows.length; r++) {
+      // cột "Quy đổi 75°C" / "75°C" là giá trị quy đổi; "Đo" / "Đo thực" là giá trị đo
+      unitCols(head, F).forEach(({ c, serial, text }) => { (/Quy đổi|\d+\s*°C/i.test(text) && !/Đo thực/i.test(text) ? conv : meas)[serial] = c; });
+      // nấc ở cột riêng ("Vị trí nấc") hoặc trong nhãn ("Cuộn SER - Tap 1")
+      const tapC = head.findIndex((x, i) => i > 0 && /nấc|^Tap/i.test(x));
+      for (let r = h + 1; h >= 0 && r < dr.rows.length; r++) {
         const row = dr.rows[r];
         if (!row || !row[0]) continue;
         const label = String(row[0]);
         const w = /SER/i.test(label) ? 'SER' : /COM/i.test(label) ? 'COM' : /LV/i.test(label) ? 'LV' : null;
         if (!w) continue;
-        const tm = label.match(/Tap\s*([0-9]+[A-Z]?)/i);
-        const rec = { winding: w, tap: tm ? tm[1].toUpperCase() : null, label, meas: {}, r75: {} };
+        const tc = tapC >= 0 ? String(row[tapC] ?? '').trim().replace(/^Tap\s*/i, '') : '';
+        const tm = /^\d+[A-Z]?$/i.test(tc) ? [null, tc] : label.match(/Tap\s*([0-9]+[A-Z]?)/i);
+        const rec = { winding: w, tap: tm ? tm[1].toUpperCase() : null, label: tm && tapC >= 0 ? `${label} - Tap ${tm[1]}` : label, meas: {}, r75: {} };
         Object.entries(meas).forEach(([s, c]) => { rec.meas[s] = num(row[c]); });
         Object.entries(conv).forEach(([s, c]) => { rec.r75[s] = num(row[c]); });
         F.dcr.rows.push(rec);
       }
+      if (h < 0) F.warnings.push('Sheet điện trở một chiều: không nhận được cột số liệu của các máy.');
     } else F.warnings.push('Không có sheet điện trở một chiều.');
 
     // --- Cách điện, Kht, PI, C, tgδ cuộn dây
     const ins = findSheet(wb, /Insulation|TanDelta/i);
-    if (ins) {
-      const h = ins.rows.findIndex(r => r && r.some(c => /Máy\s*\d/i.test(String(c || ''))));
-      const mc = machineCols(ins.rows[h], F.machines);
+    const insH = ins ? ins.rows.findIndex(r => r && unitCols(r, F).length >= 2) : -1;
+    const insPerRow = insH >= 0 && !/Thông số/i.test(String(ins.rows[insH][1] || ''));
+    if (ins && insPerRow) {
+      // bố cục theo pha: mỗi dòng một đại lượng của một sơ đồ đo, vd "R60 cuộn HV+MV+N đến LV+Tank", "Tan Delta LV đến HV+MV+N+Tank"
+      const head = ins.rows[insH].map(x => String(x || ''));
+      const mc = unitCols(head, F, /Đánh giá/i), limC = head.findIndex(x => /Tiêu chuẩn|Giới hạn/i.test(x));
+      const cfgOf = t => cfgKey(String(t).replace(/\s*(đến|→|->)\s*/i, '-'));
+      const MAIN = 'HV+MV+N-LV+TANK'; // Kht, PI chỉ ghi một dòng chung → gán cho sơ đồ cao, trung ~ hạ, vỏ
+      for (let r = insH + 1; r < ins.rows.length; r++) {
+        const row = ins.rows[r];
+        if (!row || !row[0]) continue;
+        const a = String(row[0]);
+        let param = null, cfg = null;
+        const paren = (a.match(/\(([^)]*[+-][^)]*)\)\s*$/) || [])[1];
+        if (/Core|Clamp|Mạch từ|Gông từ/i.test(a)) {
+          const k = cfgKey(paren || '');
+          param = 'r60'; cfg = /^CORE-CLAMP\+/.test(k) ? 'CORE' : /^CLAMP-CORE/.test(k) ? 'CLAMP' : k === 'CORE-CLAMP' ? 'CORE-CLAMP' : null;
+        } else if (/^R60/i.test(a)) { param = 'r60'; cfg = cfgOf(a.replace(/^R60\s*(cuộn)?\s*/i, '')); }
+        else if (/Kht|hấp thụ/i.test(a)) { param = 'kht'; cfg = MAIN; }
+        else if (/\bPI\b|cực hóa/i.test(a)) { param = 'pi'; cfg = MAIN; }
+        else if (/^Điện dung|Capacitance/i.test(a)) { param = 'c'; cfg = cfgOf(a.replace(/^Điện dung\s*(cuộn dây)?\s*/i, '')); }
+        else if (/Tan\s*Delta|Tan\s*δ|tgδ/i.test(a)) { param = 'tgd'; cfg = cfgOf(a.replace(/^.*?(Tan\s*Delta|Tan\s*δ|tgδ)\s*/i, '')); }
+        if (!param || !cfg) continue;
+        F.ins[cfg] = F.ins[cfg] || {};
+        F.ins[cfg][param] = {};
+        mc.forEach(({ c, serial }) => { F.ins[cfg][param][serial] = param === 'tgd' ? pct(row[c]) : num(row[c]); });
+        F.ins[cfg][param].limit = limC >= 0 ? row[limC] : null;
+      }
+    } else if (ins) {
+      const h = insH;
+      const mc = unitCols(ins.rows[h], F);
       for (let r = h + 1; r < ins.rows.length; r++) {
         const row = ins.rows[r];
         if (!row || !row[0]) continue;
@@ -170,13 +242,14 @@
           F.bushingSpecs.push({ terminal: term ? term[1] : String(row[0]), label: String(row[0]), ur: row[1], ac: num(row[3]), li: num(row[4]), type: row[6] });
         }
       }
-      const h = bs.rows.findIndex(r => r && r.some(c => /Serial sứ|Bushing Serial/i.test(String(c || ''))));
+      const h = bs.rows.findIndex(r => r && r.some(c => /Serial sứ|Bushing Serial|Bushing SN|Mã hiệu sứ/i.test(String(c || ''))));
       if (h >= 0) {
         const head = bs.rows[h].map(x => String(x || ''));
         const col = re => head.findIndex(x => re.test(x));
         const c = {
-          mba: col(/Serial MBA/i), term: col(/Vị trí đầu sứ/i), bs: col(/Serial sứ/i), c1np: col(/C1 Mảnh nhãn|Nameplate C1/i),
-          tdnp: col(/Tanδ Mảnh nhãn|Nameplate Tan/i), c1: col(/C1 Đo|Measured C1/i), td: col(/Tanδ Đo|Measured Tan/i), t: col(/Nhiệt độ/i),
+          mba: col(/Serial MBA|Pha\s*\/\s*Máy/i), term: col(/Vị trí đầu sứ|Vị trí sứ/i), bs: col(/Serial sứ|Bushing Serial|Bushing SN|Mã hiệu sứ/i),
+          c1np: col(/C1 Mảnh nhãn|Nameplate C1|C1 Nhãn/i), tdnp: col(/Tanδ Mảnh nhãn|Nameplate Tan|Tanδ Nhãn/i), c1: col(/C1 Đo|Measured C1/i),
+          td: col(/Tanδ Đo|Measured Tan/i), t: col(/Nhiệt độ/i),
         };
         for (let r = h + 1; r < bs.rows.length; r++) {
           const row = bs.rows[r];
@@ -186,7 +259,7 @@
           const toPct = v => { const n = num(v); return n === null ? null : (n < 0.05 ? n * 100 : n); };
           const term = String(row[c.term] || '').match(/^([\d.]+)/);
           F.bushings.push({
-            mba: String(row[c.mba]).trim(), terminal: term ? term[1] : String(row[c.term]), terminalLabel: String(row[c.term] || ''),
+            mba: F.order.find(sn => String(row[c.mba] || '').includes(sn)) || serialIn(row[c.mba]), terminal: term ? term[1] : String(row[c.term]), terminalLabel: String(row[c.term] || ''),
             serial: String(row[c.bs]).trim(), c1np: num(row[c.c1np]), tdnp: toPct(row[c.tdnp]), c1: num(row[c.c1]), td: toPct(row[c.td]), t: num(row[c.t]),
           });
         }
@@ -199,7 +272,7 @@
     if (tc) {
       const h = tc.rows.findIndex(r => r && r.some(c => /Nhiệt độ dầu Máy/i.test(String(c || ''))));
       if (h >= 0) {
-        const mc = machineCols(tc.rows[h], F.machines);
+        const mc = unitCols(tc.rows[h], F);
         for (let r = h + 1; r < tc.rows.length; r++) {
           const row = tc.rows[r];
           if (!row || !row[0]) continue;
@@ -235,13 +308,15 @@
         const m = String(row[0]).match(/([A-Z]\d{5,})/);
         const ratio = String(row[4] || '').split('/').map(Number);
         F.bct.push({
-          mba: m ? m[1] : String(row[0]), position: row[1], ct: String(row[2] || '').replace(/\D/g, ''), terminal: norm(row[3]),
+          mba: F.order.find(sn => String(row[0]).includes(sn)) || (m ? m[1] : String(row[0])), position: row[1], ct: String(row[2] || '').replace(/\D/g, ''), terminal: norm(row[3]),
           terminalLabel: row[3], ratioText: row[4], ratio: ratio.length === 2 && ratio[1] ? ratio[0] / ratio[1] : null,
           r75: num(row[5]), err: num(row[6]), polarity: row[7],
         });
       }
     }
 
+    if (F.order.length && !Object.keys(F.conditions).length) F.warnings.push('File không có bảng điều kiện thí nghiệm (nhiệt độ dầu theo hạng mục, độ ẩm DFR): so sánh cần nhiệt độ hoặc độ ẩm xuất xưởng sẽ thiếu tham chiếu.');
+    if (F.order.length && !F.bushingSpecs.length) F.warnings.push('File không có thông số chịu đựng của sứ (AC, LI): mục thử AC sứ không có giá trị tham chiếu.');
     if (!F.order.length) F.warnings.push('Không xác định được số chế tạo các máy trong file xuất xưởng.');
     return F;
   }
