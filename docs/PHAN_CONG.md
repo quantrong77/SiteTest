@@ -1,10 +1,11 @@
-# Phân công Codex – Claude Code
+# Phân công Codex – Gemini – Claude Code
 
 Quy tắc chung: [AGENTS.md](../AGENTS.md). File này là bảng việc; agent nhận việc thì ghi tên, nhánh và trạng thái ngay tại đây.
 
 ## Cách chia việc
 
 - **Claude Code — phần lõi và nghiệp vụ.** Kiến trúc lõi, thêm loại thiết bị, đọc template/biên bản của đơn vị, diễn giải QĐ 1901, việc phải sửa nhiều lớp cùng lúc. Review PR của Codex.
+- **Gemini (Gemini CLI) — việc có đặc tả rõ, ít chạm lõi, như Codex:** đang giữ X2, X3, X5. Nhánh `gemini/<viec>`; Claude Code review PR.
 - **Codex — việc có đặc tả rõ, ít chạm lõi:** tính năng giao diện độc lập, hàm thuần có test riêng, hạ tầng (migration, Storage), test tự động. Review PR của Claude Code khi chủ dự án yêu cầu.
 - **Chủ dự án:** giao việc (dùng mẫu ở cuối file), cung cấp file nội bộ (template, biên bản, file đo — không đưa lên Git), chạy migration trên Supabase, duyệt và gộp PR.
 
@@ -17,10 +18,10 @@ Trạng thái: `Chưa nhận` · `Đang làm (agent, nhánh)` · `Chờ review (
 | # | Việc | Giao cho | Vùng file được sửa | Điều kiện | Trạng thái |
 |---|---|---|---|---|---|
 | X1 | **Nhập số liệu bằng giọng nói**: chọn ô, bấm micro, đọc số tiếng Việt ("một trăm hai mươi lăm phẩy ba" → 125,3); chế độ đọc liên tục sang ô kế; lệnh "lùi", "xóa", "dừng" | Codex | `js/domain/vn-number.js` (mới), `js/ui/voice-input.js` (mới), `test/vn-number.test.js` (mới); thêm nhỏ: `index.html`, `test/harness.js`, `css/app.css`, `js/ui/app.js` (gắn nút) | Không | Đã gộp (Claude Code review) |
-| X2 | **Xu hướng ngay tại ô nhập**: ô có số liệu các lần trước hiện biểu đồ nhỏ, % thay đổi so với xuất xưởng và lần trước; tô vàng khi lệch xa | Codex | `js/domain/trend-inline.js` (mới, hàm thuần), `js/ui/trend-inline-ui.js` (mới), test mới; thêm nhỏ: `js/data/db.js` (hàm đọc lịch sử thiết bị), `js/ui/app.js`, `index.html`, `css/app.css` | Đã chạy migration 000100–000600 | Chưa nhận |
-| X3 | **Thư viện tiêu chuẩn**: bucket Storage riêng tư + bảng danh mục (số hiệu, phiên bản, loại thiết bị, file, tóm tắt .md); trang quản lý (Admin tải lên); khung "Tài liệu tham khảo" của từng hạng mục hiện tiêu chuẩn liên quan | Codex | migration mới, `js/data/db.js` (thêm hàm), `js/ui/standards-ui.js` (mới), `js/ui/workflow.js` (khung tham khảo), `index.html`, `css/app.css` | Danh mục mẫu: `TieuChuan/Danh_muc_tieu_chuan_IEC.xlsx` (ngoài repo). **Không** đưa file tiêu chuẩn lên Git | Chưa nhận |
+| X2 | **Xu hướng ngay tại ô nhập**: ô có số liệu các lần trước hiện biểu đồ nhỏ, % thay đổi so với xuất xưởng và lần trước; tô vàng khi lệch xa | Gemini | `js/domain/trend-inline.js` (mới, hàm thuần), `js/ui/trend-inline-ui.js` (mới), test mới; thêm nhỏ: `js/data/db.js` (hàm đọc lịch sử thiết bị), `js/ui/app.js`, `index.html`, `css/app.css` | Đã chạy migration 000100–000600 | Chưa nhận |
+| X3 | **Thư viện tiêu chuẩn**: bucket Storage riêng tư + bảng danh mục (số hiệu, phiên bản, loại thiết bị, file, tóm tắt .md); trang quản lý (Admin tải lên); khung "Tài liệu tham khảo" của từng hạng mục hiện tiêu chuẩn liên quan | Gemini | migration mới, `js/data/db.js` (thêm hàm), `js/ui/standards-ui.js` (mới), `js/ui/workflow.js` (khung tham khảo), `index.html`, `css/app.css` | Danh mục mẫu: `TieuChuan/Danh_muc_tieu_chuan_IEC.xlsx` (ngoài repo). **Không** đưa file tiêu chuẩn lên Git | Chưa nhận |
 | X4 | **Test giao diện tự động** (Playwright) cho các luồng chính: nhập file 2293, xóa/hoàn tác, xuất .docx, bộ tiêu chí | Codex | `test/e2e/` (mới), workflow CI | **Chờ chủ dự án** đồng ý thêm gói npm `@playwright/test` | Chờ chủ dự án |
-| X5 | **Bộ đọc file máy đo cấu hình được**: Admin khai báo ánh xạ cột CSV/Excel của máy mới (DV Power, Megger…) vào hạng mục, không phải viết mã | Codex | `js/data/instruments/generic-csv.js` (mới), `js/ui/instrument-map-ui.js` (mới), migration mới | Sau X1–X3; cần 1–2 file mẫu của máy mới | Chưa nhận |
+| X5 | **Bộ đọc file máy đo cấu hình được**: Admin khai báo ánh xạ cột CSV/Excel của máy mới (DV Power, Megger…) vào hạng mục, không phải viết mã | Gemini | `js/data/instruments/generic-csv.js` (mới), `js/ui/instrument-map-ui.js` (mới), migration mới | Sau X1–X3; cần 1–2 file mẫu của máy mới | Chưa nhận |
 | X6 | **Phụ lục đáp ứng tần số điện môi (DFR/FDS) sứ đầu vào từ OMICRON DIRANA** | Codex | `js/data/instruments/dirana.js`, `js/domain/dfr.js`, `js/domain/appendix.js`, `js/domain/types/mba/report.js`, `js/data/docx.js`, `js/ui/types/mba/dfr-chart.js`, `js/ui/appendix-ui.js`, `js/ui/types/mba/ui.js`, `index.html`, `css/app.css`, `test/harness.js`, `test/dfr.test.js`, `README.md` | Chỉ dùng CSV giả trong repo; file mẫu thật chỉ đọc ngoài repo | Đã gộp (Claude Code review, Codex review) |
 | C1 | **Nhập BBTN cũ** (.docx, sau đó PDF có chữ) vào CSDL làm chuỗi xu hướng; màn soát; nhập cả thư mục | Claude Code | `js/data/docx.js` (đọc), `js/domain/types/mba/import-report.js` (mới), `js/ui/import-report-ui.js` (mới), migration mới | **Chờ chủ dự án:** 2–3 BBTN MBA đã ban hành, 1 thư mục BBTN của một máy | Chờ chủ dự án |
 | C2 | **MBA 3 pha và kháng điện** (thuộc tính cấu tạo 1 pha / 3 pha; mô-đun kháng) | Claude Code | `js/domain/types/mba/`, `js/domain/types/kh/` (mới), `js/ui/types/` | **Chờ chủ dự án:** template BBTN MBA 3 pha, kháng 1 pha / 3 pha, Test report mẫu | Chờ chủ dự án |
@@ -31,9 +32,9 @@ Trạng thái: `Chưa nhận` · `Đang làm (agent, nhánh)` · `Chờ review (
 | C7 | **Mẫu BBTN chung 3 pha** (tổ 3 máy 1 pha A, B, C trong một biên bản): biểu mẫu theo máy, đánh giá, CSDL, xuất BBTN, phụ lục BCT | Claude Code | `js/domain/types/mba/schema.js` (build3P), `evaluate.js`, `to-rows.js`, `report.js`, `index.js`, `js/domain/report.js`, `js/domain/appendix.js`, `js/data/docx.js` (số trang), `js/ui/app.js`, `js/ui/types/mba/ui.js`, `wa2293-dialog.js`, `tools/build_embedded.py`, `test/mba-3p.test.js` (mới) | Bản trống template tạo ngoài repo | Đã gộp (Codex review) |
 | C8 | **Nhiều file xuất xưởng / test report sứ** (AT1, AT2…): bộ đọc nhận bố cục cột theo pha; app giữ nhiều file, tự chọn theo số chế tạo; gộp test report sứ theo S/N | Claude Code | `js/domain/types/mba/factory.js`, `js/domain/bushing-hitachi.js`, `js/ui/app.js`, `js/ui/types/mba/ui.js`, `test/factory-layouts.test.js` (mới), README | File mẫu ngoài repo (MBA/Test report) | Đã gộp |
 
-## Mẫu giao việc cho Codex
+## Mẫu giao việc cho Codex / Gemini
 
-Dán vào Codex, thay `<X…>` bằng số việc:
+Dán vào Codex hoặc Gemini CLI, thay `<X…>` bằng số việc; với Gemini dùng nhánh `gemini/<ten-viec>` và ghi "Đang làm (Gemini, gemini/<ten-viec>)":
 
 ```
 Đọc AGENTS.md và docs/PHAN_CONG.md. Nhận việc <X1> trong bảng phân công:
