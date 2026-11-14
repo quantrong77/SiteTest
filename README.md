@@ -312,3 +312,7 @@ lõi app dùng chung cho mọi loại. Biên bản lưu `state.type`; biên bả
 | `appendix-ui.js` | Trang Phụ lục BBTN: liên kết SFRA Analyzer, nạp báo cáo SFRA |
 | `db-ui.js`, `catalog-ui.js`, `kconf-ui.js`, `auth-ui.js` | Trang CSDL & Xu hướng; danh mục Trạm – Ngăn – Thiết bị; hệ số K sứ; đăng nhập |
 | `supabase/migrations/` | Lược đồ CSDL, view xu hướng, RLS, Storage |
+
+### Phụ lục DFR sứ đầu vào
+
+Trang Phụ lục cho phép nạp CSV từ OMICRON DIRANA (từng file hoặc cả thư mục), chọn phía/pha và phép đo dùng khi có đo lại. BBTN trình bày tanδ (%) và điện dung C (pF) tại 15 Hz, 400 Hz cùng đồ thị đáp ứng tần số; đây là số liệu tham khảo, không có kết luận đạt/không đạt.

@@ -449,11 +449,19 @@
       if (b.type === 'p') return paraXml(b.text, b);
       if (b.type === 'table') {
         const widths = b.widths, sz = (b.size || 10) * 2;
-        const cellXml = (t, w, bold) => `<w:tc><w:tcPr><w:tcW w:w="${w}" w:type="dxa"/><w:vAlign w:val="center"/></w:tcPr>${paraXml(t, { align: 'center', bold, size: sz / 2, after: 0 })}</w:tc>`;
-        const rowXml = (cells, head) => `<w:tr>${head ? '<w:trPr><w:tblHeader/><w:cantSplit/></w:trPr>' : '<w:trPr><w:cantSplit/></w:trPr>'}${cells.map((t, k) => cellXml(t, widths[k], head)).join('')}</w:tr>`;
+        const cellXml = (t, w, bold, span = 1, vMerge = '') => `<w:tc><w:tcPr><w:tcW w:w="${w}" w:type="dxa"/>${span > 1 ? `<w:gridSpan w:val="${span}"/>` : ''}${vMerge ? `<w:vMerge w:val="${vMerge}"/>` : ''}<w:vAlign w:val="center"/></w:tcPr>${paraXml(t, { align: 'center', bold, size: sz / 2, after: 0 })}</w:tc>`;
+        const rowXml = (cells, head, rowIndex = 0) => `<w:tr>${head ? '<w:trPr><w:tblHeader/><w:cantSplit/></w:trPr>' : '<w:trPr><w:cantSplit/></w:trPr>'}${cells.map((t, k) => {
+          if (head && b.mergeHead && rowIndex === 0) { const m = b.mergeHead.find(x => x[0] === k); if (m) return cellXml(t, widths.slice(k, k + m[1]).reduce((a, x) => a + x, 0), true, m[1]); }
+          if (head && b.head2 && rowIndex === 0 && b.mergeHead && b.mergeHead.some(x => k > x[0] && k < x[0] + x[1])) return '';
+          if (head && b.head2 && rowIndex === 0 && !b.mergeHead?.some(x => x[0] === k)) return cellXml(t, widths[k], true, 1, 'restart');
+          if (head && b.head2 && rowIndex === 1 && !b.mergeHead?.some(x => k >= x[0] && k < x[0] + x[1])) return cellXml(t, widths[k], true, 1, 'continue');
+          if (b.mergeFirstColumnPairs && !head && k === 0 && rowIndex % 2 === 0) return cellXml(t, widths[k], false, 1, 'restart');
+          if (b.mergeFirstColumnPairs && !head && k === 0 && rowIndex % 2 === 1) return cellXml('', widths[k], false, 1, 'continue');
+          return cellXml(t, widths[k], head);
+        }).join('')}</w:tr>`;
         const border = s => `<w:${s} w:val="single" w:sz="4" w:space="0" w:color="000000"/>`;
         return `<w:tbl><w:tblPr><w:tblW w:w="${widths.reduce((a, c) => a + c, 0)}" w:type="dxa"/><w:jc w:val="center"/><w:tblBorders>${['top', 'left', 'bottom', 'right', 'insideH', 'insideV'].map(border).join('')}</w:tblBorders><w:tblLayout w:type="fixed"/><w:tblCellMar><w:left w:w="40" w:type="dxa"/><w:right w:w="40" w:type="dxa"/></w:tblCellMar></w:tblPr>`
-          + `<w:tblGrid>${widths.map(w => `<w:gridCol w:w="${w}"/>`).join('')}</w:tblGrid>${rowXml(b.head, true)}${b.rows.map(r => rowXml(r, false)).join('')}</w:tbl>${paraXml('', { after: 0 })}`;
+          + `<w:tblGrid>${widths.map(w => `<w:gridCol w:w="${w}"/>`).join('')}</w:tblGrid>${rowXml(b.head, true, 0)}${b.head2 ? rowXml(b.head2, true, 1) : ''}${b.rows.map((r, i) => rowXml(r, false, i)).join('')}</w:tbl>${paraXml('', { after: 0 })}`;
       }
       if (b.type === 'images') {
         const per = b.perRow || 1, wCm = b.widthCm || 16, colTw = Math.round(wCm / 2.54 * 1440);

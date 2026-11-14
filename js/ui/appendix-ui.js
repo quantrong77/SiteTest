@@ -1,3 +1,4 @@
+// Trang phụ lục BBTN: quản lý đồ thị OLTC, báo cáo SFRA và phép đo DFR.
 // Trang "Phụ lục BBTN": chụp sóng OLTC (từ mục 9) và báo cáo SFRA — mở SFRA Analyzer để phân tích, tải báo cáo Word
 // về rồi nạp vào đây; khi xuất BBTN báo cáo được nối nguyên văn thành phụ lục. File báo cáo giữ trong kho file của
 // trình duyệt (FileStore), đi kèm file .json khi lưu và lên Storage khi lưu CSDL.
@@ -37,16 +38,19 @@
         <dt>Kết luận</dt><dd>${fra.conclusion && fra.conclusion.length ? fra.conclusion.map(esc).join('<br>') : '—'}</dd></dl></div>`;
     }
     h += '</section>';
+    const dfr = att.dfr && att.dfr.items || [];
+    h += `<section class="appx-card"><div class="appx-head"><h3>Đáp ứng tần số điện môi sứ đầu vào (DFR)</h3>${labels.dfr ? `<span class="badge st-pass">${labels.dfr}</span>` : '<span class="badge st-none">Chưa có</span>'}</div>
+      <p>Nạp file CSV DIRANA; chỉ trình bày số liệu đo, không đánh giá đạt/không đạt.</p><div class="row-actions"><button class="btn" data-act="dfrFiles">Nạp file .csv…</button><button class="btn" data-act="dfrFolder">Nạp cả thư mục…</button>${dfr.length ? '<button class="btn small danger" data-act="dfrClear">Bỏ phụ lục DFR</button>' : ''}</div>
+      ${dfr.length ? `<div class="ftable-wrap"><table class="ftable"><thead><tr><th>Phép đo</th><th>Ngày đo</th><th>Phía</th><th>Pha</th><th>15 Hz: tan / C</th><th>400 Hz: tan / C</th><th>Dùng</th><th></th></tr></thead><tbody>${dfr.slice().sort((a,b)=>{const rank=x=>({HV:0,MV:1,N:2,LV1:3,LV2:4}[x]??5);return rank(a.side)-rank(b.side)||Dfr.PHASES.indexOf(a.phase)-Dfr.PHASES.indexOf(b.phase)||Dfr.dateKey(a.date).localeCompare(Dfr.dateKey(b.date));}).map(m=>{const a=Dfr.at(m,15),b=Dfr.at(m,400), id=esc(m.id); const dec=x=>Number(x).toFixed(2).replace('.', (A.state.cfg.decSep||',')==='.'?'.':',');return `<tr><td>${esc(m.name)}</td><td>${esc(m.date)}</td><td><select aria-label="Phía của ${esc(m.name)}" data-dfr="side" data-id="${id}"><option value="">—</option>${Dfr.SIDES.map(x=>`<option ${m.side===x?'selected':''}>${x}</option>`).join('')}</select></td><td><select aria-label="Pha của ${esc(m.name)}" data-dfr="phase" data-id="${id}"><option value="">—</option>${Dfr.PHASES.map(x=>`<option ${m.phase===x?'selected':''}>${x}</option>`).join('')}</select></td><td>${a?`${dec(a.tan)} / ${dec(a.c)}`:'—'}</td><td>${b?`${dec(b.tan)} / ${dec(b.c)}`:'—'}</td><td><input type="checkbox" aria-label="Dùng phép đo ${esc(m.name)}" data-dfr="use" data-id="${id}" ${m.use?'checked':''}></td><td><button class="btn small danger" data-act="dfrDelete" data-id="${id}" aria-label="Xóa phép đo">×</button></td></tr>`}).join('')}</tbody></table></div><div class="dfr-preview">${Dfr.SIDES.filter(s=>Dfr.table(dfr).some(row=>row.side===s)).map(s=>`<div><b>Đồ thị xếp chồng — ${s}</b><canvas data-dfr-preview="${s}" aria-label="Đồ thị DFR phía ${s}"></canvas></div>`).join('')}</div>` : '<p>Chưa nạp phép đo DFR.</p>'}</section>`;
     return `<section class="panel appx">${h}</section>`;
   }
 
   // Sau khi vẽ: kiểm tra file báo cáo còn trong kho của trình duyệt
   async function afterRender(A) {
     const fra = A.state.att && A.state.att.fra, el = $('[data-frafile]');
-    if (!fra || !el) return;
-    const rec = await FileStore.get(fra.id).catch(() => null);
-    el.className = `badge ${rec ? 'st-pass' : 'st-warn'}`;
-    el.textContent = rec ? 'File có trên máy này' : 'Thiếu file trên máy này — nạp lại báo cáo';
+    if (fra && el) { const rec = await FileStore.get(fra.id).catch(() => null); el.className = `badge ${rec ? 'st-pass' : 'st-warn'}`; el.textContent = rec ? 'File có trên máy này' : 'Thiếu file trên máy này — nạp lại báo cáo'; }
+    const used = ((A.state.att || {}).dfr || {}).items || [];
+    document.querySelectorAll('[data-dfr-preview]').forEach(cv => DfrChart.draw(cv, Dfr.table(used).filter(row=>row.side===cv.dataset.dfrPreview).map(row=>row.m), true));
   }
 
   async function loadFile(f, A) {
@@ -76,6 +80,39 @@
       opened = { id: null, doc: null };
       A.persist(); A.render(); A.toast('Đã bỏ phụ lục SFRA');
     }
+    if (act === 'dfrFiles') $('#fileDirana').click();
+    if (act === 'dfrFolder') $('#diranaFolder').click();
+    if (act === 'dfrDelete' || act === 'dfrClear') {
+      if (act === 'dfrClear' && !confirm('Bỏ phụ lục DFR khỏi biên bản? Các phép đo đã nạp sẽ bị xóa khỏi biên bản.')) return;
+      const xs = st.att.dfr.items;
+      if (act === 'dfrDelete') st.att.dfr.items = xs.filter(m => m.id !== b.dataset.id);
+      else delete st.att.dfr;
+      A.persist(); A.render(); A.toast('Đã cập nhật phép đo DFR');
+    }
+  }
+
+  async function loadDirana(files, A) {
+    const list = Array.isArray(files) ? files : [files];
+    const att = A.state.att || (A.state.att = {}), items = (att.dfr && att.dfr.items) || [];
+    const before = items.slice(), parsedNew = [], errors = [];
+    for (const file of list.filter(f => /\.csv$/i.test(f.name))) {
+      try {
+        const parsed = Dirana.parse(await file.text(), file.name);
+        parsed.forEach(m => parsedNew.push(m));
+      } catch (e) {
+        if (!/không phải CSV DIRANA/.test(e.message || '')) errors.push(`${file.name}: ${e.message}`);
+      }
+    }
+    if (!parsedNew.length) {
+      if (errors.length) A.toast(errors.join('\n'), true);
+      else A.toast('Không tìm thấy phép đo DIRANA trong các file đã chọn.', true);
+      return;
+    }
+    const newId = () => `dfr-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
+    att.dfr = { items: Dirana.merge(before, parsedNew, newId) };
+    A.persist(); A.render();
+    A.toast(`Đã nạp ${parsedNew.length} phép đo từ ${new Set(parsedNew.map(m => m.file)).size} file`);
+    if (errors.length) A.toast(errors.join('\n'), true);
   }
 
   // Báo cáo SFRA đã mở cho phụ lục khi xuất BBTN; thiếu file thì báo và xuất không có phụ lục này
@@ -124,6 +161,19 @@
 
   function init(A) {
     $('#fileFra').addEventListener('change', e => A.readFile(e.target, f => loadFile(f, A)));
+    ['fileDirana','diranaFolder'].forEach(id => $('#' + id).addEventListener('change', async e => { await loadDirana(Array.from(e.target.files || []), A); e.target.value = ''; }));
+    document.addEventListener('change', e => {
+      const el = e.target;
+      if (!el.dataset.dfr) return;
+      const items = A.state.att.dfr.items, m = items.find(x => x.id === el.dataset.id);
+      if (!m) return;
+      m[el.dataset.dfr] = el.type === 'checkbox' ? el.checked : el.value;
+      // chỉnh tay: phía/pha không bị xếp hạng lại khi nạp thêm file; lựa chọn "Dùng" giữ cho cả nhóm phía|pha
+      if (el.dataset.dfr === 'side' || el.dataset.dfr === 'phase') m.sideManual = true;
+      if (el.dataset.dfr === 'use') items.forEach(x => { if (x.side === m.side && x.phase === m.phase) x.useManual = true; });
+      if (m.use) items.forEach(x => { if (x.id !== m.id && x.side === m.side && x.phase === m.phase) x.use = false; });
+      A.persist(); A.render();
+    });
   }
 
   window.AppendixUI = { render, afterRender, action, reportAssets, filesFor, restoreFiles, afterDbSave, ensureFiles, init };

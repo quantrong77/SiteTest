@@ -122,7 +122,24 @@
         for (const w of ws) out[ph].push(Object.assign(await OltcChart.png([{ c: w }], { title: OltcChart.title(w) }), { dir: OltcWave.dir(w), perRow: 2, caption: '' }));
       }
     }
-    return { oltcCharts: out };
+    const dfrItems = ((A.state.att || {}).dfr || {}).items || [];
+    const chosen = Dfr.table(dfrItems).map(row => row.m);
+    // DFR sứ: mỗi phía một bộ đồ thị riêng từng pha + xếp chồng, chung thang tgδ để so sánh bằng mắt
+    const dfrCharts = {};
+    for (const side of Dfr.SIDES) {
+      const ms = chosen.filter(m => m.side === side);
+      if (!ms.length) continue;
+      const label = ms[0].label || (side === 'N' ? 'TT' : side);
+      const yMax = DfrChart.maxTan(ms);
+      const individual = [];
+      for (const m of ms) {
+        const img = await DfrChart.png([m], false, { yMax, title: `Pha ${m.phase}` });
+        individual.push(Object.assign(img, { caption: m.date ? `Đo ${m.date}` : '', perRow: 2 }));
+      }
+      const overlay = await DfrChart.png(ms, true, { yMax, title: `Sứ ${side === 'N' ? 'trung tính' : side} (${label}) – ${ms.length} pha` });
+      dfrCharts[side] = { individual, overlay: Object.assign(overlay, { caption: '' }) };
+    }
+    return { oltcCharts: out, dfrCharts };
   }
 
   // Ô hệ số K sứ: tự tra (Hitachi, bảng K) thì hiện giá trị tính, nhập tay thì là ô nhập thường

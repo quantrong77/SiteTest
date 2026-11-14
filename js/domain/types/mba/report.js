@@ -82,6 +82,7 @@
     if (tpl.appendSection) Appendix.list(state, { fra: !!A.fraDoc, bct: is3P && hasBct(state) }).forEach(a => {
       if (a.kind === 'oltc') tpl.appendSection(oltcAppendix(state, state.att.oltc, A, out, a.label));
       if (a.kind === 'fra') { tpl.appendSection(Appendix.fraHeader(a.label, state.att.fra)); tpl.importBody(A.fraDoc); }
+      if (a.kind === 'dfr') tpl.appendSection(Dfr.appendix(state, A, out, a.label));
       if (a.kind === 'bct') tpl.appendSection(bctAppendix(state, schema, res, out, a.label));
     });
     return { cells, miss };
