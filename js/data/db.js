@@ -198,10 +198,16 @@
   async function trend(equipmentIds) {
     return chk(await need().from('v_trend_delta').select('*').in('equipment_id', equipmentIds).order('test_date').limit(20000));
   }
+  // Lịch sử đo theo số chế tạo (xu hướng tại ô: biên bản có máy chính, máy từng pha, sứ)
+  async function trendForSerials(serials) {
+    const ids = [...new Set((serials || []).map(x => String(x || '').trim()).filter(Boolean))];
+    if (!ids.length) return [];
+    return chk(await need().from('v_trend_delta').select('*').in('serial_no', ids).order('test_date').limit(20000));
+  }
 
   window.DB = {
     connect, cfgGet, checkConfig, siteCfg, refreshUser, signIn, signUp, signOut, signInWithGoogle, resetPassword, updatePassword, onAuthChange, authInit, saveField, importFactory, uploadDoc, downloadDoc,
-    listSessions, loadSession, deleteSession, listDocs, listEquipment, trend, listSubstations, listBays, listClasses, listKTables, listCriteria, saveCriteria, deleteCriteria, crud,
+    listSessions, loadSession, deleteSession, listDocs, listEquipment, trend, trendForSerials, listSubstations, listBays, listClasses, listKTables, listCriteria, saveCriteria, deleteCriteria, crud,
     get client() { return client; }, get user() { return user; }, get role() { return role; }, get profile() { return profile; },
     get busy() { return inflight; },
     canEdit: () => role === 'editor' || role === 'admin',

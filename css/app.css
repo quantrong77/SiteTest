@@ -155,6 +155,13 @@ h4 { font-size: 13px; margin: 14px 0 6px; color: var(--muted); font-weight: 600;
 .field input.st-warn, .field select.st-warn { border-color: #d99a12; background: #fffbf1; }
 .field input.st-missing, .field select.st-missing { border-color: var(--missing); }
 .field .calcval { padding: 6px 8px; border-radius: var(--radius); background: var(--calc); font-family: var(--num); font-size: 13px; min-height: 33px; }
+.trend-inline { display: flex; flex-direction: column; margin-top: 3px; padding: 1px 3px; color: var(--muted); font-size: 10px; line-height: 1.25; text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.trend-inline svg { width: 100%; height: 14px; overflow: visible; }
+.trend-inline polyline { fill: none; stroke: var(--muted); stroke-width: 2; vector-effect: non-scaling-stroke; }
+.trend-inline.is-warning { color: var(--warn); background: var(--warn-bg); border-radius: 3px; }
+.trend-inline.is-warning polyline { stroke: var(--warn); }
+.trend-inline circle { fill: var(--muted); }
+.trend-inline.is-warning circle { fill: var(--warn); }
 /* Căn hàng: mỗi trường chiếm 3 dòng con chung của lưới (nhãn · ô nhập · ghi chú) —
    nhãn dài xuống dòng vẫn giữ các ô nhập cùng hàng thẳng nhau */
 @supports (grid-template-rows: subgrid) {

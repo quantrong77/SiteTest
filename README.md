@@ -12,6 +12,8 @@ Mở `index.html` bằng Chrome hoặc Edge. Không cần cài đặt, không c�
 
 Trong Chrome/Edge, bấm **Đọc số** ở đầu hạng mục để nhập số tiếng Việt vào ô đang chọn; bật **Liên tục** để tự chuyển xuống hàng dưới trong cùng cột. Chrome/Edge gửi âm thanh lên máy chủ Google để nhận dạng, nên cần có mạng.
 
+**Xu hướng ngay tại ô nhập:** khi đã đăng nhập và mở biên bản đã lưu CSDL, dưới ô số có lịch sử hiện biểu đồ nhỏ và % thay đổi của giá trị đang nhập (đã quy đổi 20 °C / 75 °C như khi lưu) so với xuất xưởng (XX) và lần đo trước. Tô vàng khi vượt ngưỡng QĐ 1901 so với giá trị khởi đầu (R một chiều, tỷ số, điện dung, mức tăng tgδ). Lịch sử lưu tạm trong trình duyệt để xem khi mất mạng. Chỉ để tham khảo, không đổi kết quả đánh giá.
+
 **Số liệu không nằm trong repo.** Template BBTN của đơn vị và file Test report xuất xưởng là dữ liệu nội bộ nên không đưa lên Git
 (`js/embedded.js`, `*.docx`, `*.xlsx` nằm trong `.gitignore`). Có hai cách nạp:
 

@@ -12,7 +12,8 @@
   const RATIO_CFG = { 'ratio.hm': 'HV/MV', 'ratio.hl': 'HV/LV', 'ratio.ml': 'MV/LV' };
 
   // ======================================================================= biểu mẫu → dòng
-  function fieldRows(state, res, schema) {
+  // opts.withKey: kèm khóa ô (state.v) vào từng dòng — dùng cho xu hướng tại ô; dòng lưu CSDL không có khóa
+  function fieldRows(state, res, schema, opts = {}) {
     const v = state.v, cfg = state.cfg;
     const refs = new Map(), rows = [];
     const statusOf = {};
@@ -48,6 +49,7 @@
         temp_c: ok(o.temp) ? o.temp : null, value_norm: ok(o.norm) ? o.norm : null, norm_temp_c: ok(o.norm) ? o.normT ?? null : null,
         status: (o.key && statusOf[o.key]) || null, note: o.note || null,
       });
+      if (opts.withKey && o.key) rows[rows.length - 1].key = o.key;
     };
     const val = k => str(v[k]) || str(res.calc[k]);
     // Mẫu chung 3 pha: hạng mục theo máy lưu cho từng máy A, B, C (khóa nl.A.*, ir.A.*, wtgd.A.*, moist.r.A)

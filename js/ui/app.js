@@ -421,6 +421,7 @@
   }
 
   function renderMain() {
+    TrendInlineUI.prepare({ state, schema, type: T(), res });
     const main = $('#main');
     let html;
     if (current === 'general') html = renderGeneral();
@@ -441,6 +442,11 @@
     if (current === 'kconf') KConf.afterRender();
     if (current === 'appendix') AppendixUI.afterRender(App);
     if (current === 'criteria') CriteriaUI.afterRender();
+  }
+
+  // Xu hướng tại ô: tải lịch sử đo của thiết bị trong biên bản (đã lưu CSDL, đã đăng nhập); không dựng lại trang
+  function loadInlineTrend() {
+    TrendInlineUI.load({ state, schema, type: T(), res }, $('#main')).catch(e => console.warn(e));
   }
 
   // Cập nhật ô tính toán, trạng thái ô, bảng so sánh mà không render lại form (giữ focus)
@@ -475,6 +481,7 @@
     });
     $$('[data-findings]', main).forEach(el => { el.outerHTML = findingsHTML(el.dataset.findings); });
     const ac = $('[data-autoconc]', main);
+    TrendInlineUI.decorate(main, res);
     if (ac) ac.textContent = T().autoConclusion(res, schema, state) || '(chưa có dữ liệu)';
     $$('[data-fsum]', main).forEach(el => { el.innerHTML = findingsSummary(el.dataset.fsum); });
     const head = $('.panel[data-sec] .panel-head .badge', main);
@@ -809,6 +816,7 @@
     // Đăng nhập / đăng xuất / đổi kết nối → làm mới dữ liệu CSDL đang hiển thị
     document.addEventListener('auth:changed', () => {
       DbUI.reset(); Catalog.reset(); KConf.reset(); CriteriaUI.reset(); renderNav(); renderMain();
+      if (DB.user) loadInlineTrend(); else TrendInlineUI.reset();
       // bảng hệ số quy đổi sứ trong CSDL (admin cấu hình) → dựng lại lựa chọn ở mục 5
       if (DB.user) KConf.load(true);
       // bộ tiêu chí đơn vị (admin cấu hình) → đánh giá lại biên bản đang mở
@@ -870,7 +878,7 @@
     rebuild(schemaChanged) { if (schemaChanged) schema = T().buildSchema(state.cfg); recompute(); renderNav(); renderMain(); persist(); },
     render() { renderNav(); renderMain(); },
     go(id) { current = id; renderNav(); renderMain(); window.scrollTo(0, 0); },
-    openState(st, db) { loadState(st); state.db = db; recompute(); current = 'general'; renderMain(); persist(); },
+    openState(st, db) { loadState(st); state.db = db; recompute(); current = 'general'; renderMain(); persist(); loadInlineTrend(); },
   };
   boot().catch(err => { console.error(err); toast('Lỗi khởi động: ' + err.message, true); });
 })();

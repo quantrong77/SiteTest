@@ -5,7 +5,7 @@ Quy tắc chung: [AGENTS.md](../AGENTS.md). File này là bảng việc; agent n
 ## Cách chia việc
 
 - **Claude Code — phần lõi và nghiệp vụ.** Kiến trúc lõi, thêm loại thiết bị, đọc template/biên bản của đơn vị, diễn giải QĐ 1901, việc phải sửa nhiều lớp cùng lúc. Review PR của Codex.
-- **Gemini (Gemini CLI) — việc có đặc tả rõ, ít chạm lõi, như Codex:** đang giữ X2, X3, X5. Nhánh `gemini/<viec>`; Claude Code review PR.
+- **Gemini (Gemini CLI) — việc có đặc tả rõ, ít chạm lõi, như Codex:** đang giữ X3, X5 (X2 chuyển cho Codex vì giới hạn gói miễn phí của API Gemini). Nhánh `gemini/<viec>`; Claude Code review PR.
 - **Codex — việc có đặc tả rõ, ít chạm lõi:** tính năng giao diện độc lập, hàm thuần có test riêng, hạ tầng (migration, Storage), test tự động. Review PR của Claude Code khi chủ dự án yêu cầu.
 - **Chủ dự án:** giao việc (dùng mẫu ở cuối file), cung cấp file nội bộ (template, biên bản, file đo — không đưa lên Git), chạy migration trên Supabase, duyệt và gộp PR.
 
@@ -18,7 +18,7 @@ Trạng thái: `Chưa nhận` · `Đang làm (agent, nhánh)` · `Chờ review (
 | # | Việc | Giao cho | Vùng file được sửa | Điều kiện | Trạng thái |
 |---|---|---|---|---|---|
 | X1 | **Nhập số liệu bằng giọng nói**: chọn ô, bấm micro, đọc số tiếng Việt ("một trăm hai mươi lăm phẩy ba" → 125,3); chế độ đọc liên tục sang ô kế; lệnh "lùi", "xóa", "dừng" | Codex | `js/domain/vn-number.js` (mới), `js/ui/voice-input.js` (mới), `test/vn-number.test.js` (mới); thêm nhỏ: `index.html`, `test/harness.js`, `css/app.css`, `js/ui/app.js` (gắn nút) | Không | Đã gộp (Claude Code review) |
-| X2 | **Xu hướng ngay tại ô nhập**: ô có số liệu các lần trước hiện biểu đồ nhỏ, % thay đổi so với xuất xưởng và lần trước; tô vàng khi lệch xa | Gemini | `js/domain/trend-inline.js` (mới, hàm thuần), `js/ui/trend-inline-ui.js` (mới), test mới; thêm nhỏ: `js/data/db.js` (hàm đọc lịch sử thiết bị), `js/ui/app.js`, `index.html`, `css/app.css` | Đã chạy migration 000100–000600 | Chưa nhận |
+| X2 | **Xu hướng ngay tại ô nhập**: ô có số liệu các lần trước hiện biểu đồ nhỏ, % thay đổi so với xuất xưởng và lần trước; tô vàng khi lệch xa | Codex | `js/domain/trend-inline.js` (mới, hàm thuần), `js/ui/trend-inline-ui.js` (mới), test mới; thêm nhỏ: `js/data/db.js` (hàm đọc lịch sử thiết bị), `js/ui/app.js`, `index.html`, `css/app.css` | Đã chạy migration 000100–000600 | Đã gộp (Claude Code + Codex review) |
 | X3 | **Thư viện tiêu chuẩn**: bucket Storage riêng tư + bảng danh mục (số hiệu, phiên bản, loại thiết bị, file, tóm tắt .md); trang quản lý (Admin tải lên); khung "Tài liệu tham khảo" của từng hạng mục hiện tiêu chuẩn liên quan | Gemini | migration mới, `js/data/db.js` (thêm hàm), `js/ui/standards-ui.js` (mới), `js/ui/workflow.js` (khung tham khảo), `index.html`, `css/app.css` | Danh mục mẫu: `TieuChuan/Danh_muc_tieu_chuan_IEC.xlsx` (ngoài repo). **Không** đưa file tiêu chuẩn lên Git | Chưa nhận |
 | X4 | **Test giao diện tự động** (Playwright) cho các luồng chính: nhập file 2293, xóa/hoàn tác, xuất .docx, bộ tiêu chí | Codex | `test/e2e/` (mới), workflow CI | **Chờ chủ dự án** đồng ý thêm gói npm `@playwright/test` | Chờ chủ dự án |
 | X5 | **Bộ đọc file máy đo cấu hình được**: Admin khai báo ánh xạ cột CSV/Excel của máy mới (DV Power, Megger…) vào hạng mục, không phải viết mã | Gemini | `js/data/instruments/generic-csv.js` (mới), `js/ui/instrument-map-ui.js` (mới), migration mới | Sau X1–X3; cần 1–2 file mẫu của máy mới | Chưa nhận |

@@ -4,7 +4,7 @@ Quy tắc chung cho mọi agent làm việc trong repo này (kiến trúc, ba l�
 Claude Code) nằm trong [AGENTS.md](AGENTS.md). Đọc file đó trước. Bảng phân công: [docs/PHAN_CONG.md](docs/PHAN_CONG.md).
 
 Riêng Gemini:
-- Chỉ nhận việc ghi "Gemini" ở cột "Giao cho" (hiện có X2, X3, X5). Nhánh `gemini/<ten-viec>` tách từ `main` mới nhất;
+- Chỉ nhận việc ghi "Gemini" ở cột "Giao cho" (hiện có X3, X5). Nhánh `gemini/<ten-viec>` tách từ `main` mới nhất;
   ghi "Đang làm (Gemini, gemini/<ten-viec>)" vào dòng việc trước khi bắt đầu.
 - Chỉ sửa file trong "Vùng file được sửa" của việc; file dùng chung chỉ thêm đoạn mới.
 - `npm test` phải xanh; không đổi `test/snapshots/`. Test dùng số liệu giả.
