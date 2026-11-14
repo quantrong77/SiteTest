@@ -310,7 +310,7 @@
   function headHTML(no, title, en, secId) {
     const S = secId && res.sec[secId];
     const badge = S ? `<span class="badge ${S.status ? 'st-' + S.status : 'st-none'}">${S.text || 'Chưa nhập'}</span>` : '';
-    return `<div class="panel-head"><span class="secno">${esc(no)}</span><h2>${esc(title)}</h2><span class="en">${esc(en || '')}</span><span class="spacer"></span>${badge}</div>`;
+    return `<div class="panel-head"><span class="secno">${esc(no)}</span><h2>${esc(title)}</h2><span class="en">${esc(en || '')}</span><span class="spacer"></span>${secId ? voiceHTML() : ''}${badge}</div>`;
   }
 
   // ---------------------------------------------------------------- pages
@@ -569,6 +569,10 @@
       const next = $(`[data-r="${+el.dataset.r + (e.shiftKey ? -1 : 1)}"][data-col="${el.dataset.col}"]`, table);
       if (next) { next.focus(); next.select && next.select(); }
     }
+  }
+
+  function voiceHTML() {
+    return window.VoiceInput ? window.VoiceInput.buttonHTML() : '';
   }
 
   async function onClick(e) {

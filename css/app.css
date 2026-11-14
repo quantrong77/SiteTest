@@ -453,6 +453,8 @@ button.type-opt:focus-visible { outline: 2px solid var(--accent); outline-offset
 .type-opt span { font-size: 11.5px; color: var(--faint); }
 .type-opt.off { background: #f7f8f9; color: var(--muted); }
 .record .chip.chip-type { background: var(--accent); color: #fff; font-weight: 600; }
+.voice-controls { display: inline-flex; align-items: center; gap: 8px; }
+.voice-cont { display: inline-flex; align-items: center; gap: 4px; color: var(--muted); font-size: 11px; white-space: nowrap; }
 @media (prefers-reduced-motion: reduce) { .wf-meter span { transition: none; } }
 @media (min-width: 1380px) { .panel:has(.wf-layout) { max-width: 1560px; } }
 @media (max-width: 600px) {

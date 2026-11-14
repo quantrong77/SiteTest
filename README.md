@@ -10,6 +10,8 @@ số liệu xuất xưởng (`ThinghiemHientruongMBA/Bao_Cao_Thu_Nghiem_3_MBA_50
 
 Mở `index.html` bằng Chrome hoặc Edge. Không cần cài đặt, không cần mạng (thư viện JSZip, SheetJS, supabase-js có sẵn trong `js/vendor/`).
 
+Trong Chrome/Edge, bấm **Đọc số** ở đầu hạng mục để nhập số tiếng Việt vào ô đang chọn; bật **Liên tục** để tự chuyển xuống hàng dưới trong cùng cột. Chrome/Edge gửi âm thanh lên máy chủ Google để nhận dạng, nên cần có mạng.
+
 **Số liệu không nằm trong repo.** Template BBTN của đơn vị và file Test report xuất xưởng là dữ liệu nội bộ nên không đưa lên Git
 (`js/embedded.js`, `*.docx`, `*.xlsx` nằm trong `.gitignore`). Có hai cách nạp:
 
