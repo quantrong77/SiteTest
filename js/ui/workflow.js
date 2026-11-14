@@ -61,16 +61,33 @@
   }
 
   // Khung Tài liệu tham khảo bên phải hạng mục
-  function referencesHTML(T, secId, esc) {
+  function referencesHTML(T, secId, esc, libraryDocs = [], classCode = '', openFile = null) {
     const refs = (T.references || {})[secId] || [];
     const std = refs.length
       ? `<ul class="wf-refs-list">${refs.map(r => `<li><span class="wf-src">${esc(r.source)}</span>${esc(r.cite)}</li>`).join('')}</ul>`
-      : `<p class="wf-none">${EMPTY_DOC}</p>`;
+      : '';
+    const grouped = window.Library ? Library.forSection(libraryDocs, secId, classCode) : {};
+    const items = kind => { const list = grouped[kind] || []; return list.length ? `<ul class="wf-refs-list">${list.map(d => `<li><span class="wf-src">${esc(d.code || kindName(kind))}${d.edition ? ' · ' + esc(d.edition) : ''}</span>${esc(d.title)}${d.file_path ? `<button class="btn small" data-lib-open="${esc(d.id)}" aria-label="Mở ${esc(d.title)}">Mở</button>` : ''}</li>`).join('')}</ul>` : `<p class="wf-none">${EMPTY_DOC}</p>`; };
+    const stdLibrary = (grouped.standard || []).length ? items('standard') : '';
+    const stdEmpty = !refs.length && !stdLibrary ? `<p class="wf-none">${EMPTY_DOC}</p>` : '';
+    const kindName = kind => ({ standard: 'Tiêu chuẩn', procedure: 'Quy trình', manual: 'Hướng dẫn máy đo' }[kind] || kind);
     return `<aside class="wf-refs" aria-label="Tài liệu tham khảo"><h3>Tài liệu tham khảo</h3>
-      <h4>Tiêu chuẩn đánh giá</h4>${std}
-      <h4>Quy trình thí nghiệm của đơn vị</h4><p class="wf-none">${EMPTY_DOC}</p>
-      <h4>Hướng dẫn sử dụng máy đo</h4><p class="wf-none">${EMPTY_DOC}</p></aside>`;
+      <h4>Tiêu chuẩn đánh giá</h4>${std}${stdLibrary}${stdEmpty}
+      <h4>Quy trình thí nghiệm của đơn vị</h4>${items('procedure')}
+      <h4>Hướng dẫn sử dụng máy đo</h4>${items('manual')}</aside>`;
   }
 
-  window.Workflow = { STEPS, STATE, stepOf, setStep, stateOf, progressHTML, stepsHTML, procedureHTML, referencesHTML };
+  async function openLibraryFile(doc, popup) {
+    try { const r = await DB.libraryFileUrl(doc.file_path); popup.opener = null; popup.location = r.signedUrl; }
+    catch (err) { if (popup) popup.close(); throw err; }
+  }
+  document.addEventListener('click', async e => {
+    const b = e.target.closest('[data-lib-open]'); if (!b) return;
+    const popup = window.open('', '_blank');
+    if (!popup) { Notify.show({ type: 'error', msg: 'Trình duyệt đã chặn cửa sổ mở tài liệu.' }); return; }
+    try { const d = (window.StandardsUI.docs || []).find(x => x.id === b.dataset.libOpen); if (d && d.file_path) await openLibraryFile(d, popup); else { popup.close(); Notify.show({ type: 'error', msg: 'Không tìm thấy file của tài liệu này — mở trang Thư viện tài liệu để tải lại danh mục.' }); } }
+    catch (err) { Notify.show({ type: 'error', msg: 'Không mở được tài liệu: ' + err.message }); }
+  });
+
+  window.Workflow = { STEPS, STATE, stepOf, setStep, stateOf, progressHTML, stepsHTML, procedureHTML, referencesHTML, openLibraryFile };
 })();

@@ -64,6 +64,10 @@ riêng sau biên bản (trang mới, đánh số trang lại; nhiều phụ lụ
 
 ## Bộ tiêu chí đánh giá
 
+### Thư viện tài liệu
+
+Tài liệu tiêu chuẩn, quy trình của đơn vị và hướng dẫn máy đo được quản lý trong thư viện dùng chung; file nằm trong bucket Storage riêng tư, danh mục có thể nhập từ Excel. Cần chạy migration `20261114000700_standards_library.sql` trên Supabase trước khi sử dụng.
+
 - Trang **Bộ tiêu chí đánh giá** (TC): mọi ngưỡng Đạt / Không đạt, giá trị gốc QĐ 1901 và căn cứ (Điều, mục). Mọi người xem được;
   **Admin** chỉnh giá trị áp dụng và ghi chú lý do (hướng dẫn NSX, văn bản của đơn vị), hoặc khôi phục toàn bộ theo QĐ 1901.
 - Ngưỡng đã chỉnh được tô màu; trang đánh giá của từng hạng mục có dòng nhắc; **kết luận tự động của BBTN ghi rõ** ngưỡng nào khác

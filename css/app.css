@@ -466,3 +466,7 @@ button.type-opt:focus-visible { outline: 2px solid var(--accent); outline-offset
 
 /* X6: bản xem nhanh đồ thị DFR co theo chiều rộng thẻ phụ lục. */
 .dfr-preview{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,420px),1fr));gap:12px;margin-top:14px}.dfr-preview canvas{display:block;width:100%;height:auto;border:1px solid var(--line,#d5d9de);border-radius:6px}.appx-card .ftable-wrap{max-width:100%;overflow-x:auto}
+
+/* X3: Thư viện tài liệu */
+.lib-filters,.lib-fields{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,190px),1fr));gap:10px;margin:14px 0}.lib-form{margin-top:18px;padding:14px;border:1px solid var(--line);border-radius:var(--radius);background:var(--panel)}.lib-form fieldset{display:flex;flex-wrap:wrap;gap:8px 16px;border:1px solid var(--line);border-radius:var(--radius);margin:12px 0;padding:10px}.lib-form .field{min-width:0}.lib-form input,.lib-form textarea,.lib-form select{max-width:100%;box-sizing:border-box}.lib-form textarea{min-height:100px}.lib-summary{white-space:pre-wrap;overflow-wrap:anywhere;padding:10px;background:var(--panel-soft,#f6f7f8);border-radius:6px;margin-top:8px}.wf-refs-list .btn{margin-left:6px}.wf-refs-list li{overflow-wrap:anywhere}
+@media(max-width:600px){.lib-filters,.lib-fields{grid-template-columns:minmax(0,1fr)}.lib-form{padding:10px}.wf-refs{min-width:0;max-width:100%;overflow-wrap:anywhere}}
