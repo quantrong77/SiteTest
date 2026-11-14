@@ -46,7 +46,7 @@
         + '<div class="hint-text">Chọn cùng lúc các file <b>.csv</b> xuất từ máy (điện trở một chiều, tỷ số biến, chuyển nấc) và file <b>.bin</b> cùng tên (dạng sóng chụp OLTC); có thể chọn file của cả ba pha. Bỏ qua các file .dat, .mat.</div></div>';
     }
     if (id !== 'bct') return '';
-    return `<div class="bct-tools"><div class="fields">${A.cfgField('bctCores.hv', 'Số cuộn thứ cấp TI phía HV', { options: [4, 5, 6] })}${A.cfgField('bctCores.mv', 'Số cuộn thứ cấp TI phía MV', { options: [4, 5] })}<div class="field"><label>Đặc tính từ hóa từ máy đo</label><button class="btn primary" data-act="loadCpc">Nhập XML CPC 100…</button></div></div><div class="hint-text">Chọn một hoặc nhiều file XML xuất từ CPC 100 (mỗi file một pha/một phía). App lấy 3 điểm (U, I) theo IEC 61869-2 và điền vào bảng đặc tính từ hóa; file có cuộn 5, 6 sẽ tự mở thêm cuộn. Phía LV và trung tính theo template chỉ có 4 và 3 cuộn.</div></div>`;
+    return `<div class="bct-tools"><div class="fields">${A.cfgField('bctCores.hv', 'Số cuộn thứ cấp TI phía HV', { options: [4, 5, 6] })}${A.cfgField('bctCores.mv', 'Số cuộn thứ cấp TI phía MV', { options: [4, 5] })}<div class="field"><label>Đặc tính từ hóa từ máy đo</label><button class="btn primary" data-act="loadCpc">Nhập XML CPC 100…</button></div><div class="field"><label>Tỷ số, điện trở, từ hóa</label><button class="btn primary" data-act="loadMrct">Nhập Megger MRCT (.pdbxml, PDF)…</button></div></div><div class="hint-text">CPC 100: chọn một hoặc nhiều file XML (mỗi file một pha/một phía); app lấy 3 điểm (U, I) theo IEC 61869-2 và điền vào bảng đặc tính từ hóa. Megger MRCT: chọn file .pdbxml của PowerDB và/hoặc báo cáo PDF "CT TEST REPORT"; tỷ số đo, sai số, góc pha, cực tính chỉ có trong báo cáo PDF. File có cuộn 5, 6 sẽ tự mở thêm cuộn. Phía LV và trung tính theo template chỉ có 4 và 3 cuộn.</div></div>`;
   }
 
   // ---------------------------------------------------------------- mục 9: chụp sóng OLTC (xem trước phụ lục)
@@ -255,6 +255,7 @@
       st.att.oscAuto = sum;
       A.rebuild(false);
     },
+    loadMrct: () => { $('#fileMrct').click(); },
     loadCpc: () => { cpcTarget = null; $('#fileCpc').multiple = true; $('#fileCpc').click(); },
     cpcSlot(b) {
       const m = b.dataset.grid.match(/^bct\.(\w+)\.ex\.(\w)$/);
@@ -279,6 +280,7 @@
     $('#fileNameplate').addEventListener('change', e => { const f = e.target.files[0]; e.target.value = ''; if (f) NameplateImport.open(f); });
     bindDrop(A);
     $('#file2293').addEventListener('change', e => { const fl = Array.from(e.target.files); e.target.value = ''; if (fl.length) Wa2293Import.open(fl).catch(err => A.toast('Lỗi đọc file 2293: ' + err.message, true)); });
+    $('#fileMrct').addEventListener('change', e => { const fl = Array.from(e.target.files); e.target.value = ''; if (fl.length) MrctImport.open(fl).catch(err => A.toast('Lỗi đọc file MRCT: ' + err.message, true)); });
     $('#fileCpc').addEventListener('change', e => { const fl = Array.from(e.target.files); e.target.value = ''; if (fl.length) CpcImport.open(fl, cpcTarget); });
     $('#fileHitachi').addEventListener('change', e => A.readFile(e.target, async f => {
       const buf = await f.arrayBuffer();

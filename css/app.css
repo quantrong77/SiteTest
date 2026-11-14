@@ -270,6 +270,9 @@ code { font-family: var(--mono); font-size: 12px; }
 .cpc-tbl td.num span, .cpc-tbl td span { color: var(--muted); font-size: 12px; }
 .cpc-tbl tr.muted { opacity: .55; }
 .cpc-tbl td select { border: 1px solid #c4cad0; border-radius: 6px; padding: 3px 6px; max-width: 100%; }
+.cpc-file-head.mrct-ct { background: #fbfcfc; border-top: 1px solid var(--line); }
+.mrct-tbl td.mrct-cell { text-align: left; white-space: nowrap; font-size: 12.5px; line-height: 1.45; }
+.mrct-tbl td.note { min-width: 220px; font-size: 12px; }
 .wa-temp ul { margin: 4px 0 6px; padding-left: 18px; }
 .wa-temp label { display: flex; gap: 8px; align-items: flex-start; }
 .wa-temp p { margin: 6px 0 0; font-weight: 600; }

@@ -26,6 +26,7 @@ Trạng thái: `Chưa nhận` · `Đang làm (agent, nhánh)` · `Chờ review (
 | C3 | **TI, TU** (loại thiết bị thứ hai, kiểm chứng lõi) | Claude Code | `js/domain/types/ti/`, `js/domain/types/tu/` (mới), `js/ui/types/` | **Chờ chủ dự án:** template BBTN TI, TU | Chờ chủ dự án |
 | C4 | **Nhắc chu kỳ thí nghiệm định kỳ** theo QĐ 1901 (thiết bị sắp đến hạn, lập sẵn biên bản nháp) | Claude Code | `js/domain/periodic.js` (mới), `js/ui/db-ui.js` | Sau C1 (cần lịch sử thí nghiệm) | Chưa nhận |
 | C5 | **Review PR của Codex** | Claude Code | — | Khi có PR | Thường xuyên |
+| C6 | **Nhập Megger MRCT** (TI chân sứ mục 11): `.pdbxml` PowerDB + báo cáo PDF "CT TEST REPORT" → tỷ số, sai số, R, từ hóa, cực tính | Claude Code | `js/data/instruments/mrct.js`, `js/data/pdf-text.js`, `js/ui/types/mba/mrct-dialog.js` (mới), `test/mrct.test.js` (mới); thêm nhỏ: `cpc100.js` (nhãn nguồn khuỷu), `ui.js`, `index.html`, `css/app.css`, `test/harness.js` | — | Đã gộp (Codex review) |
 
 ## Mẫu giao việc cho Codex
 

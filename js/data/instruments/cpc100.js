@@ -81,17 +81,20 @@
     const pts = card.points;
     if (pts.length < 2) return { knee: null, picks: [], how: 'Cuộn không có số liệu đo', status: 'empty', basis: '' };
     const app = kneeIEC(pts);
-    const knee = card.cpcKnee ? Object.assign({ src: 'CPC 100' }, card.cpcKnee) : app ? Object.assign({ src: 'tính theo IEC' }, app) : null;
+    const dev = card.kneeSrc || 'CPC 100'; // máy đo đã tính điểm khuỷu
+    // machineOnly: chỉ dùng khuỷu do máy tính; máy không báo thì ghi "không có" (không tự tính theo IEC)
+    const knee = card.cpcKnee ? Object.assign({ src: dev }, card.cpcKnee) : app && !card.machineOnly ? Object.assign({ src: 'tính theo IEC' }, app) : null;
     if (knee) {
       const picks = LEVELS.map(f => ({ v: f * knee.v, i: iAt(pts, f * knee.v) })).concat([{ v: knee.v, i: knee.i, knee: true }]);
       const how = card.cpcKnee
-        ? `Khuỷu U_k = ${fmt(knee.v, 1)} V / ${fmt(knee.i * 1000, 3)} mA do CPC 100 tính${app ? ` (app tính lại theo IEC: ${fmt(app.v, 1)} V)` : ''}; mốc 25/50/75 % U_k`
-        : `CPC 100 không báo khuỷu; app tính theo IEC 61869-2: U_k = ${fmt(knee.v, 1)} V / ${fmt(knee.i * 1000, 3)} mA — nên kiểm tra lại; mốc 25/50/75 % U_k`;
+        ? `Khuỷu U_k = ${fmt(knee.v, 1)} V / ${fmt(knee.i * 1000, 3)} mA do ${dev} tính${app ? ` (app tính lại theo IEC: ${fmt(app.v, 1)} V)` : ''}; mốc 25/50/75 % U_k`
+        : `${dev} không báo khuỷu; app tính theo IEC 61869-2: U_k = ${fmt(knee.v, 1)} V / ${fmt(knee.i * 1000, 3)} mA — nên kiểm tra lại; mốc 25/50/75 % U_k`;
       return { knee, picks, how, status: card.cpcKnee ? 'cpc' : 'app', basis: '% U_k' };
     }
     const vmax = pts[pts.length - 1].v;
     return { knee: null, picks: LEVELS.map(f => ({ v: f * vmax, i: iAt(pts, f * vmax) })),
-      how: `Không xác định được điểm khuỷu trong dải đo (U lớn nhất ${fmt(vmax, 1)} V) — mốc 25/50/75 % theo U lớn nhất đã đo`, status: 'noknee', basis: '% U max' };
+      how: card.machineOnly ? `${dev} không báo điểm khuỷu — ghi "Không có"; mốc 25/50/75 % theo U lớn nhất đã đo (${fmt(vmax, 1)} V)`
+        : `Không xác định được điểm khuỷu trong dải đo (U lớn nhất ${fmt(vmax, 1)} V) — mốc 25/50/75 % theo U lớn nhất đã đo`, status: 'noknee', basis: '% U max' };
   }
 
   const fmt = (x, d) => (ok(x) ? x.toFixed(d).replace('.', ',') : '—');

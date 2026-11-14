@@ -49,6 +49,11 @@
       <button class="ad-x" onclick="this.closest('dialog').close()" aria-label="Đóng">×</button></div>
     <div id="cpcPanel"></div>
   </dialog>
+  <dialog class="auth-dialog cpc-dialog mrct-dialog" id="mrctDialog" aria-labelledby="mrctTitle">
+    <div class="ad-band"><span>TI chân sứ — Megger MRCT</span>
+      <button class="ad-x" onclick="this.closest('dialog').close()" aria-label="Đóng">×</button></div>
+    <div id="mrctPanel"></div>
+  </dialog>
   <dialog class="auth-dialog cpc-dialog wa-dialog" id="waDialog" aria-labelledby="waTitle">
     <div class="ad-band"><span>Nhập số liệu máy đo Haefely 2293</span>
       <button class="ad-x" onclick="this.closest('dialog').close()" aria-label="Đóng">×</button></div>
@@ -59,6 +64,7 @@
   <input type="file" id="fileDocx" accept=".docx" hidden>
   <input type="file" id="fileHitachi" accept=".xlsx,.xlsm" hidden>
   <input type="file" id="fileCpc" accept=".xml" multiple hidden>
+  <input type="file" id="fileMrct" accept=".pdbxml,.pdf" multiple hidden>
   <input type="file" id="fileFra" accept=".docx" hidden>
   <input type="file" id="fileNameplate" accept="image/*" hidden>
   <input type="file" id="file2293" accept=".csv,.bin" multiple hidden>
@@ -93,11 +99,13 @@
   <script src="js/data/docx.js"></script>
   <script src="js/data/file-store.js"></script>
   <script src="js/data/ocr.js"></script>
+  <script src="js/data/pdf-text.js"></script>
   <script src="js/data/db.js"></script>
   <script src="js/data/bushing-k-repo.js"></script>
   <script src="js/data/criteria-repo.js"></script>
   <script src="js/data/instruments/cpc100.js"></script>
   <script src="js/data/instruments/wa2293.js"></script>
+  <script src="js/data/instruments/mrct.js"></script>
   <!-- Giao diện -->
   <script src="js/ui/workflow.js"></script>
   <script src="js/ui/auth-ui.js"></script>
@@ -107,6 +115,7 @@
   <script src="js/ui/criteria-ui.js"></script>
   <script src="js/ui/appendix-ui.js"></script>
   <script src="js/ui/types/mba/cpc-dialog.js"></script>
+  <script src="js/ui/types/mba/mrct-dialog.js"></script>
   <script src="js/ui/types/mba/oltc-chart.js"></script>
   <script src="js/ui/types/mba/wa2293-dialog.js"></script>
   <script src="js/ui/types/mba/nameplate-dialog.js"></script>

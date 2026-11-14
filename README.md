@@ -116,6 +116,16 @@ riêng sau biên bản (trang mới, đánh số trang lại; nhiều phụ lụ
   gắn nhãn "kiểm tra") và **mốc 25 / 50 / 75 %** — theo % U_k khi có khuỷu, theo % U lớn nhất đã đo khi không xác định được khuỷu.
   Dòng tại các mốc nội suy log–log trên đường cong đo. Khi xuất BBTN, bảng đặc tính từ hóa được chèn thêm cột "Điểm khuỷu"
   và hàng tiêu đề; đầu cuộn thực đo (vd 2S1-2S5) ghi vào ô nhãn. File có cuộn 5, 6 tự mở thêm cuộn (HV tối đa 6, MV 5).
+- Biến dòng chân sứ — **Megger MRCT** (mục 11, nút *Nhập Megger MRCT (.pdbxml, PDF)…*): chọn file `.pdbxml` của PowerDB
+  và/hoặc báo cáo PDF "CT TEST REPORT" in từ PowerDB (PDF có lớp chữ; đọc trong trình duyệt bằng pdf.js, tải khi dùng lần đầu).
+  - PDF: tỷ số định mức và đo, sai số %, lệch góc pha, cực tính, điện trở một chiều, điểm khuỷu, bảng đặc tính từ hóa từng cặp đầu ra.
+  - `.pdbxml`: điện trở một chiều, điểm khuỷu, đường từ hóa (khối nhị phân `satchartdata`), dòng định mức; **không có** kết quả tỷ số.
+  - Hộp thoại cho gán mỗi CT vào phía/pha MBA và mỗi lõi vào "cuộn" của BBTN (mặc định theo mã lõi ở mục 0). Điền tỷ số đo
+    (sơ cấp/thứ cấp, vd 3000:3 → 1000) và sai số, R một chiều cho các cặp S1-S*k* có ô trong BBTN; cặp khác (vd 1S2-1S3) chỉ xem.
+    Đặc tính từ hóa lấy cặp đầu ra có đủ số liệu (đường cong và điểm khuỷu do máy tính), không có thì cặp S1-S lớn nhất có
+    đường cong; khuỷu lấy theo máy (ghi rõ chuẩn, vd ANSI 45) rồi mốc 25/50/75 % U_k. Máy không báo khuỷu thì ô khuỷu
+    ghi "Không có" và lấy 3 mốc 25/50/75 % theo U lớn nhất đã đo (app không tự tính khuỷu cho MRCT).
+    Cực tính ghi vào ô "Kết quả kiểm tra cực tính" khi ô còn trống. Hai lõi cùng vào một ô thì không cho điền.
 - **Haefely 2293** (mục 7, 8, 9 — nút *Nhập file Haefely 2293…*): chọn cùng lúc các file `.csv` xuất từ máy và file `.bin`
   cùng tên của cả ba pha (bỏ qua `.dat`, `.mat`).
   - Điện trở một chiều theo nấc → mục 7 (Ω → mΩ), tỷ số biến theo nấc → mục 8, bảng chuyển nấc + dạng sóng → mục 9.
@@ -218,6 +228,8 @@ npm test
   pha, nấc, giá trị quy đổi mà trang Xu hướng dùng để nối các lần đo.
 - `test/wa2293.test.js`: đọc file Haefely 2293 (dữ liệu tổng hợp đúng định dạng máy), ánh xạ nấc/pha/mΩ, quy đổi nhiệt độ,
   nén dạng sóng, phụ lục; có thư mục số liệu thật `../MBA/Rdc/Chup song` trên máy thì kiểm tra thêm.
+- `test/mrct.test.js`: đọc `.pdbxml` Megger MRCT (khối nhị phân đường từ hóa dựng lại) và chữ báo cáo PDF PowerDB (theo tọa độ cột,
+  ô trống, mục chữ gộp nhiều số).
 - `test/nameplate.test.js`: đọc nameplate từ chữ OCR (giá trị giả): đủ trường, ghép cột theo toạ độ, trường cần kiểm tra / thiếu.
 - `test/criteria.test.js`: bộ tiêu chí (mặc định = QĐ 1901, ngưỡng đơn vị dùng khi đánh giá và ghi vào kết luận), hạng mục dùng chung.
 - `test/appendix.test.js`: tóm tắt báo cáo SFRA, đánh số phụ lục.
@@ -251,15 +263,17 @@ lõi app dùng chung cho mọi loại. Biên bản lưu `state.type`; biên bả
 | `db.js` | Kho dữ liệu Supabase: kết nối, đăng nhập, ghi/đọc lần thí nghiệm, thiết bị, tài liệu, danh mục |
 | `docx.js` | Đọc/ghi template .docx, giữ nguyên định dạng; nối phụ lục (bảng, ảnh, nội dung file .docx khác) trong section riêng |
 | `ocr.js` | Nhận dạng chữ trên ảnh (Tesseract.js, nạp khi dùng), tiền xử lý ảnh |
+| `pdf-text.js` | Lấy chữ kèm tọa độ từ PDF (pdf.js, nạp khi dùng) |
 | `criteria-repo.js` | Nạp / lưu bộ tiêu chí đơn vị từ CSDL, bản sao offline |
 | `file-store.js` | Kho file đính kèm trong trình duyệt (IndexedDB) |
 | `bushing-k-repo.js` | Nạp bảng hệ số K sứ từ CSDL, bản sao offline |
 | `instruments/cpc100.js` | Bộ đọc file XML OMICRON CPC 100 (đặc tính từ hóa, điểm khuỷu) |
+| `instruments/mrct.js` | Bộ đọc Megger MRCT: `.pdbxml` PowerDB và báo cáo PDF "CT TEST REPORT" (tỷ số, sai số, góc pha, cực tính, R, khuỷu, từ hóa) |
 | `instruments/wa2293.js` | Bộ đọc file Haefely 2293: `.csv` (UTF-16) điện trở, tỷ số biến, chuyển nấc; `.bin` dạng sóng chụp OLTC |
 | **`js/ui/`** — giao diện | |
 | `app.js` | Lõi giao diện: vẽ biểu mẫu theo schema, đánh giá tức thời, lưu/mở, xuất .docx/.xlsx, chọn loại thiết bị |
 | `workflow.js` | Tiến trình, 4 bước của hạng mục, khung Tài liệu tham khảo |
-| `types/mba/ui.js`, `types/mba/cpc-dialog.js`, `types/mba/wa2293-dialog.js`, `types/mba/oltc-chart.js`, `types/mba/nameplate-dialog.js` | Giao diện riêng của MBA (chú thích hạng mục, cấu hình mục 0, sứ, CPC 100, Haefely 2293, đồ thị chụp sóng, đọc ảnh nameplate) |
+| `types/mba/ui.js`, `types/mba/cpc-dialog.js`, `types/mba/mrct-dialog.js`, `types/mba/wa2293-dialog.js`, `types/mba/oltc-chart.js`, `types/mba/nameplate-dialog.js` | Giao diện riêng của MBA (chú thích hạng mục, cấu hình mục 0, sứ, CPC 100, Megger MRCT, Haefely 2293, đồ thị chụp sóng, đọc ảnh nameplate) |
 | `criteria-ui.js` | Trang Bộ tiêu chí đánh giá |
 | `appendix-ui.js` | Trang Phụ lục BBTN: liên kết SFRA Analyzer, nạp báo cáo SFRA |
 | `db-ui.js`, `catalog-ui.js`, `kconf-ui.js`, `auth-ui.js` | Trang CSDL & Xu hướng; danh mục Trạm – Ngăn – Thiết bị; hệ số K sứ; đăng nhập |
