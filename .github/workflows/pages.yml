@@ -46,7 +46,7 @@ jobs:
       - name: Chuẩn bị thư mục site
         run: |
           mkdir -p _site
-          cp -r index.html css js _site/
+          cp -r index.html manifest.webmanifest css js icons _site/
           mkdir -p _site/docs
           cp docs/HUONG_DAN_SU_DUNG.md _site/docs/
           touch _site/.nojekyll

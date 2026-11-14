@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <title>Site Test Report</title>
+  <rect width="512" height="512" rx="112" fill="#1663a6"/>
+  <circle cx="206" cy="226" r="116" fill="none" stroke="#fff" stroke-width="34"/>
+  <circle cx="306" cy="226" r="116" fill="none" stroke="#fff" stroke-width="34"/>
+  <circle cx="384" cy="384" r="94" fill="#1663a6"/>
+  <circle cx="384" cy="384" r="76" fill="#e0a800"/>
+  <path d="M347 386l26 26 50-52" fill="none" stroke="#17222d" stroke-width="22" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
