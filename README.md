@@ -1,3 +1,5 @@
+> **Tài liệu dự án:** [Kiến thức dự án](docs/KIEN_THUC.md) · [Hướng dẫn sử dụng](docs/HUONG_DAN_SU_DUNG.md)
+
 # Site Test Report — Web app biên bản thí nghiệm hiện trường thiết bị nhất thứ
 
 Hiện app hỗ trợ **máy biến áp (MBA)**; các thiết bị nhất thứ khác (TI, TU, MC, DCL, CSV…) sẽ được bổ sung dần.
