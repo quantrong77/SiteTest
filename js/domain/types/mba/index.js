@@ -28,7 +28,8 @@
   function applyFactoryDefaults(cfg, FX) {
     if (!FX) return;
     const D = FX.data;
-    D.order.forEach(s => { const ph = D.units[s].phase; if (ph && !cfg.ps[ph]) cfg.ps[ph] = s; });
+    // MBA 3 pha (mẫu 110-220): một máy, không gán số chế tạo theo pha từ file xuất xưởng tổ máy 1 pha
+    if (Schema.layoutOf(cfg) !== Schema.LAYOUT_110) D.order.forEach(s => { const ph = D.units[s].phase; if (ph && !cfg.ps[ph]) cfg.ps[ph] = s; });
     if (!cfg.iLV && D.specs.current) cfg.iLV = lastNum(D.specs.current.LV);
     if (!cfg.sLV && D.specs.power) cfg.sLV = lastNum(D.specs.power.LV);
     if (!cfg.sR && D.specs.power) cfg.sR = lastNum(D.specs.power.HV);
@@ -38,7 +39,8 @@
 
   // Template BBTN theo pha của máy chính (BBTN_MBA_500_A/B/C); null nếu không xác định được
   function templateKeyFor(state, FX) {
-    if (Schema.layoutOf(state.cfg) === Schema.LAYOUT_3P) return null; // mẫu chung 3 pha: không đổi theo pha máy chính
+    // mẫu chung 3 pha, mẫu MBA 3 pha 110-220: không đổi template theo pha máy chính
+    if (Schema.layoutOf(state.cfg) !== '1P') return null;
     const u = FX && FX.unit(state.v['meta.serial']);
     return u && u.phase ? u.phase : null;
   }
@@ -52,6 +54,8 @@
   EquipmentTypes.register({
     code: 'MBA', label: 'Máy biến áp', classCode: 'MBA',
     defaultCfg, normalizeCfg, applyFactoryDefaults, templateKeyFor,
+    // nhập BBTN cũ (.docx) → biên bản của app (js/domain/types/mba/import-report.js)
+    importReport: (tpl, fileName) => MbaImportReport.read(tpl, fileName),
     buildSchema: cfg => Schema.build(cfg),
     evaluate: (state, FX, schema) => Evaluate.evaluate(state, FX, schema),
     autoConclusion: (res, schema, state) => Evaluate.autoConclusion(res, schema, state),

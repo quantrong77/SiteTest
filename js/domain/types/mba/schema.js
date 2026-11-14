@@ -161,7 +161,12 @@
   // tgδ cuộn dây) lặp lại cho mỗi pha với nhiệt độ riêng; sứ 5 nhóm; R một chiều mΩ, 17 nấc; ẩm và OLTC theo pha.
   // Biến dòng chân sứ không có bảng trong thân biên bản → xuất thành phụ lục.
   const LAYOUT_3P = '3P';
-  const layoutOf = cfg => (cfg && (cfg.template === LAYOUT_3P || (cfg.template === 'custom' && cfg.layout === LAYOUT_3P)) ? LAYOUT_3P : '1P');
+  // "Mau BBTN MBA 110-220": MBA 3 pha 220/110/22 kV — cùng biểu mẫu với mẫu theo pha (PTC3/BM.01), chỉ khác chỗ ngắt bảng qua trang
+  const LAYOUT_110 = '110';
+  const layoutOf = cfg => {
+    const k = cfg && (cfg.template === 'custom' ? cfg.layout : cfg.template);
+    return k === LAYOUT_3P ? LAYOUT_3P : k === LAYOUT_110 ? LAYOUT_110 : '1P';
+  };
   const PH3 = ['A', 'B', 'C'];
   const TAPS_17 = range(17, i => String(i + 1));
   // Hàng tổng hợp hạng mục ở bảng 0 của từng mẫu: cột ✓ và cột Đánh giá; mục 4 (cách điện lõi từ) lấy theo mục 3; mục 12 SFRA theo phụ lục
@@ -401,8 +406,54 @@
     { k: 'meta.conclusion', label: 'Kết luận (Conclusion)', type: 'textarea', doc: { t: 0, r: 25, c: 0, re: /\(Conclusion\):(?<v>.*)$/ } },
   ];
 
+  // Chỉ số bảng mẫu theo pha (73 bảng) → mẫu 110-220 (71 bảng). Bảng ngắt trang ở chỗ khác: một bảng có thể ứng với
+  // hai bảng (vd đặc tính từ hóa) hoặc không bảng nào (đã gộp vào bảng trước, vd tỷ số HV:MV 21+22 → 21). Số hàng sau khi
+  // ghép các bảng của từng nhóm bằng nhau ở hai mẫu (kiểm tra trong test/mba-110.test.js với template thật nếu có).
+  const MAP_110 = (() => {
+    const m = {};
+    for (let i = 0; i <= 20; i++) m[i] = [i];
+    Object.assign(m, {
+      21: [21], 22: [], 23: [22], 24: [23], 25: [24], 26: [25], 27: [26], 28: [27], 29: [], 30: [28], 31: [29], 32: [30],
+      33: [31, 32], 34: [33], 35: [34], 36: [35], 37: [36], 38: [37], 39: [38], 40: [39], 41: [40], 42: [], 43: [41, 42],
+      44: [43], 45: [44], 46: [45], 47: [46, 47], 48: [48], 49: [49], 50: [50], 51: [51, 52], 52: [53], 53: [54],
+      54: [55], 55: [56], 56: [57], 57: [58], 58: [59], 59: [60], 60: [61], 61: [62], 62: [63], 63: [64], 64: [], 65: [65], 66: [66], 67: [],
+      68: [67], 69: [68], 70: [69], 71: [70],
+    });
+    return m;
+  })();
+  const TAPS_19 = range(19, i => String(i + 1));
+  function remapTables(schema, map) {
+    const tbl = ts => ts.flatMap(i => map[i]);
+    const doc = d => {
+      if (!d) return d;
+      const o = Object.assign({}, d);
+      if (o.before !== undefined) o.before = map[o.before][0];
+      if (o.t !== undefined) o.t = map[o.t][0];
+      return o;
+    };
+    const field = f => (f.doc ? Object.assign({}, f, { doc: doc(f.doc) }) : f);
+    // sứ trung áp: mẫu theo pha có hàng kiểu loại / hãng ở bảng lưới 7 cột (cột riêng, cmap); mẫu 110-220 cùng lưới 8 cột với các hàng khác
+    const grid = g => (g.tables ? Object.assign({}, g, { tables: tbl(g.tables) },
+      g.id === 'b.mv.meas' ? { rows: g.rows.map(r => { const o = Object.assign({}, r); delete o.cmap; return o; }) } : {}) : g);
+    const sec = s => Object.assign({}, s, {
+      fields: s.fields && s.fields.map(field), extraDoc: s.extraDoc && s.extraDoc.map(field), grids: s.grids && s.grids.map(grid),
+      groups: s.groups && s.groups.map(gr => Object.assign({}, gr, { fields: gr.fields && gr.fields.map(field), grids: gr.grids && gr.grids.map(grid) })),
+    });
+    return Object.assign({}, schema, { sections: schema.sections.map(sec), head: schema.head.map(field), tail: schema.tail.map(field) });
+  }
+
   function build(cfg) {
-    if (layoutOf(cfg) === LAYOUT_3P) return build3P(cfg);
+    const layout = layoutOf(cfg);
+    if (layout === LAYOUT_3P) return build3P(cfg);
+    if (layout === LAYOUT_110) {
+      // nấc đánh số 1…19 (mẫu theo pha: 9a/9b/9c); người dùng đã đặt danh sách nấc riêng thì giữ
+      const custom = cfg.taps && cfg.taps.length === 19 && cfg.taps.join() !== DEFAULT_TAPS.join();
+      const s = build1P(Object.assign({}, cfg, { taps: custom ? cfg.taps : TAPS_19 }));
+      return Object.assign(remapTables(s, MAP_110), { layout: LAYOUT_110, tables: 71 });
+    }
+    return build1P(cfg);
+  }
+  function build1P(cfg) {
     const taps = (cfg.taps && cfg.taps.length === 19) ? cfg.taps : DEFAULT_TAPS;
     // Đầu đo theo pha cho bảng 7.1: app hiện "A-N" / "A-Am"; template ghi liền "AN" / "AAm"
     const hvSer = cfg.hvMeas === 'SER';
@@ -652,5 +703,5 @@
   // Duyệt biểu mẫu: hàm chung ở js/domain/common.js (trường đầu/cuối biên bản lấy từ schema.head/tail)
   const { eachGrid, eachField } = Common;
 
-  window.Schema = { HV_MEAS, LAYOUT_3P, layoutOf, TAPS_17, build, eachGrid, eachField, META, CLOSING, SUMMARY_ROWS, DEFAULT_TAPS, BCT_SIDES, BCT_TABLES };
+  window.Schema = { HV_MEAS, LAYOUT_3P, LAYOUT_110, MAP_110, TAPS_19, layoutOf, TAPS_17, build, eachGrid, eachField, META, CLOSING, SUMMARY_ROWS, DEFAULT_TAPS, BCT_SIDES, BCT_TABLES };
 })();

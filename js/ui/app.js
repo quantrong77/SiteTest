@@ -144,7 +144,8 @@
       .concat(schema.sections.map(s => ({ id: s.id, no: String(s.no), title: s.title })))
       .concat([{ id: 'summary', no: 'Σ', title: 'Tổng hợp & kết luận' }, { id: 'appendix', no: 'PL', title: 'Phụ lục BBTN' }, { id: 'factory', no: 'XX', title: 'Số liệu xuất xưởng' },
         { id: 'db', no: 'DB', title: 'CSDL – biên bản đã lưu' }, { id: 'catalog', no: '≡', title: 'Trạm – Ngăn – Thiết bị' }, { id: 'trend', no: '↗', title: 'Xu hướng' },
-        { id: 'kconf', no: 'K', title: 'Hệ số quy đổi sứ' }, { id: 'criteria', no: 'TC', title: 'Bộ tiêu chí đánh giá' }]);
+        { id: 'kconf', no: 'K', title: 'Hệ số quy đổi sứ' }, { id: 'criteria', no: 'TC', title: 'Bộ tiêu chí đánh giá' },
+        { id: 'importReport', no: 'NB', title: 'Nhập BBTN cũ' }]);
   }
   // Thanh điều hướng vẽ như sơ đồ một sợi: mỗi hạng mục là một ngăn lộ, trạng thái là ký hiệu máy cắt
   const BRK_LABEL = { pass: 'Đạt — máy cắt đóng', warn: 'Cần xem xét', fail: 'Không đạt — máy cắt cắt', missing: 'Thiếu dữ liệu', info: 'Tham khảo' };
@@ -432,6 +433,7 @@
     else if (current === 'kconf') html = KConf.render();
     else if (current === 'appendix') html = AppendixUI.render(App);
     else if (current === 'criteria') html = CriteriaUI.render();
+    else if (current === 'importReport') html = ImportReportUI.render(App);
     else html = renderSection(schema.sections.find(s => s.id === current));
     const dl = FX ? `<datalist id="dlSerials">${FX.data.order.map(s => `<option value="${esc(s)}">`).join('')}</datalist>` : '';
     main.innerHTML = html + dl;
@@ -537,7 +539,8 @@
         if (el.dataset.cfg === 'template' && schema.layout !== before) {
           await fillTemplateDefaults();
           renderNav();
-          toast(schema.layout === '3P' ? 'Đã chuyển sang mẫu chung 3 pha: không tải, cách điện, tgδ cuộn dây, ẩm nhập theo từng máy A, B, C' : 'Đã chuyển sang mẫu theo pha máy chính');
+          toast(schema.layout === '3P' ? 'Đã chuyển sang mẫu chung 3 pha: không tải, cách điện, tgδ cuộn dây, ẩm nhập theo từng máy A, B, C'
+            : schema.layout === '110' ? 'Đã chuyển sang mẫu MBA 3 pha 110–220 kV (nấc 1…19)' : 'Đã chuyển sang mẫu theo pha máy chính');
         }
       }
       recompute();
@@ -636,6 +639,7 @@
         renderMain(); persist();
       } else if (act && act.startsWith('db')) await DbUI.action(act, b);
       else if (act && act.startsWith('appx')) await AppendixUI.action(act, b, App);
+      else if (act && act.startsWith('imp')) await ImportReportUI.action(act, b, App);
       else if (act && TU().actions && TU().actions[act]) await track(b.textContent.trim() || act, () => TU().actions[act](b, App));
     } catch (err) {
       console.error(err);
@@ -685,6 +689,7 @@
     if (!EquipmentTypes.has(type)) throw new Error(`Biên bản loại “${type}” chưa được hỗ trợ trong phiên bản này`);
     const cfg = EquipmentTypes.get(type).normalizeCfg(st.cfg);
     state = { type, v: st.v, cfg, sum: st.sum || { tick: {}, ev: {} }, att: st.att || {}, created: st.created, db: st.db || null };
+    if (st.imported) state.imported = st.imported; // BBTN cũ nhập từ .docx: lưu CSDL với nguồn 'manual'
     EditHistory.reset();
     state.sum.tick = state.sum.tick || {}; state.sum.ev = state.sum.ev || {};
     pickFactory(true);
@@ -797,6 +802,7 @@
     loadFactoryDefault();
     Object.values(window.TypeUI || {}).forEach(u => { if (u.init) u.init(App); });
     AppendixUI.init(App);
+    ImportReportUI.init(App);
     const saved = lsGet(LS_STATE);
     let restored = false;
     if (saved) {
@@ -851,14 +857,15 @@
     $('#fileDocx').addEventListener('change', e => readFile(e.target, async f => {
       const buf = await f.arrayBuffer();
       const t = await DocxTemplate.load(buf);
-      // template tùy chỉnh: nhận dạng bố cục theo số bảng (mẫu chung 3 pha 28 bảng, mẫu theo pha 73 bảng)
+      // template tùy chỉnh: nhận dạng bố cục theo số bảng (mẫu chung 3 pha 28 bảng, MBA 3 pha 110-220 71 bảng, mẫu theo pha 73 bảng)
       const is3P = t.tables.length >= 26 && t.tables.length <= 32;
-      if (!is3P && t.tables.length < T().report.minTables) toast(`Template có ${t.tables.length} bảng, khác mẫu chuẩn (${T().report.stdTables}) — kiểm tra kỹ file xuất`, true);
+      const is110 = t.tables.length === 71;
+      if (!is3P && !is110 && t.tables.length < T().report.minTables) toast(`Template có ${t.tables.length} bảng, khác mẫu chuẩn (${T().report.stdTables}) — kiểm tra kỹ file xuất`, true);
       lsSet(LS_TPL, JSON.stringify({ name: f.name, b64: abToB64(buf) }));
       state.cfg.template = 'custom';
-      state.cfg.layout = is3P ? '3P' : '1P';
+      state.cfg.layout = is3P ? '3P' : is110 ? '110' : '1P';
       schema = T().buildSchema(state.cfg); recompute(); renderNav();
-      renderMain(); persist(); toast('Đã nạp template ' + f.name + (is3P ? ' (mẫu chung 3 pha)' : ''));
+      renderMain(); persist(); toast('Đã nạp template ' + f.name + (is3P ? ' (mẫu chung 3 pha)' : is110 ? ' (MBA 3 pha 110–220 kV)' : ''));
     }));
     window.addEventListener('beforeunload', () => lsSet(LS_STATE, JSON.stringify(state)));
   }

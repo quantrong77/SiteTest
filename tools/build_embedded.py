@@ -25,6 +25,8 @@ TEMPLATES = {
     "B": tpl("BBTN_MBA_500_B.docx"),
     "C": tpl("BBTN_MBA_500_C.docx"),
     "3P": tpl("BBTN MBA 500kV 3 pha chung (trong).docx"),
+    # MBA 3 pha 220/110/22 kV (bản trống của "Mau BBTN MBA 110-220.docx", tạo ngoài repo)
+    "110": tpl("Mau BBTN MBA 110-220 (trong).docx"),
 }
 FACTORY = ROOT / "ThinghiemHientruongMBA" / "Bao_Cao_Thu_Nghiem_3_MBA_500kV_Di_Linh-v4.xlsx"
 # Test report sứ RIP Hitachi + bảng hệ số quy đổi (sheet TestReport, TraCuu)

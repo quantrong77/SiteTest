@@ -18,17 +18,37 @@
   }
 
   // Giá trị sẵn có trong template (thông tin chung, Uo = 10 kV…) làm mặc định cho biên bản mới
-  function readDefaults(tpl, schema) {
+  const readDefaults = (tpl, schema) => readValues(tpl, schema);
+
+  // Đọc mọi ô nhập liệu theo đúng ánh xạ dùng để xuất BBTN (ô tự tính bỏ qua — app tính lại).
+  // o.all: đọc cả ghi chú, kết luận (nhập BBTN cũ); mặc định bỏ qua (giá trị mặc định của template).
+  // Khe ghi giá trị giữa nhãn và đơn vị (vd "t=(?<v>\s*)oC", "Loại sứ:(?<v>)") chỉ khớp khi còn trống → khi đọc
+  // file đã điền, nới nhóm v thành "mọi chữ tới phần sau nhãn"; khe ở cuối mẫu thì đọc tới dấu ";" (câu nhiều mục)
+  function looseDoc(d) {
+    const src = d.re.source;
+    if (!/\(\?<v>(\\s\*)?\)/.test(src)) return d;
+    const atEnd = /\(\?<v>(\\s\*)?\)$/.test(src);
+    return Object.assign({}, d, { re: new RegExp(src.replace(/\(\?<v>(\\s\*)?\)/, atEnd ? '(?<v>[^;]*)' : '(?<v>[^]*?)'), d.re.flags) });
+  }
+  const NUM = /[-+]?\d+(?:[.,]\d+)?/;
+
+  function readValues(tpl, schema, o = {}) {
     prepare(tpl, schema);
     const v = {};
     eachField(schema, f => {
-      if (!f.doc || /remark|conclusion/.test(f.k)) return;
-      const val = tpl.readField(f.doc);
-      if (val && val.replace(/[\s.]/g, '')) v[f.k] = val;
+      if (!f.doc || (!o.all && /remark|conclusion/.test(f.k))) return;
+      let val = tpl.readField(f.doc.re ? looseDoc(f.doc) : f.doc);
+      // ô số có ghi kèm chú thích (vd hệ số K sứ tự tra: "1,070 (fc = …)") → lấy số đầu
+      if (val && f.num) { const m = val.match(NUM); val = m ? m[0] : ''; }
+      if (val && val.replace(/[\s.]/g, '')) v[f.k] = val.trim();
     });
     eachGrid(schema, g => {
       if (g.readonly || !g.tables) return;
-      g.rows.forEach(r => g.cols.forEach(c => {
+      // bảng đặc tính từ hóa đã chèn hàng tiêu đề khi xuất (có điểm khuỷu) → các hàng số liệu lùi xuống một hàng
+      const first = g.ex && tpl.rows(g.tables)[0];
+      const off = first && /Đầu cuộn|Mốc 25/.test(first.textContent) ? 1 : 0;
+      g.rows.forEach(r0 => g.cols.forEach(c => {
+        const r = off ? Object.assign({}, r0, { doc: r0.doc + off }) : r0;
         if (r.nodoc || c.nodoc || c.doc === undefined || c.calc || c.auto || (g.skip && g.skip(r.k, c.k))) return;
         if (c.slot) { // ô có nhãn cố định quanh giá trị: chỉ đọc phần giá trị
           const s = tpl.readField({ t: g.tables[0], r: r.doc, c: c.doc, re: c.slot });
@@ -49,5 +69,5 @@
     return /^[-+]?\d+([.,]\d+)?$/.test(t) ? t.replace(/[.,]/, sep === '.' ? '.' : ',') : t;
   };
 
-  window.Report = { readDefaults, prepare, decimal };
+  window.Report = { readDefaults, readValues, prepare, decimal };
 })();
