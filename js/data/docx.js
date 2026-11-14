@@ -34,6 +34,17 @@
       return t;
     }
 
+    // Số bảng của phần biên bản: BBTN xuất từ app có dấu _BBTN_END ở cuối biên bản (phụ lục nằm sau) → chỉ đếm bảng trước dấu;
+    // file không có dấu (BBTN làm tay) → mọi bảng
+    bodyTableCount() {
+      const end = Array.from(this.body.getElementsByTagNameNS(W, 'bookmarkStart')).find(b => b.getAttributeNS(W, 'name') === '_BBTN_END');
+      if (!end) return this.tables.length;
+      let p = end;
+      while (p && p.parentNode !== this.body) p = p.parentNode;
+      const at = this.children.indexOf(p);
+      return at < 0 ? this.tables.length : this.children.slice(0, at).filter(n => n.localName === 'tbl').length;
+    }
+
     // Hàng của nhiều bảng ghép liên tiếp (bảng bị ngắt trang)
     rows(tables) { return tables.flatMap(i => (this.tables[i] ? kids(this.tables[i], 'tr') : [])); }
 

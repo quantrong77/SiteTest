@@ -242,6 +242,23 @@ Mục 0 → *Template BBTN dùng để xuất* → **3P** (bản trống của "
 - BBTN ghi số chế tạo cả 3 máy; chân trang "Page x of y" của biên bản không tính trang phụ lục (phụ lục đánh số riêng).
 - Đổi template giữa chừng: số liệu chung (R một chiều, tỷ số, sứ, OLTC, BCT) giữ nguyên; hạng mục theo máy dùng ô riêng của mỗi bố cục.
 
+### Mẫu MBA 3 pha 110–220 kV
+
+Mục 0 → *Template BBTN dùng để xuất* → **110** (bản trống của "Mau BBTN MBA 110-220", đặt ở
+`../Template/Mau BBTN/Mau BBTN MBA 110-220 (trong).docx` rồi chạy `tools/build_embedded.py`; template tùy chỉnh 71 bảng cũng được
+nhận là mẫu này). Cùng biểu mẫu PTC3/BM.01 với mẫu theo pha nên hạng mục, đánh giá, dòng CSDL giống mẫu theo pha; khác:
+nấc đánh số 1…19, chỉ số bảng theo chỗ ngắt trang của mẫu 110-220 (`Schema.MAP_110`), không đổi template theo pha máy chính và
+không lấy số chế tạo theo pha từ file xuất xưởng tổ máy 1 pha.
+
+### Nhập BBTN cũ vào CSDL (chuỗi xu hướng)
+
+Trang **Nhập BBTN cũ** (nhóm Cơ sở dữ liệu): chọn nhiều file .docx hoặc cả thư mục BBTN đã ban hành theo một trong các mẫu trên.
+App nhận dạng mẫu theo số bảng của phần biên bản (bảng phụ lục không tính), đoán số cuộn thứ cấp biến dòng chân sứ theo bảng có số
+liệu, đọc mọi ô nhập theo đúng vị trí dùng để xuất (ô tự tính được tính lại), đọc ngày dạng dd/mm/yyyy, dd.mm.yyyy hoặc
+"ngày … tháng … năm …". Bảng soát cho biết mẫu, số chế tạo, ngày, số ô đọc được và cảnh báo (thiếu số chế tạo / ngày, đọc quá ít ô).
+*Mở để soát* nạp thành biên bản đang mở để kiểm tra, sửa rồi lưu; *Lưu CSDL* lưu thẳng (đã chốt) với nguồn `manual`, kèm tên và
+file gốc trên Storage. Mẫu chung 3 pha ghi số chế tạo cả 3 máy trong một ô: máy chính lấy số đầu, cột pha A/B/C theo thứ tự.
+
 ## Phát triển với agent (Codex, Claude Code)
 
 Quy tắc chung cho agent lập trình: [AGENTS.md](AGENTS.md) (Claude Code đọc qua CLAUDE.md). Bảng phân công việc giữa Codex và Claude Code, mẫu giao việc:
