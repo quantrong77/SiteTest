@@ -621,7 +621,7 @@
   async function onClick(e) {
     const b = e.target.closest('button');
     if (!b) return;
-    if (b.dataset.m3dgo) { App.go(b.dataset.m3dgo); return; }
+    if (b.dataset.m3dgo) { App.go(b.dataset.m3dgo); if (b.dataset.m3danchor) document.getElementById(b.dataset.m3danchor)?.scrollIntoView({ block: 'start' }); return; }
     if (b.dataset.nav === 'help') { HelpUI.open(App); return; }
     if (b.dataset.nav) { current = b.dataset.nav; renderNav(); renderMain(); $('#main').scrollTop = 0; window.scrollTo(0, 0); return; }
     if (b.dataset.filter) { filters[b.dataset.fsec] = b.dataset.filter; updateComputed(); return; }

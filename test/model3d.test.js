@@ -19,7 +19,8 @@ test('bản đồ 3D chỉ trả hạng mục đang có ở ba schema MBA', () =
     assert.ok(parts.length);
     for (const part of parts) {
       assert.ok(part.items.length);
-      for (const item of part.items) assert.ok(valid.has(item.id), `${part.id}: ${item.id}`);
+      // mục ngoài biểu mẫu (trang Phụ lục, app DGA) đánh dấu extra; còn lại phải là hạng mục của schema
+      for (const item of part.items.filter(i => !i.extra)) assert.ok(valid.has(item.id), `${part.id}: ${item.id}`);
     }
   }
 });
@@ -46,4 +47,14 @@ test('hạng mục của bộ phận xếp theo số thứ tự trong mẫu', ()
   const nos = windings.items.map(i => Number(i.no));
   assert.deepEqual(nos, nos.slice().sort((a, b) => a - b));
   assert.ok(windings.items.some(i => i.id === 'vector'));
+});
+
+test('bình dầu phụ: Kiểm tra bên ngoài, trang Dầu MBA ở Phụ lục và liên kết app DGA', () => {
+  const ctx = load(DOMAIN.concat(['js/domain/types/mba/model3d-map.js']));
+  const T = ctx.EquipmentTypes.get('MBA');
+  const part = ctx.MbaModel3DMap.partsFor(T.buildSchema(T.defaultCfg())).find(p => p.id === 'conservator');
+  assert.deepEqual(JSON.parse(JSON.stringify(part.items.map(i => i.id || i.link))), ['visual', 'appendix', 'dga']);
+  const oil = part.items.find(i => i.id === 'appendix');
+  assert.equal(oil.anchor, 'appx-oil');
+  assert.ok(part.items.filter(i => i.extra).length === 2);
 });

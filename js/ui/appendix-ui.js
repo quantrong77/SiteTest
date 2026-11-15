@@ -40,7 +40,7 @@
     }
     h += '</section>';
     const serials = [...new Set([st.v['meta.serial'], ...Object.values(st.cfg.ps || {})].filter(Boolean))].join(' / ');
-    h += `<section class="appx-card"><div class="appx-head"><h3>Dầu MBA — DGA và lý hóa dầu</h3></div>
+    h += `<section class="appx-card" id="appx-oil"><div class="appx-head"><h3>Dầu MBA — DGA và lý hóa dầu</h3></div>
       <ol class="appx-steps"><li><div><b>Mở app DGA.</b> Chọn thiết bị theo số chế tạo, nhập và đánh giá kết quả, sau đó xuất BBTN .docx.</div>
         <div class="row-actions"><a class="btn primary" href="${Appendix.dgaLink(st.v['meta.serial'])}" target="_blank" rel="noopener">Mở app DGA</a><button class="btn" data-act="appxOilCopy">Chép số chế tạo</button></div></li>
         <li><div><b>Nạp BBTN dầu.</b> Có thể chọn nhiều file DGA và lý hóa dầu; các file được nối nguyên văn thành phụ lục riêng.</div><button class="btn${oils.length ? '' : ' primary'}" data-act="appxOilLoad">Nạp BBTN dầu (.docx)…</button></li></ol>
