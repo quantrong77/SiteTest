@@ -16,7 +16,9 @@
     const bushingGroups = new Set((byId.get('bushing') && byId.get('bushing').groups || []).map(g => g.id));
     const groupForPart = { 'bush-hv': ['hv'], 'bush-mv': ['mv'], 'bush-n': ['n'], 'bush-lv': ['lv', 'lv2'] };
     return MAP.filter(([id]) => !groupForPart[id] || groupForPart[id].some(group => bushingGroups.has(group)))
-      .map(([id, name, ids]) => ({ id, name, items: ids.map(key => byId.get(key)).filter(Boolean).map(s => ({ id: s.id, no: s.no, title: s.title })) }))
+      // hạng mục xếp theo số thứ tự của mẫu đang mở (các mẫu đánh số khác nhau)
+      .map(([id, name, ids]) => ({ id, name, items: ids.map(key => byId.get(key)).filter(Boolean).map(s => ({ id: s.id, no: s.no, title: s.title }))
+        .sort((a, b) => (Number(a.no) || 0) - (Number(b.no) || 0)) }))
       .filter(p => p.items.length);
   }
   window.MbaModel3DMap = { partsFor };

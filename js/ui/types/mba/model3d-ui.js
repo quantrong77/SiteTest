@@ -101,7 +101,8 @@
       return mesh;
     }
 
-    addBox('tank', 0, 1.55, 0, 3.4, 2.7, 2.2, '#91aab5', .56);
+    // Vỏ thùng trong suốt bọc lõi từ và cuộn dây: đánh dấu để khi bấm xuyên qua vỏ thì ưu tiên bộ phận bên trong
+    addBox('tank', 0, 1.55, 0, 3.4, 2.7, 2.2, '#91aab5', .56).userData.shell = true;
     addBox('core', 0, 1.55, 0, 1.6, 2, .45, '#bd8b43');
     [-.48, 0, .48].forEach((x, i) => addCylinder('windings', x, 1.45, .45, .26, 1.65, ['#a84f43', '#d0a63c', '#526c9b'][i]));
     addBushings(addCylinder, partById);
@@ -162,8 +163,9 @@
     });
     const bounds = box.getBoundingClientRect();
     menu.style.left = `${Math.max(8, Math.min(x - bounds.left, bounds.width - 230))}px`;
-    menu.style.top = `${Math.max(8, Math.min(y - bounds.top, bounds.height - 120))}px`;
     box.appendChild(menu);
+    // đặt menu sau khi biết chiều cao thật để không bị khung mô hình cắt mất dòng cuối
+    menu.style.top = `${Math.max(8, Math.min(y - bounds.top, bounds.height - menu.offsetHeight - 8))}px`;
     menu.querySelector('button').focus();
     menu._outside = event => { if (!menu.contains(event.target)) closePartMenu(root); };
     menu._escape = event => { if (event.key === 'Escape') { closePartMenu(root); root.querySelector('[data-m3dcanvas] canvas')?.focus(); } };
@@ -208,12 +210,18 @@
       pointer.set((event.clientX - bounds.left) / bounds.width * 2 - 1, -(event.clientY - bounds.top) / bounds.height * 2 + 1);
     }
 
-    function handleHover(event) {
-      if (pointers.size || moved) return;
+    // Bộ phận dưới con trỏ: bỏ qua vỏ thùng trong suốt nếu tia còn trúng bộ phận khác phía sau (lõi từ, cuộn dây)
+    function pick(event) {
       setPointer(event);
       raycaster.setFromCamera(pointer, camera);
-      const hit = raycaster.intersectObjects(scene.children.filter(child => child.isMesh))[0];
-      const mesh = hit && hit.object;
+      const hits = raycaster.intersectObjects(scene.children.filter(child => child.isMesh));
+      const hit = hits.find(h => !h.object.userData.shell) || hits[0];
+      return hit ? hit.object : null;
+    }
+
+    function handleHover(event) {
+      if (pointers.size || moved) return;
+      const mesh = pick(event);
       if (hovered && hovered !== mesh) hovered.material.emissiveIntensity = .25;
       hovered = mesh || null;
       if (hovered) {
@@ -276,10 +284,8 @@
 
     function handleClick(event) {
       if (moved) { moved = false; return; }
-      setPointer(event);
-      raycaster.setFromCamera(pointer, camera);
-      const hit = raycaster.intersectObjects(scene.children.filter(child => child.isMesh))[0];
-      if (hit) openPart(hit.object.userData.part, parts, root, event.clientX, event.clientY);
+      const mesh = pick(event);
+      if (mesh) openPart(mesh.userData.part, parts, root, event.clientX, event.clientY);
     }
 
     function zoom(event) {
