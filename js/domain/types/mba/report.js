@@ -79,7 +79,14 @@
     // Phụ lục nối cuối biên bản, mỗi phụ lục một section (đánh số trang riêng): chụp sóng OLTC (mỗi pha một phần),
     // báo cáo SFRA (nối nguyên văn file .docx đã nạp)
     const A = assets || {};
-    if (tpl.appendSection) Appendix.list(state, { fra: !!A.fraDoc, bct: is3P && hasBct(state) }).forEach(a => {
+    // mẫu 3 pha: số liệu biến dòng chân sứ đưa vào thân biên bản tại mục 13 (tùy chọn) hoặc thành phụ lục (mặc định).
+    // Không tìm thấy đề mục 13 trong template thì vẫn xuất phụ lục để không mất số liệu.
+    let bctAppx = is3P && hasBct(state);
+    if (bctAppx && state.cfg.bctPlace === 'body') {
+      if (bctToBody(tpl, state, schema, res, out)) bctAppx = false;
+      else miss.push('Mục 13 – biến dòng chân sứ (không thấy đề mục trong template, đã xuất thành phụ lục)');
+    }
+    if (tpl.appendSection) Appendix.list(state, { fra: !!A.fraDoc, bct: bctAppx }).forEach(a => {
       if (a.kind === 'oltc') tpl.appendSection(oltcAppendix(state, state.att.oltc, A, out, a.label));
       if (a.kind === 'fra') { tpl.appendSection(Appendix.fraHeader(a.label, state.att.fra)); tpl.importBody(A.fraDoc); }
       if (a.kind === 'dfr') tpl.appendSection(Dfr.appendix(state, A, out, a.label));
@@ -138,6 +145,25 @@
     blocks.push({ type: 'p', text: 'KẾT QUẢ THÍ NGHIỆM BIẾN DÒNG CHÂN SỨ', bold: true, size: 13, align: 'center' });
     blocks.push({ type: 'p', text: '(Bushing type current transformer test results)', italic: true, size: 11, align: 'center' });
     if (v['meta.project'] || v['meta.site']) blocks.push({ type: 'p', text: [v['meta.project'], v['meta.site']].filter(Boolean).join(' – '), align: 'center', size: 12, after: 160 });
+    blocks.push(...bctBlocks(state, schema, res, out, n => `${n}.`));
+    blocks.push({ type: 'p', text: 'Người thí nghiệm', bold: true, size: 12, align: 'right', after: 1200 });
+    return blocks;
+  }
+
+  // Đề mục 13 của mẫu 3 pha và đuôi "đính kèm Phụ lục biến dòng chân sứ" (bỏ khi số liệu nằm ngay dưới đề mục)
+  const BCT_HEAD = /^\s*13\s*\.\s*Kiểm tra biến dòng chân sứ/i;
+  const BCT_ATT = /(?<v>đính kèm\s+phụ lục\s+biến dòng chân sứ\.?\s*)$/i;
+  function bctToBody(tpl, state, schema, res, out) {
+    const p = tpl.bodyPara && tpl.bodyPara(BCT_HEAD);
+    if (!p) return false;
+    tpl.setSlot(p, BCT_ATT, '');
+    tpl.insertBlocksAfter(p, bctBlocks(state, schema, res, out, n => `13.${n}`));
+    return true;
+  }
+
+  // Nội dung BCT dùng chung cho phụ lục và mục 13: thông tin chung + bảng theo phía; num(n) đánh số nhóm (1. / 13.1)
+  function bctBlocks(state, schema, res, out, num) {
+    const v = state.v, blocks = [];
     const info = [['Kiểm tra bên ngoài', v['bct.visual']], ['Cực tính', v['bct.polarity']],
       ['Nhiệt độ đo cách điện', v['bct.t_ir'] ? `${out(v['bct.t_ir'])} °C` : ''], ['Nhiệt độ đo điện trở một chiều', v['bct.t_dcr'] ? `${out(v['bct.t_dcr'])} °C` : '']];
     info.filter(([, x]) => String(x ?? '').trim()).forEach(([k, x]) => blocks.push({ type: 'p', text: `${k}: ${x}`, size: 12 }));
@@ -161,7 +187,7 @@
         return rows.length ? { g, rows } : null;
       }).filter(Boolean);
       if (!grids.length) return;
-      blocks.push({ type: 'p', text: `${n++}. ${gr.title}`, bold: true, size: 12, keepNext: true, after: 80 });
+      blocks.push({ type: 'p', text: `${num(n++)} ${gr.title}`, bold: true, size: 12, keepNext: true, after: 80 });
       grids.forEach(({ g, rows }) => {
         const nc = g.cols.length;
         const w0 = 2600, w = Math.floor((9600 - w0) / nc);
@@ -169,10 +195,9 @@
         blocks.push({ type: 'table', size: 9, head: ['Cuộn / đầu ra'].concat(g.cols.map(c => c.label)), widths: [w0].concat(g.cols.map(() => w)), rows });
       });
     });
-    blocks.push({ type: 'p', text: 'Người thí nghiệm', bold: true, size: 12, align: 'right', after: 1200 });
     return blocks;
   }
 
   // Template chuẩn MBA 500 kV có 73 bảng; ít hơn 72 thì vị trí điền có thể lệch (mẫu chung 3 pha: 28 bảng, schema.tables)
-  window.MbaReport = { fill, oltcAppendix, bctAppendix, hasBct, minTables: 72, stdTables: 73 };
+  window.MbaReport = { fill, oltcAppendix, bctAppendix, bctBlocks, bctToBody, hasBct, minTables: 72, stdTables: 73 };
 })();

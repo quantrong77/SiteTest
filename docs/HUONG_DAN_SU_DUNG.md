@@ -83,7 +83,7 @@ Hãy dùng đúng nhãn hiển thị trên phiên bản đang chạy.
 | Tỷ số biến | 8 | 9 |
 | OLTC | 9 | 11 |
 | Độ ẩm cách điện cứng | 10 | 10 |
-| Biến dòng chân sứ | 11 | 13 (xuất thành phụ lục) |
+| Biến dòng chân sứ | 11 | 13 (phụ lục hoặc trong mục 13, tùy chọn) |
 
 ### Cấu hình nhãn nấc và cách đo
 
@@ -104,6 +104,7 @@ Hãy dùng đúng nhãn hiển thị trên phiên bản đang chạy.
 3. Nếu có cuộn 5 hoặc 6, app có thể mở thêm cuộn tương ứng.
 4. Kiểm tra ký hiệu cuộn trước khi nhập dữ liệu CPC 100 hoặc MRCT.
 5. Không suy diễn ngưỡng cho phép nếu nhà sản xuất chưa nêu.
+6. Mẫu 3 pha chung: ô **Số liệu BCT trong BBTN** ở đầu mục 13 chọn *Đính kèm cuối BBTN như phụ lục* (mặc định) hoặc *Đưa vào mục 13 của biên bản*. Biên bản cũ mở lại vẫn xuất phụ lục như trước.
 
 ### Nạp file xuất xưởng nhiều file
 
