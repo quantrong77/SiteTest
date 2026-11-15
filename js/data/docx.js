@@ -263,10 +263,25 @@
     //         { type: 'table', head: [..], rows: [[..]], widths: [twip], size } | { type: 'images', items: [{ png, w, h, caption }], perRow, widthCm }
     // Chèn trước sectPr cuối để giữ khổ giấy, lề của template.
     appendBlocks(blocks) {
+      const sect = kids(this.body, 'sectPr')[0] || null;
+      this.blockNodes(blocks).forEach(n => this.body.insertBefore(n, sect));
+    }
+
+    blockNodes(blocks) {
       const xml = blocks.map(b => this.blockXml(b)).join('');
       const frag = new DOMParser().parseFromString(`<w:body ${NS_DECL}>${xml}</w:body>`, 'application/xml');
-      const sect = kids(this.body, 'sectPr')[0] || null;
-      Array.from(frag.documentElement.childNodes).forEach(n => this.body.insertBefore(this.doc.importNode(n, true), sect));
+      return Array.from(frag.documentElement.childNodes).map(n => this.doc.importNode(n, true));
+    }
+
+    // Đoạn văn cấp thân văn bản đầu tiên khớp regex (vd đề mục "13. Kiểm tra biến dòng chân sứ")
+    bodyPara(re) { return this.children.find(n => n.localName === 'p' && re.test(this.paraText(n))) || null; }
+
+    // Chèn khối (đoạn, bảng) ngay sau một phần tử cấp thân văn bản. Chỉ số bảng của template (this.tables) giữ nguyên
+    // nên gọi sau khi đã điền mọi bảng.
+    insertBlocksAfter(el, blocks) {
+      const ref = el.nextSibling;
+      this.blockNodes(blocks).forEach(n => this.body.insertBefore(n, ref));
+      this.children = Array.from(this.body.childNodes).filter(n => n.nodeType === 1);
     }
 
     // Phụ lục trong section riêng: phần biên bản giữ nguyên chân trang của template (vd "Trang x/20" ghi cứng tổng số trang),

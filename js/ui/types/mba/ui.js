@@ -47,6 +47,13 @@
     }
   }
 
+  // Mẫu 3 pha chung: chọn chỗ trình bày số liệu biến dòng chân sứ trong BBTN xuất ra
+  const BCT_PLACES = [['appendix', 'Đính kèm cuối BBTN như phụ lục'], ['body', 'Đưa vào mục 13 của biên bản']];
+  function bctPlaceField(A) {
+    if (A.schema.layout !== Schema.LAYOUT_3P) return '';
+    return A.cfgField('bctPlace', 'Số liệu BCT trong BBTN', { options: BCT_PLACES });
+  }
+
   // Công cụ đầu hạng mục (mục 7, 8, 9: nhập file Haefely 2293; mục 11: số cuộn thứ cấp, nhập XML CPC 100)
   function sectionTools(id, A) {
     if (['dcr', 'ratio', 'oltc'].includes(id)) {
@@ -54,7 +61,7 @@
         + '<div class="hint-text">Chọn cùng lúc các file <b>.csv</b> xuất từ máy (điện trở một chiều, tỷ số biến, chuyển nấc) và file <b>.bin</b> cùng tên (dạng sóng chụp OLTC); có thể chọn file của cả ba pha. Bỏ qua các file .dat, .mat.</div></div>';
     }
     if (id !== 'bct') return '';
-    return `<div class="bct-tools"><div class="fields">${A.cfgField('bctCores.hv', 'Số cuộn thứ cấp TI phía HV', { options: [4, 5, 6] })}${A.cfgField('bctCores.mv', 'Số cuộn thứ cấp TI phía MV', { options: [4, 5] })}<div class="field"><label>Đặc tính từ hóa từ máy đo</label><button class="btn primary" data-act="loadCpc">Nhập XML CPC 100…</button></div><div class="field"><label>Tỷ số, điện trở, từ hóa</label><button class="btn primary" data-act="loadMrct">Nhập Megger MRCT (.pdbxml, PDF)…</button></div></div><div class="hint-text">CPC 100: chọn một hoặc nhiều file XML (mỗi file một pha/một phía); app lấy 3 điểm (U, I) theo IEC 61869-2 và điền vào bảng đặc tính từ hóa. Megger MRCT: chọn file .pdbxml của PowerDB và/hoặc báo cáo PDF "CT TEST REPORT"; tỷ số đo, sai số, góc pha, cực tính chỉ có trong báo cáo PDF. File có cuộn 5, 6 sẽ tự mở thêm cuộn. Phía LV và trung tính theo template chỉ có 4 và 3 cuộn.</div></div>`;
+    return `<div class="bct-tools"><div class="fields">${bctPlaceField(A)}${A.cfgField('bctCores.hv', 'Số cuộn thứ cấp TI phía HV', { options: [4, 5, 6] })}${A.cfgField('bctCores.mv', 'Số cuộn thứ cấp TI phía MV', { options: [4, 5] })}<div class="field"><label>Đặc tính từ hóa từ máy đo</label><button class="btn primary" data-act="loadCpc">Nhập XML CPC 100…</button></div><div class="field"><label>Tỷ số, điện trở, từ hóa</label><button class="btn primary" data-act="loadMrct">Nhập Megger MRCT (.pdbxml, PDF)…</button></div></div><div class="hint-text">CPC 100: chọn một hoặc nhiều file XML (mỗi file một pha/một phía); app lấy 3 điểm (U, I) theo IEC 61869-2 và điền vào bảng đặc tính từ hóa. Megger MRCT: chọn file .pdbxml của PowerDB và/hoặc báo cáo PDF "CT TEST REPORT"; tỷ số đo, sai số, góc pha, cực tính chỉ có trong báo cáo PDF. File có cuộn 5, 6 sẽ tự mở thêm cuộn. Phía LV và trung tính theo template chỉ có 4 và 3 cuộn.</div></div>`;
   }
 
   // ---------------------------------------------------------------- mục 9: chụp sóng OLTC (xem trước phụ lục)

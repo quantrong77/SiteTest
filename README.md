@@ -242,7 +242,8 @@ Mục 0 → *Template BBTN dùng để xuất* → **3P** (bản trống của "
   riêng từng sứ** (đã lắp: nhiệt độ dầu, chưa lắp: nhiệt độ môi trường; dùng để quy đổi tgδ về 20 °C, trống thì theo nhiệt độ chung
   ở đầu mục 5). Template không có hàng này nên khi xuất app chèn hàng "Nhiệt độ đo (°C)" vào mỗi bảng sứ (template đã có thì giữ nguyên);
   R một chiều 17 nấc, đơn vị mΩ, nhiệt độ đo theo từng máy; tỷ số HV:MV, HV:LV theo nấc, MV:LV nấc 9; ẩm theo pha; OLTC số vòng theo pha.
-- Biến dòng chân sứ: nhập ở mục 13 như mẫu theo pha, khi xuất thành **Phụ lục biến dòng chân sứ** nối cuối BBTN.
+- Biến dòng chân sứ: nhập ở mục 13 như mẫu theo pha. Ô **Số liệu BCT trong BBTN** (đầu mục 13) chọn cách trình bày khi xuất:
+  *Đính kèm cuối BBTN như phụ lục* (mặc định, **Phụ lục biến dòng chân sứ**) hoặc *Đưa vào mục 13 của biên bản* (bảng 13.1–13.4 ngay dưới đề mục 13, bỏ chữ "đính kèm Phụ lục").
 - BBTN ghi số chế tạo cả 3 máy; chân trang "Page x of y" của biên bản không tính trang phụ lục (phụ lục đánh số riêng).
 - Đổi template giữa chừng: số liệu chung (R một chiều, tỷ số, sứ, OLTC, BCT) giữ nguyên; hạng mục theo máy dùng ô riêng của mỗi bố cục.
 

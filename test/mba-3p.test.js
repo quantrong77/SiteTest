@@ -181,3 +181,32 @@ test('xuất BBTN: chèn hàng nhiệt độ sứ khi template chưa có, đã c
   assert.equal(ins.filter(x => x[0] === 12).length, 0, 'bảng đã có hàng nhiệt độ');
   same(ins.map(x => x[0]).sort((a, b) => a - b), [11, 13, 14, 15]);
 });
+
+test('số liệu BCT đưa vào mục 13 (mẫu 3 pha): chèn ngay sau đề mục, bỏ chữ "đính kèm Phụ lục"', () => {
+  const ctx = load(CORE);
+  const { state, schema } = state3P(ctx.Schema);
+  const res = ctx.Evaluate.evaluate(state, F.fakeFactory(), schema);
+  // cấu hình mặc định (và biên bản cũ chưa có khóa): phụ lục như trước
+  assert.equal(ctx.EquipmentTypes.get('MBA').normalizeCfg({}).bctPlace, 'appendix');
+  // nội dung mục 13 giống phụ lục nhưng đánh số 13.1, 13.2…, không có trang mới / tiêu đề phụ lục / chữ ký
+  const body = ctx.MbaReport.bctBlocks(state, schema, res, x => x, n => `13.${n}`);
+  const appx = ctx.MbaReport.bctAppendix(state, schema, res, x => x, 'PHỤ LỤC');
+  assert.ok(body.every(b => b.type !== 'page'));
+  assert.equal(body.filter(b => b.type === 'table').length, appx.filter(b => b.type === 'table').length);
+  assert.match(body.find(b => /^13\.1 /.test(b.text || '')).text, /^13\.1 /);
+  assert.ok(!body.some(b => /Người thí nghiệm|PHỤ LỤC/.test(b.text || '')));
+  // template giả: đoạn đề mục 13 trong thân biên bản
+  const heading = { text: '13. Kiểm tra biến dòng chân sứ (Bushing type current transformer testing)/ đính kèm Phụ lục biến dòng chân sứ' };
+  const calls = [];
+  const tpl = {
+    bodyPara: re => (re.test(heading.text) ? heading : null),
+    setSlot: (p, re, value) => { const m = re.exec(p.text); p.text = p.text.slice(0, m.index) + value; return true; },
+    insertBlocksAfter: (p, blocks) => calls.push([p, blocks.length]),
+  };
+  assert.equal(ctx.MbaReport.bctToBody(tpl, state, schema, res, x => x), true);
+  assert.equal(heading.text, '13. Kiểm tra biến dòng chân sứ (Bushing type current transformer testing)/ ');
+  same(calls.map(c => c[1]), [body.length]);
+  assert.equal(calls[0][0], heading);
+  // template không có đề mục 13 → báo không chèn được (fill sẽ xuất phụ lục)
+  assert.equal(ctx.MbaReport.bctToBody({ bodyPara: () => null }, state, schema, res, x => x), false);
+});
