@@ -19,7 +19,7 @@ Mở hướng dẫn này trong app bằng nút ? trên header hoặc phím F1. K
 9. Mở **Phụ lục BBTN** nếu có file OLTC, SFRA, DFR hoặc BBTN dầu cần đính kèm.
 10. Bấm **Xuất BBTN .docx**, **Xuất so sánh .xlsx** và **Lưu .json**.
 
-Khi xuất Word, bảng tổng hợp đầu biên bản có thêm cột **Tiêu chuẩn/giới hạn (QĐ 1901)** theo hạng mục MBA. Nếu quy định dẫn chiếu nhà chế tạo/giá trị gốc hoặc không nêu ngưỡng số chung, cột ghi rõ căn cứ đối chiếu thay vì tự đặt giới hạn.
+Khi xuất Word, cuối BBTN có phụ lục bảng tra theo từng hạng mục MBA, gồm tiêu chí QĐ EVNNPT và các tiêu chuẩn IEC/IEEE liên quan. Phần QĐ EVNNPT nêu căn cứ đánh giá; IEC/IEEE nêu mã thử, phương pháp hoặc hướng dẫn và không tự tạo giới hạn đạt/không đạt. Khi quy định không nêu ngưỡng chung, đối chiếu Test Report, nhà chế tạo, giá trị gốc và quy trình được duyệt.
 
 ## 1. Mở ứng dụng và tạo biên bản
 

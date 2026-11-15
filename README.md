@@ -40,7 +40,7 @@ Dữ liệu đang nhập được tự lưu trong trình duyệt; dùng **Lưu .
    Enter để xuống dòng. Ô viền xanh/đỏ/vàng = Đạt / Không đạt / Cần xem xét; rê chuột vào ô để xem chi tiết.
    Ô nền xám là giá trị tự tính (Kht, PI, quy đổi 20 °C, ΔR, ΔK…); ô chữ nghiêng mờ là giá trị tự tính có thể ghi đè.
 3. **Σ Tổng hợp**: xem toàn bộ kết quả so sánh, chỉnh đánh giá ghi vào BBTN nếu cần, điền kết luận.
-4. **Xuất BBTN .docx** (điền vào template) và **Xuất so sánh .xlsx** (bảng so sánh chi tiết để lưu hồ sơ). Bảng tổng hợp đầu biên bản có cột **Tiêu chuẩn/giới hạn (QĐ 1901)**; hạng mục không có ngưỡng số chung ghi rõ đối chiếu nhà chế tạo hoặc giá trị gốc.
+4. **Xuất BBTN .docx** (điền vào template) và **Xuất so sánh .xlsx** (bảng so sánh chi tiết để lưu hồ sơ). Cuối BBTN có phụ lục bảng tra theo từng hạng mục, tách tiêu chí QĐ EVNNPT khỏi các tiêu chuẩn IEC/IEEE liên quan. Viện dẫn IEC/IEEE nêu phương pháp hoặc hướng dẫn; chỉ dùng làm giới hạn đạt/không đạt khi hồ sơ áp dụng quy định rõ.
 
 ## Đọc ảnh nameplate (mục 0)
 

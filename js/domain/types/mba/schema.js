@@ -169,10 +169,10 @@
   };
   const PH3 = ['A', 'B', 'C'];
   const TAPS_17 = range(17, i => String(i + 1));
-  // Hàng tổng hợp hạng mục ở bảng 0: tiêu đề ở hàng 10; cột ✓ và Đánh giá theo mẫu.
+  // Hàng tổng hợp hạng mục ở bảng 0 của từng mẫu: cột ✓ và Đánh giá theo mẫu.
   const SUMMARY = {
-    '1P': { rows: SUMMARY_ROWS, tick: 3, ev: 4, header: 10 },
-    '3P': { rows: { visual: 11, noload: 12, ir: [13, 14], vector: 15, bushing: 16, wtgd: 17, dcr: 18, ratio: 19, oltc: 20, moisture: 21, bct: 23 }, fra: 22, tick: 6, ev: 7, header: 10 },
+    '1P': { rows: SUMMARY_ROWS, tick: 3, ev: 4 },
+    '3P': { rows: { visual: 11, noload: 12, ir: [13, 14], vector: 15, bushing: 16, wtgd: 17, dcr: 18, ratio: 19, oltc: 20, moisture: 21, bct: 23 }, fra: 22, tick: 6, ev: 7 },
   };
   const VISUAL_ITEMS = ['Sứ xuyên 500kV, 220kV, 35kV và trung tính', 'Các kẹp cực', 'Hàng kẹp đấu dây nhị thứ', 'Rơ le bảo vệ nội bộ', 'Đồng hồ nhiệt độ dầu, cuộn dây',
     'Đồng hồ chỉ thị mức dầu', 'Cánh tản nhiệt', 'Độ kín', 'Tiếp địa'];

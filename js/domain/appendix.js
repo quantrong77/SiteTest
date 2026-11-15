@@ -55,6 +55,23 @@
   }
 
   const shortCircuitPairs = ['HV-MV', 'HV-LV', 'MV-LV'];
+  const STANDARD_LOOKUP = [
+    ['Ngoại quan, phụ kiện', 'QĐ 1901 Điều 9, Bảng 1: kiểm tra hiện trạng theo danh mục; không có ngưỡng số chung.', 'IEC 60076-1:2011 — yêu cầu chung và phép thử MBA.', 'IEEE C57.152-2025 — hướng dẫn chẩn đoán tại hiện trường; tổng hợp kết quả và tiêu chí nhà chế tạo.'],
+    ['Không tải P0, I0', 'Điều 34: P0 lệch ≤5% NSX (MBA 3 pha ≥110 kV, sau lắp/sửa); ≤10% giá trị gốc (MBA 1 pha ≥110 kV hoặc 3 pha <110 kV); khi vận hành ≤15% giá trị gốc. I0 trung bình 3 pha ≤30% NSX; pha A/C lệch ≤5%, pha B thường cao hơn 25–50% do kết cấu lõi.', 'IEC 60076-1:2011 — đo tổn hao không tải; IEC 60076-19-1:2023 — độ không đảm bảo và hiệu chỉnh phép đo tổn hao.', 'IEEE C57.12.90-2026 (approved draft) — mã thử tổn hao không tải/dòng kích từ; C57.152-2025 — hướng dẫn chẩn đoán hiện trường.'],
+    ['Cách điện cuộn dây, R60/PI', 'Điều 9, 29: R60 quy đổi 20 °C không giảm quá 30% so giá trị gốc/lần trước; thiếu giá trị gốc dùng Bảng 44. PI theo IEEE C57.152.', 'Không có giới hạn hiện trường chung; đối chiếu quy định EVNNPT, NSX và giá trị gốc.', 'IEEE C57.152-2025 — hướng dẫn phép đo và diễn giải chẩn đoán; tiêu chí NSX có thể được ưu tiên.'],
+    ['Cách điện lõi/gông', 'Điều 9, Bảng 1: >500 MΩ với MBA mới; >100 MΩ với MBA đã vận hành nếu NSX không quy định.', 'Không nêu ngưỡng IEC chung cho phép đo hiện trường này.', 'IEEE C57.152-2025 — hướng dẫn phép đo/đánh giá cách điện tại hiện trường.'],
+    ['Cực tính, tổ đấu dây', 'Điều 32: tổ đấu dây đúng tài liệu MBA; cực tính đúng ký hiệu trên mác máy.', 'IEC 60076-1:2011 — ký hiệu đầu cực và yêu cầu chung.', 'IEEE C57.12.90-2026 (approved draft) — phép thử cực tính và quan hệ pha.'],
+    ['Sứ: tgδ, điện dung C1, AC', 'Điều 38: tgδ theo NSX/Bảng 51–53; C1 thay đổi ≤5% nếu NSX không quy định; sứ không test tap ≤35 kV thử AC ở 85% giá trị xuất xưởng/Bảng 50 khi lắp hoặc thay sứ. Khi vận hành, tgδ tăng 70–100% cần đánh giá bổ sung; >100% không đạt.', 'IEC 60137:2017 — đặc tính và phép thử sứ cách điện.', 'IEEE C57.19.00-2023 — yêu cầu/phép thử sứ thiết bị; IEEE C57.152-2025 — chẩn đoán sứ trong MBA.'],
+    ['Tgδ, điện dung cuộn dây', 'Điều 9, 30: tgδ <1% ở 20 °C được xem là tốt; nếu cao hơn đối chiếu giá trị gốc/Bảng 6, 46; mức tăng cùng nhiệt độ ≤30%; điện dung thay đổi không quá ±5% so giá trị gốc.', 'IEC 60076-3:2013+A1:2018 quy định phép thử điện môi và mức thử; không phải giới hạn tgδ hiện trường độc lập.', 'IEEE C57.152-2025 — hướng dẫn phép đo tgδ và diễn giải xu hướng.'],
+    ['Điện trở một chiều cuộn dây', 'Điều 31: sai lệch ≤2% so NSX và pha khác tại cùng nấc, cùng nhiệt độ.', 'IEC 60076-1:2011 — phép đo điện trở cuộn dây.', 'IEEE C57.12.90-2026 (approved draft) — mã thử điện trở cuộn dây.'],
+    ['Tỷ số biến', 'Điều 33: sau lắp/sửa, sai lệch ≤0,5% so mác máy và các pha khác tại cùng nấc.', 'IEC 60076-1:2011 — tỷ số và đầu phân áp.', 'IEEE C57.12.90-2026 (approved draft) — phép thử tỷ số biến.'],
+    ['Bộ điều áp dưới tải OLTC', 'Điều 37: kiểm tra hành trình/đồ thị; đánh giá theo hướng dẫn NSX, không có ngưỡng số chung.', 'IEC 60214-1:2014 — yêu cầu tính năng và phương pháp thử bộ đổi nấc.', 'IEEE C57.131-2024 — yêu cầu tính năng và phương pháp thử tap-changer.'],
+    ['Độ ẩm cách điện cứng', 'Điều 28: <2,2% khô; 2,2–3,7% ẩm trung bình; 3,7–4,8% ẩm; >4,8% nhiễm ẩm cao.', 'IEC 60814:1997 — xác định nước trong giấy/pressboard tẩm dầu; phương pháp đo, không thay thế phân loại QĐ.', 'IEEE C57.152-2025 — hướng dẫn chẩn đoán; IEEE C57.161-2018 — phương pháp DFR cho cách điện MBA dầu.'],
+    ['Biến dòng chân sứ BCT', 'Điều 39: R cách điện ≥200 MΩ nếu NSX không quy định; các phép thử khác theo NSX/tiêu chuẩn áp dụng.', 'IEC 61869-2:2012 — yêu cầu bổ sung cho biến dòng điện.', 'IEEE C57.13.1-2017 — thử hiện trường TI dùng cho bảo vệ; C57.13 series cho phép thử tỷ số, cực tính, kích từ và điện trở.'],
+    ['Đáp ứng điện môi DFR (nếu đo)', 'Điều 38 ghi dẫn chiếu “IEEE C57.12.200”; giữ nguyên số hiệu theo quy định và xác minh trên bản kiểm soát trước khi viện dẫn.', 'Không nêu ngưỡng chấp nhận DFR chung.', 'IEEE C57.161-2018 — DFR cho cách điện MBA dầu (đang có dự án sửa đổi); C57.152-2025 — diễn giải chẩn đoán.'],
+    ['Đáp ứng tần số quét FRA/SFRA', 'QĐ 1901 Điều 9, Bảng 1, mục 23/Điều 44: đối chiếu đường đáp ứng và hồ sơ; không có ngưỡng số chung.', 'IEC 60076-18:2012 — thiết bị và kỹ thuật đo đáp ứng tần số.', 'IEEE C57.149-2024 — hướng dẫn áp dụng/diễn giải FRA, lưu trữ dữ liệu và kết quả.'],
+    ['Ngắn mạch: Uk, Pk', 'QĐ 1387 Điều 27: MBA mới, Uk lệch ≤5% mác máy tại nấc chính; sau đại tu/vận hành ≤3% so ban đầu và giữa pha; Pk ≤115% NSX. QĐ 1901 Điều 35: Uk lệch ≤3% mác máy; lệch pha ≤3% trung bình; Pk ≤115% NSX. Áp dụng theo trường hợp của quy trình.', 'IEC 60076-1:2011 và IEC 60076-19-1:2023 cho đo Uk/Pk và độ không đảm bảo; IEC 60076-5:2006 nói về khả năng chịu ngắn mạch, không đặt tiêu chí đo Uk/Pk hiện trường.', 'IEEE C57.12.90-2026 (approved draft) — thử trở kháng/tổn hao tải; C57.164-2021 — hướng dẫn khả năng chịu ngắn mạch.'],
+  ];
   const valueOf = value => {
     if (value === null || value === undefined || String(value).trim() === '') return null;
     const n = Number(String(value).trim().replace(',', '.'));
@@ -174,6 +191,18 @@
     return blocks;
   }
 
+  function standardsAppendix(label = 'PHỤ LỤC') {
+    return [
+      { type: 'page' },
+      { type: 'p', text: label, bold: true, size: 14, align: 'center' },
+      { type: 'p', text: 'BẢNG TRA CỨU TIÊU CHUẨN THÍ NGHIỆM MÁY BIẾN ÁP THEO HẠNG MỤC', bold: true, size: 13, align: 'center' },
+      { type: 'p', text: 'Bảng tra cứu phụ lục cuối BBTN: QĐ EVNNPT nêu tiêu chí áp dụng theo quy định; IEC/IEEE ghi các bộ tiêu chuẩn, mã thử và hướng dẫn liên quan. Viện dẫn IEC/IEEE không tự tạo thêm giới hạn đạt/không đạt nếu văn bản không quy định. Khi thiếu ngưỡng chung, đối chiếu Test Report, nhà chế tạo, giá trị gốc và quy trình được duyệt.', size: 9, after: 160 },
+      { type: 'table', size: 8, head: ['Hạng mục', 'QĐ EVNNPT — tiêu chí', 'IEC liên quan', 'IEEE liên quan'],
+        widths: [1400, 4500, 1650, 1950], rows: STANDARD_LOOKUP },
+      { type: 'p', text: 'Tình trạng viện dẫn được rà soát theo danh mục công bố ngày 15/11/2026. IEEE C57.12.90-2026 đang được ghi là approved draft; chỉ áp dụng khi đã được viện dẫn/ban hành trong hồ sơ kiểm soát của dự án. IEEE C57.12.200 được ghi đúng số hiệu như Điều 38 QĐ 1901; cần xác minh số hiệu trên bản quy định được kiểm soát trước khi phát hành.', size: 8, before: 120 },
+    ];
+  }
+
   // Các phụ lục có trong biên bản theo thứ tự; nhiều phụ lục thì đánh số "PHỤ LỤC 1, 2"
   function list(state, has = {}) {
     const att = state.att || {};
@@ -186,6 +215,7 @@
     if (shortCircuitHasData(att.shortCircuit)) out.push({ kind: 'shortCircuit' });
     // mẫu chung 3 pha: biến dòng chân sứ không có bảng trong thân BBTN → phụ lục dựng từ số liệu mục BCT
     if (has.bct) out.push({ kind: 'bct' });
+    out.push({ kind: 'standards' });
     out.forEach((a, i) => { a.label = out.length > 1 ? `PHỤ LỤC ${i + 1}` : 'PHỤ LỤC'; });
     return out;
   }
@@ -210,5 +240,5 @@
     ];
   }
 
-  window.Appendix = { SFRA_URL, DGA_URL, dgaLink, oilSummary, serialMatch, fraSummary, shortCircuitPairs, shortCircuitHasData, shortCircuitResults, shortCircuitAppendix, list, fraHeader, oilHeader };
+  window.Appendix = { SFRA_URL, DGA_URL, dgaLink, oilSummary, serialMatch, fraSummary, shortCircuitPairs, shortCircuitHasData, shortCircuitResults, shortCircuitAppendix, standardsAppendix, list, fraHeader, oilHeader };
 })();
