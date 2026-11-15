@@ -251,9 +251,10 @@
   function unitSerialFields(A) {
     if (A.state.cfg.topology !== 'bank1p') return '';
     const { cfgField } = A;
-    return '<h3>Số chế tạo từng máy trong tổ</h3><div class="fields">'
+    return '<h3>Số chế tạo từng máy trong tổ</h3><div class="fields serial-fields">'
+      + A.fieldHTML({ k: 'meta.serial', label: 'Số chế tạo máy pha A', serial: true })
       + ['B', 'C'].map(ph => cfgField(`ps.${ph}`, `Số chế tạo máy pha ${ph}`, { list: true })).join('')
-      + '<div class="field wide"><span class="note">Số chế tạo pha A nhập ở trường thông tin thiết bị phía trên; nhập B/C theo nameplate. Có thể gõ tay khi chưa nạp Test Report.</span></div></div>';
+      + '</div>';
   }
 
   function reportScopeFields(A) {

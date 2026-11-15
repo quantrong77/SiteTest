@@ -339,7 +339,7 @@
     const templateOptions = templates.map(k => [k, k === 'custom' ? `Tùy chỉnh: ${custom.name}` : EMB.templates[k].name]);
     let h = headHTML('0', 'Thông tin chung & cấu hình', 'General & settings');
     h += U.generalTopology ? U.generalTopology(App) : '';
-    h += `<h3>Thông tin thiết bị (điền vào đầu biên bản)</h3>${U.headTools ? U.headTools(App) : ''}${flagBannerHTML()}<div class="fields">${schema.head.map(f => fieldHTML(topology === 'bank1p' && f.k === 'meta.serial' ? Object.assign({}, f, { label: 'Số chế tạo máy pha A' }) : f)).join('')}</div>`;
+    h += `<h3>Thông tin thiết bị (điền vào đầu biên bản)</h3>${U.headTools ? U.headTools(App) : ''}${flagBannerHTML()}<div class="fields">${schema.head.filter(f => !(topology === 'bank1p' && f.k === 'meta.serial')).map(f => fieldHTML(f)).join('')}</div>`;
     h += U.unitSerialFields ? U.unitSerialFields(App) : '';
     h += '<h3>Template & số liệu xuất xưởng</h3><div class="fields">';
     h += cfgField('template', 'Mẫu BBTN theo cấu hình', { options: templateOptions.length ? templateOptions : [[state.cfg.template, topology === 'bank1p' ? 'Mẫu chung 3 MBA một pha' : topology === 'threePhase' ? 'Mẫu MBA ba pha' : 'Mẫu MBA một pha']] });
