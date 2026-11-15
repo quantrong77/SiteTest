@@ -8,7 +8,7 @@ Mở hướng dẫn này trong app bằng nút ? trên header hoặc phím F1. K
 
 ## Bắt đầu nhanh: 10 bước
 
-1. Mở site trên Chrome hoặc Edge, hoặc chạy `start.bat` để mở local.
+1. Mở site trên Chrome hoặc Edge, hoặc chạy `start.bat` (cần Node.js 22.12+ hoặc 20.19+; lần đầu cần mạng để cài các gói phụ thuộc).
 2. Bấm **Mới**, chọn **Máy biến áp** trong hộp chọn loại thiết bị.
 3. Mở mục **0. Thông tin chung & cấu hình**, kiểm tra số chế tạo và mẫu.
 4. Nạp template DOCX và file xuất xưởng XLSX nếu bản phân phối chưa có.
@@ -26,7 +26,7 @@ Khi xuất Word, cuối BBTN có phụ lục bảng tra theo từng hạng mục
 ### Mở ứng dụng
 
 1. Mở URL GitHub Pages do đơn vị cung cấp bằng Chrome hoặc Edge.
-2. Nếu dùng bản local, chạy `start.bat` tại thư mục dự án.
+2. Nếu dùng bản local, cài Node.js 22.12 trở lên (hoặc 20.19 trở lên); chạy `npm ci` lần đầu, sau đó `start.bat` tại thư mục dự án.
 3. Không mở trực tiếp `index.html` nếu cần Google OAuth.
 4. Lần đầu mở, app tạo biên bản MBA mặc định nếu chưa có hồ sơ đang nhập.
 5. Dữ liệu nhập dở được tự lưu trên trình duyệt hiện tại.

@@ -3,9 +3,27 @@
   "private": true,
   "description": "Site Test Report — biên bản thí nghiệm hiện trường thiết bị nhất thứ",
   "scripts": {
+    "dev": "vite",
+    "build": "vite build && node tools/copy-static.mjs",
+    "preview": "vite preview",
     "test": "node --test test/*.test.js",
     "test:inline": "node --test --test-isolation=none test/*.test.js",
     "test:update": "UPDATE_SNAPSHOTS=1 node --test test/*.test.js",
     "test:e2e": "python tools/e2e_export_3p.py"
+  },
+  "dependencies": {
+    "@radix-ui/react-slot": "^1.5.0",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "lucide-react": "^1.73.0",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1",
+    "tailwind-merge": "^3.7.0"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "^4.3.5",
+    "@vitejs/plugin-react": "^6.3.0",
+    "tailwindcss": "^4.3.5",
+    "vite": "^8.3.8"
   }
 }

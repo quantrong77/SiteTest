@@ -12,7 +12,21 @@ số liệu xuất xưởng (`ThinghiemHientruongMBA/Bao_Cao_Thu_Nghiem_3_MBA_50
 
 ## Chạy
 
-Mở `index.html` bằng Chrome hoặc Edge. Không cần cài đặt, không cần mạng (thư viện JSZip, SheetJS, supabase-js có sẵn trong `js/vendor/`).
+Cần Node.js 22.12 trở lên (hoặc 20.19 trở lên). Cài thư viện và khởi động giao diện phát triển:
+
+```sh
+npm ci
+npm run dev
+```
+
+Vite in địa chỉ để mở ứng dụng trong Chrome hoặc Edge. Tạo bản tĩnh để kiểm tra trước khi phát hành:
+
+```sh
+npm run build
+npm run preview
+```
+
+Các thư viện đọc/ghi DOCX, XLSX và Supabase vẫn được nạp từ `js/vendor/`; dữ liệu nhập tiếp tục được lưu cục bộ như trước.
 
 Trong Chrome/Edge, bấm **Đọc số** ở đầu hạng mục để nhập số tiếng Việt vào ô đang chọn; bật **Liên tục** để tự chuyển xuống hàng dưới trong cùng cột. Chrome/Edge gửi âm thanh lên máy chủ Google để nhận dạng, nên cần có mạng.
 
@@ -177,7 +191,7 @@ Tài liệu tiêu chuẩn, quy trình của đơn vị và hướng dẫn máy �
 ### Đăng nhập bằng Google
 
 Đăng nhập Google cần mở app qua địa chỉ `http(s)`, không mở trực tiếp file `index.html`:
-chạy **`start.bat`** (mở `http://localhost:8000`) hoặc bật GitHub Pages cho repo (Settings → Pages → Branch `main`, thư mục `/root`).
+chạy **`start.bat`** (mở `http://localhost:8000`) hoặc bật GitHub Pages cho repo (Settings → Pages → Source: GitHub Actions).
 
 Cấu hình một lần:
 
@@ -190,7 +204,7 @@ Cấu hình một lần:
 2. **Supabase** → *Authentication* → *Sign In / Providers* → **Google**: bật, dán Client ID + Client secret, Save.
 3. **Supabase** → *Authentication* → *URL Configuration*:
    - *Site URL*: địa chỉ chính của app (vd `https://quantrong77.github.io/SiteTest/`).
-   - *Redirect URLs*: thêm `http://localhost:8000/**` và `https://quantrong77.github.io/SiteTest/**`.
+   - *Redirect URLs*: thêm `http://127.0.0.1:5173/**` và `https://quantrong77.github.io/SiteTest/**`.
 4. Chạy thêm migration `20261023000300_auth_profile.sql` để lưu tên & ảnh đại diện Google.
 
 Người đăng nhập Google lần đầu được tạo tài khoản quyền **viewer**; admin cấp quyền như trên.
@@ -275,7 +289,7 @@ Quy tắc chung cho agent lập trình: [AGENTS.md](AGENTS.md) (Claude Code đ�
 
 ## Kiểm tra tự động
 
-Cần Node.js 22 trở lên, không cài thêm thư viện:
+Cần Node.js 22.12 trở lên (hoặc 20.19 trở lên); không cần cài thêm thư viện để chạy bộ test:
 
 ```
 npm test

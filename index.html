@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Site Test Report – Thí nghiệm hiện trường</title>
+  <title>Site Test Report - Biên bản thí nghiệm MBA</title>
   <meta name="theme-color" content="#1663a6">
   <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
   <link rel="icon" href="icons/favicon.ico" sizes="16x16 32x32 48x48">
@@ -13,38 +13,9 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&display=swap">
-  <link rel="stylesheet" href="css/app.css">
-  <link rel="stylesheet" href="css/auth.css">
 </head>
 <body>
-  <header class="topbar">
-    <div class="brand">
-      <span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="12" r="5.6" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="15" cy="12" r="5.6" fill="none" stroke="currentColor" stroke-width="1.8"/></svg></span>
-      <div>
-        <div class="brand-title">Site Test Report</div>
-        <div class="brand-sub">Thiết bị nhất thứ · Máy biến áp · QĐ 1901/QĐ-EVNNPT</div>
-      </div>
-    </div>
-    <div class="record" id="recordChip"></div>
-    <div class="actions">
-      <button class="btn ghost help-icon" data-act="help" aria-label="Hướng dẫn sử dụng" title="Hướng dẫn sử dụng (phím F1)"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M9.7 9a2.4 2.4 0 1 1 4.1 1.7c-1.1 1.1-1.8 1.4-1.8 3M12 17.4v.1" fill="none" stroke="currentColor" stroke-linecap="round" stroke-width="1.8"/></svg></button>
-      <button class="btn ghost" data-act="new" title="Tạo biên bản mới từ template">Mới</button>
-      <button class="btn ghost" data-act="open" title="Mở file dữ liệu .json đã lưu">Mở…</button>
-      <button class="btn ghost" data-act="save" title="Lưu dữ liệu ra file .json">Lưu .json</button>
-      <button class="btn ghost" data-act="dbSave" title="Lưu biên bản lên CSDL Supabase">Lưu CSDL</button>
-      <span class="sep"></span>
-      <button class="btn" data-act="xlsx" title="Xuất bảng so sánh – đánh giá (.xlsx)">Xuất so sánh .xlsx</button>
-      <button class="btn primary" data-act="docx" title="Điền dữ liệu vào template và tải BBTN (.docx)">Xuất BBTN .docx</button>
-    </div>
-    <div class="account" id="account"></div>
-    <div class="netbar" id="netbar" aria-hidden="true"></div>
-  </header>
-  <div class="layout">
-    <nav class="sidenav" id="nav" aria-label="Hạng mục">
-      <div class="sld"><span class="bus" aria-hidden="true"></span><div id="navItems"></div></div>
-    </nav>
-    <main id="main" tabindex="-1"></main>
-  </div>
+  <div id="app-root"></div>
   <div class="toasts" id="toasts" aria-live="polite"></div>
   <dialog class="auth-dialog" id="authDialog" aria-labelledby="adTitle">
     <div class="ad-band"><span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="12" r="5.6" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="15" cy="12" r="5.6" fill="none" stroke="currentColor" stroke-width="1.8"/></svg></span><span>Site Test Report</span>
@@ -81,71 +52,9 @@
   <input type="file" id="dirImpDocx" webkitdirectory multiple hidden>
   <input type="file" id="diranaFolder" accept=".csv,text/csv" webkitdirectory multiple hidden>
 
-  <script src="js/vendor/jszip.min.js"></script>
-  <script src="js/vendor/xlsx.full.min.js"></script>
-  <script src="js/vendor/supabase.js"></script>
-  <script src="js/config.js"></script>
-  <script src="js/embedded.js"></script>
   <!-- Nghiệp vụ (hàm thuần): hàm chung, bảng tra QĐ 1901, quy đổi sứ, đăng ký loại thiết bị, mô-đun MBA -->
-  <script src="js/domain/common.js"></script>
-  <script src="js/domain/qd1901.js"></script>
-  <script src="js/domain/criteria.js"></script>
-  <script src="js/domain/test-items.js"></script>
-  <script src="js/domain/trend-inline.js"></script>
-  <script src="js/domain/bushing-hitachi.js"></script>
-  <script src="js/domain/bushing-k.js"></script>
-  <script src="js/domain/equipment-types.js"></script>
-  <script src="js/domain/report.js"></script>
-  <script src="js/domain/records.js"></script>
-  <script src="js/domain/oltc-wave.js"></script>
-  <script src="js/domain/edit-history.js"></script>
-  <script src="js/domain/appendix.js"></script>
-  <script src="js/domain/dfr.js"></script>
-  <script src="js/domain/vn-number.js"></script>
-  <script src="js/domain/library.js"></script>
-  <script src="js/domain/types/mba/factory.js"></script>
-  <script src="js/domain/types/mba/schema.js"></script>
-  <script src="js/domain/types/mba/model3d-map.js"></script>
-  <script src="js/domain/types/mba/evaluate.js"></script>
-  <script src="js/domain/types/mba/to-rows.js"></script>
-  <script src="js/domain/types/mba/report.js"></script>
-  <script src="js/domain/types/mba/import-2293.js"></script>
-  <script src="js/domain/types/mba/nameplate.js"></script>
-  <script src="js/domain/types/mba/import-report.js"></script>
-  <script src="js/domain/types/mba/index.js"></script>
   <!-- Dữ liệu và tích hợp: .docx, Supabase, bảng hệ số K từ CSDL, bộ đọc máy đo -->
-  <script src="js/data/docx.js"></script>
-  <script src="js/data/file-store.js"></script>
-  <script src="js/data/ocr.js"></script>
-  <script src="js/data/pdf-text.js"></script>
-  <script src="js/data/db.js"></script>
-  <script src="js/data/bushing-k-repo.js"></script>
-  <script src="js/data/criteria-repo.js"></script>
-  <script src="js/data/instruments/cpc100.js"></script>
-  <script src="js/data/instruments/wa2293.js"></script>
-  <script src="js/data/instruments/mrct.js"></script>
-  <script src="js/data/instruments/dirana.js"></script>
   <!-- Giao diện -->
-  <script src="js/ui/workflow.js"></script>
-  <script src="js/ui/auth-ui.js"></script>
-  <script src="js/ui/db-ui.js"></script>
-  <script src="js/ui/catalog-ui.js"></script>
-  <script src="js/ui/kconf-ui.js"></script>
-  <script src="js/ui/criteria-ui.js"></script>
-  <script src="js/ui/standards-ui.js"></script>
-  <script src="js/ui/appendix-ui.js"></script>
-  <script src="js/ui/import-report-ui.js"></script>
-  <script src="js/ui/types/mba/cpc-dialog.js"></script>
-  <script src="js/ui/types/mba/mrct-dialog.js"></script>
-  <script src="js/ui/types/mba/oltc-chart.js"></script>
-  <script src="js/ui/types/mba/dfr-chart.js"></script>
-  <script src="js/ui/types/mba/wa2293-dialog.js"></script>
-  <script src="js/ui/types/mba/nameplate-dialog.js"></script>
-  <script src="js/ui/types/mba/ui.js"></script>
-  <script src="js/ui/types/mba/model3d-ui.js"></script>
-  <script src="js/ui/voice-input.js"></script>
-  <script src="js/ui/trend-inline-ui.js"></script>
-  <script src="js/ui/help-ui.js"></script>
-  <script src="js/ui/app.js"></script>
+  <script type="module" src="/src/main.jsx"></script>
 </body>
 </html>

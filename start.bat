@@ -1,6 +1,13 @@
 @echo off
-rem Chay app qua http://localhost:8000 (can cho dang nhap Google). Dong cua so nay de dung.
+rem Chay Vite local; can Node.js 22.12+ (hoac 20.19+) va npm ci lan dau.
 cd /d "%~dp0"
-where python >nul 2>nul || (echo Can cai Python 3 de chay may chu cuc bo. & pause & exit /b 1)
+where npm >nul 2>nul || (echo Can cai Node.js 22.12 tro len hoac 20.19 tro len. & pause & exit /b 1)
+if not exist node_modules (
+  call npm ci
+  if errorlevel 1 (
+    pause
+    exit /b 1
+  )
+)
 start "" "http://localhost:8000/"
-python -m http.server 8000 --bind 127.0.0.1
+call npm run dev

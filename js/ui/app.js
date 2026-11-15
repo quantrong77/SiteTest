@@ -212,27 +212,39 @@
     const items = navItems();
     const first = !navPrev;
     navPrev = navPrev || {};
-    let html = Workflow.progressHTML(schema.sections, res ? res.sec : {}, esc);
-    items.forEach((it, i) => {
-      if (i === 1) html += '<div class="nav-group">Hạng mục thí nghiệm</div>';
-      if (it.id === 'help') html += '<div class="nav-group">Trợ giúp</div>';
-      if (it.id === 'summary') html += '<div class="nav-group">Kết quả</div>';
-      if (it.id === 'db') html += '<div class="nav-group">Cơ sở dữ liệu</div>';
+    const renderedItems = items.map((it, i) => {
+      let group = '';
+      if (i === 1) group = 'Hạng mục thí nghiệm';
+      if (it.id === 'help') group = 'Trợ giúp';
+      if (it.id === 'summary') group = 'Kết quả';
+      if (it.id === 'db') group = 'Cơ sở dữ liệu';
       const S = res && res.sec[it.id];
-      const st = S && S.status ? S.status : '';
-      // máy cắt "đóng/cắt" có hiệu ứng khi trạng thái vừa đổi (giữ 0,6 s vì thanh điều hướng có thể vẽ lại liên tiếp)
-      if (!first && navPrev[it.id] !== st) navChangedAt[it.id] = Date.now();
-      navPrev[it.id] = st;
-      const flip = st && Date.now() - (navChangedAt[it.id] || 0) < 600 ? ' flip' : '';
-      const fails = S && S.counts.fail ? `<span class="cnt">${S.counts.fail} lỗi</span>` : '';
-      const tip = st ? BRK_LABEL[st] : (S ? 'Chưa nhập' : '');
-      const wf = S ? Workflow.stateOf(S, current === it.id) : '';
-      html += `<button class="nav-item ${current === it.id ? 'active' : ''}" data-nav="${it.id}" ${current === it.id ? 'aria-current="page"' : ''}>`
-        + `<span class="brk ${st ? 'st-' + st : ''}${flip}" ${tip ? `title="${esc(tip)}"` : ''} aria-hidden="true"></span>`
-        + `<span class="nav-no">${esc(it.no)}</span><span class="nav-t">${esc(it.title)}${fails}${wf ? `<span class="nav-st st-${wf}">${Workflow.STATE[wf]}</span>` : ''}</span>`
-        + `${tip ? `<span class="sr-only">${esc(tip)}</span>` : ''}</button>`;
+      const status = S && S.status ? S.status : '';
+      if (!first && navPrev[it.id] !== status) navChangedAt[it.id] = Date.now();
+      navPrev[it.id] = status;
+      const flip = status && Date.now() - (navChangedAt[it.id] || 0) < 600;
+      const tip = status ? BRK_LABEL[status] : (S ? 'Chưa nhập' : '');
+      const workflow = S ? Workflow.stateOf(S, current === it.id) : '';
+      return {
+        id: it.id,
+        no: it.no,
+        title: it.title,
+        group,
+        status,
+        flip: !!flip,
+        tip,
+        workflow,
+        workflowLabel: workflow ? Workflow.STATE[workflow] : '',
+        failCount: S && S.counts ? Number(S.counts.fail || 0) : 0,
+        current: current === it.id,
+      };
     });
-    ($('#navItems') || $('#nav')).innerHTML = html;
+    window.dispatchEvent(new CustomEvent('legacy:navigation', {
+      detail: {
+        items: renderedItems,
+        progressHTML: Workflow.progressHTML(schema.sections, res ? res.sec : {}, esc),
+      },
+    }));
   }
   function renderRecordChip() {
     const v = state.v, u = FX && FX.unit(v['meta.serial']);
@@ -997,6 +1009,7 @@
     }
     if (!restored) { state = null; await newRecord(false, EquipmentTypes.DEFAULT); }
     recompute();
+    renderNav();
     renderMain();
     if (restored && !new URLSearchParams(location.search).has('code')) Notify.show({ type: 'info', msg: 'Đã mở lại biên bản đang nhập dở trên máy này.' });
     // Đăng nhập / đăng xuất / đổi kết nối → làm mới dữ liệu CSDL đang hiển thị
