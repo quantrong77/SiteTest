@@ -49,7 +49,7 @@ Dữ liệu đang nhập được tự lưu trong trình duyệt; dùng **Lưu .
 - Ảnh được phóng to, chuyển xám, lọc trung vị (bỏ hạt nhiễu, vân xước kim loại) trước khi đọc. Bảng nhãn – giá trị bị
   OCR tách cột được ghép lại theo toạ độ trên ảnh, có bù độ nghiêng.
 - Trường đọc: hãng, kiểu loại, số chế tạo, năm, công suất (cuộn HV), điện áp và dòng định mức (ghép HV/MV/LV đúng cách
-  ghi trong BBTN), tổ đấu dây, kiểu OLTC (mục 9), I0 nameplate (cấu hình mục 0).
+  ghi trong BBTN), tổ đấu dây, kiểu OLTC, I0 nameplate (cấu hình mục 0).
 - Hộp thoại cho xem ảnh, sửa giá trị, chọn ô cần điền, xoay ảnh đọc lại. Sau khi điền: ô **tô vàng** = đọc được nhưng chưa
   chắc chắn (độ tin cậy < 80 %, đã sửa ký tự O→0, bỏ khoảng trắng, ghép theo thứ tự cuộn, số giá trị giữa các cuộn không
   khớp…), ô **tô đỏ** = không đọc được, cần nhập tay; có băng nhắc ở đầu khối. Sửa ô thì ô đó hết tô nền; hoặc bấm
@@ -61,8 +61,8 @@ Dữ liệu đang nhập được tự lưu trong trình duyệt; dùng **Lưu .
 Trang **Phụ lục BBTN** (thanh điều hướng, nhóm Kết quả). Khi xuất BBTN .docx, mỗi phụ lục được nối thành một section
 riêng sau biên bản (trang mới, đánh số trang lại; nhiều phụ lục thì đánh "PHỤ LỤC 1, 2").
 
-- **Chụp sóng OLTC**: dựng từ file Haefely 2293 nhập ở mục 9.
-- **Thí nghiệm ngắn mạch MBA**: tại trang Phụ lục, thêm dòng cho từng cặp cuộn/nấc/pha; nhập U theo V hoặc kV (có gợi ý 67/220/380 V, chấp nhận giá trị khác), I/P, f, Un/In, nhiệt độ, PI²R và vật liệu dây dẫn nếu cần. App nhận dạng bố cục 1 pha / ba máy 1 pha / MBA 3 pha để ghép số chế tạo và xét lệch pha. Theo QĐ 1387 Điều 26, dòng thử phải ≥25% In; khi thiếu điện áp theo Test Report, dùng 380 V hoặc ≤10 kV rồi nội suy. Bảng tách kết quả Điều 27 QĐ 1387 theo trường hợp với tiêu chí Điều 35 QĐ 1901 đang áp dụng: Uk Test Report, Uk ban đầu, sai lệch pha và Pk đã quy đổi. Kết quả chung chỉ Đạt khi đủ điều kiện và đạt các tiêu chí áp dụng.
+- **Chụp sóng OLTC**: dựng từ file Haefely 2293 nhập ở hạng mục OLTC.
+- **Thí nghiệm ngắn mạch MBA**: hạng mục chính số 3 với các tab Chuẩn bị, Hướng dẫn đo, Nhập số liệu và Đánh giá. Nhập U theo V hoặc kV (có gợi ý 67/220/380 V, chấp nhận giá trị khác), I/P, f, Un/In, nhiệt độ, PI²R và vật liệu dây dẫn nếu cần. App nhận dạng bố cục 1 pha / ba máy 1 pha / MBA 3 pha để ghép số chế tạo và xét lệch pha. Theo QĐ 1387 Điều 26, dòng thử phải ≥25% In; khi thiếu điện áp theo Test Report, dùng 380 V hoặc ≤10 kV rồi nội suy. Bảng số liệu, so sánh Test Report và đánh giá vẫn được nối vào BBTN xuất ra dưới dạng phụ lục.
 - **SFRA**: bấm *Mở SFRA Analyzer* (https://quantrong77.github.io/-Analysis-SFRA/), phân tích rồi tải báo cáo Word ở mục
   *Báo cáo*; quay lại bấm *Nạp báo cáo SFRA (.docx)…*. App hiện tiêu đề, số phép đo, kết luận của báo cáo; khi xuất,
   nội dung báo cáo (bảng, giản đồ Bode, kết luận) được nối nguyên văn — ảnh và kiểu đoạn được chép sang mã riêng để không
@@ -88,8 +88,8 @@ Tài liệu tiêu chuẩn, quy trình của đơn vị và hướng dẫn máy �
 
 - Mỗi hạng mục có nút **Hoàn tác** (kèm số bước) và **Xóa số liệu hạng mục** cạnh thanh 4 bước.
 - Mỗi bước hoàn tác là một thao tác: sửa xong một ô, dán bảng, nhập file máy đo (Haefely 2293, CPC 100), điền tự động,
-  thêm / xóa dòng, xóa hạng mục. Một lần nhập file đổi nhiều hạng mục thì mỗi hạng mục có bước riêng (vd hoàn tác mục 9
-  không đụng số liệu mục 7, 8 vừa nhập cùng file).
+  thêm / xóa dòng, xóa hạng mục. Một lần nhập file đổi nhiều hạng mục thì mỗi hạng mục có bước riêng (vd hoàn tác hạng mục OLTC
+  không đụng số liệu các hạng mục khác vừa nhập cùng file).
 - **Ctrl+Z** khi con trỏ không ở trong ô nhập: hoàn tác hạng mục đang mở (trong ô nhập, Ctrl+Z vẫn là hoàn tác gõ chữ).
 - Xóa hạng mục giữ nguyên thông tin chung, cấu hình (đề mục cột, nhãn dòng) và kết luận.
 - Lịch sử giữ trong phiên làm việc (tối đa 200 bước), mất khi tải lại trang hoặc tạo / mở biên bản khác.
@@ -99,7 +99,7 @@ Tài liệu tiêu chuẩn, quy trình của đơn vị và hướng dẫn máy �
 | Hạng mục | Khóa tra cứu |
 |---|---|
 | Không tải, cách điện, tgδ cuộn dây, độ ẩm, OLTC | Số chế tạo máy chính |
-| Điện trở một chiều, tỷ số biến | Số chế tạo của từng cột pha + nấc (9a/9b/9c → 9A) |
+| Điện trở một chiều, tỷ số biến | Số chế tạo của từng cột pha + nấc |
 | Sứ đầu vào | **Số chế tạo sứ** nhập ở bảng; không khớp thì theo vị trí đầu sứ của máy ứng với cột pha |
 | Biến dòng chân sứ | Số chế tạo máy (cột pha) + ký hiệu cuộn, vd `2S1-2S3` (mã lõi CT đặt ở mục 0) |
 
@@ -144,14 +144,14 @@ Tài liệu tiêu chuẩn, quy trình của đơn vị và hướng dẫn máy �
     Cực tính ghi vào ô "Kết quả kiểm tra cực tính" khi ô còn trống. Hai lõi cùng vào một ô thì không cho điền.
 - **Haefely 2293** (mục 7, 8, 9 — nút *Nhập file Haefely 2293…*): chọn cùng lúc các file `.csv` xuất từ máy và file `.bin`
   cùng tên của cả ba pha (bỏ qua `.dat`, `.mat`).
-  - Điện trở một chiều theo nấc → mục 7 (Ω → mΩ), tỷ số biến theo nấc → mục 8, bảng chuyển nấc + dạng sóng → mục 9.
+  - Điện trở một chiều theo nấc (Ω → mΩ), tỷ số biến theo nấc, bảng chuyển nấc + dạng sóng OLTC.
   - Pha lấy theo tên file (…TAP-A, …TSB B, …pha C) vì máy 1 pha đo từng máy với cùng dây A–N; cặp cuộn của tỷ số biến
     đoán theo tỷ số định mức xuất xưởng gần nhất; nơi ghi của từng loại số liệu sửa được trong hộp thoại.
   - Nấc 9 của máy (17 nấc) ghi vào hàng 9b (chọn được 9a / 9c / cả ba). Nhóm điện trở lệch xa các file khác mặc định không điền.
   - Biểu mẫu chỉ có một ô nhiệt độ mỗi cuộn: các pha đo ở nhiệt độ khác nhau được quy về cùng nhiệt độ
     (R2 = R1·(235+t2)/(235+t1)) trước khi ghi — có thể bỏ chọn trong hộp thoại.
   - Dạng sóng R(t) (3250 mẫu, 6500 Hz) được nén (min/max mỗi 5 mẫu, 16 bit) và lưu trong biên bản (`state.att.oltc`),
-    xem trước ở mục 9. Khi xuất BBTN, **phụ lục chụp sóng OLTC** được nối vào section riêng sau biên bản (đánh số trang lại):
+    xem trước ở hạng mục OLTC. Khi xuất BBTN, **phụ lục chụp sóng OLTC** được nối vào section riêng sau biên bản (đánh số trang lại):
     mỗi pha một bảng số liệu và đồ thị từng lần chuyển nấc (hoặc gộp theo chiều tăng / giảm).
   - QĐ 1901 không nêu ngưỡng chụp sóng: app chỉ báo “Cần xem xét” khi máy không ghi nhận chuyển mạch (tFall = tRise = 0)
     hoặc dòng đo sụt dưới 50 % trong lúc chuyển nấc; đánh giá theo hướng dẫn NSX OLTC.

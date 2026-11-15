@@ -214,7 +214,7 @@
   const FIELDS = [
     ['meta.manuf', 'Hãng sản xuất'], ['meta.type', 'Kiểu loại'], ['meta.serial', 'Số chế tạo (máy chính)'], ['meta.year', 'Năm sản xuất'],
     ['meta.power', 'Công suất (MVA)'], ['meta.voltage', 'Điện áp định mức'], ['meta.current', 'Dòng định mức (A)'], ['meta.vector', 'Tổ đấu dây'],
-    ['oltc.type', 'Kiểu OLTC (mục 9)'], ['cfg.i0Ref', 'I0 nameplate (%) — cấu hình mục 0'],
+    ['oltc.type', 'Kiểu OLTC'], ['cfg.i0Ref', 'I0 nameplate (%) — cấu hình mục 0'],
   ];
 
   // Số trường đọc được (rõ hoặc cần kiểm tra); kết hợp hai lượt đọc: mỗi trường lấy bản tốt hơn (rõ > cần kiểm tra > thiếu,

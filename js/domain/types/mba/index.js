@@ -137,7 +137,11 @@
       'Lặp lại các vị trí cần kiểm tra theo quy trình áp dụng; so sánh hình dạng, thời gian chuyển tiếp và tính đồng đều giữa các pha.',
       'Lưu tệp dạng sóng cùng cấu hình đo để phục vụ đối chiếu hoặc lập phụ lục biên bản.',
     ] },
-    shortCircuit: { guide: [
+    shortCircuit: { prep: [
+      'Đối chiếu sơ đồ đấu dây, điện áp định mức, dòng định mức, tổ đấu dây và Test Report; xác định cặp cuộn dây, pha, nấc cần thử và phía được cấp nguồn.',
+      'Cô lập MBA, kiểm tra hết điện, tiếp địa an toàn và xác nhận các đầu nối/cáp thử chịu được dòng thử; ngắn mạch đúng cuộn theo phương án được duyệt.',
+      'Kiểm tra nguồn xoay chiều, tần số định mức, thiết bị đo U–I–P, cảm biến nhiệt độ và thang đo trước khi cấp điện.',
+    ], guide: [
       'Cô lập MBA, kiểm tra hết điện và thực hiện tiếp địa an toàn; chọn cặp cuộn dây, nấc phân áp và sơ đồ đấu theo phương án được duyệt.',
       'Theo Điều 26 QĐ 1387, thí nghiệm sau lắp đặt mới và đại tu/cải tạo; khi MBA đang vận hành thì thực hiện sau khi dòng ngắn mạch đã qua vượt 70% dòng chịu đựng tính toán. Ngắn mạch và nối đất các BCT không sử dụng theo phương án.',
       'Nối ngắn mạch cuộn dây theo sơ đồ; cấp điện áp xoay chiều ở tần số định mức vào cuộn còn lại, tăng dòng thử đến ít nhất 25% dòng định mức.',

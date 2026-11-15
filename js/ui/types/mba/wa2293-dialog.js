@@ -1,5 +1,5 @@
 // MBA: hộp thoại nhập số liệu máy đo Haefely 2293 (.csv + .bin cùng tên) vào mục 7 (điện trở một chiều),
-// mục 8 (tỷ số biến) và mục 9 (chụp sóng OLTC → phụ lục BBTN). Đọc file bằng js/data/instruments/wa2293.js,
+// tỷ số biến và chụp sóng OLTC → phụ lục BBTN. Đọc file bằng js/data/instruments/wa2293.js,
 // ánh xạ vào biểu mẫu bằng js/domain/types/mba/import-2293.js.
 (function () {
   'use strict';
@@ -165,7 +165,7 @@
     if (done.ratio) parts.push(`${done.ratio} ô tỷ số biến`);
     if (done.oltc.length) parts.push(`chụp sóng OLTC pha ${done.oltc.join(', ')}`);
     Notify.show({ type: 'success', title: `Đã điền ${n} ô từ ${entries.length} file 2293`,
-      msg: `${parts.join('; ')}.${kept ? ` Giữ nguyên ${kept} ô đã có số liệu.` : ''}${done.oltc.length ? ' Đồ thị chụp sóng xem ở mục 9 và được nối thành phụ lục khi xuất BBTN.' : ''}` });
+      msg: `${parts.join('; ')}.${kept ? ` Giữ nguyên ${kept} ô đã có số liệu.` : ''}${done.oltc.length ? ' Đồ thị chụp sóng xem ở hạng mục OLTC và được nối thành phụ lục khi xuất BBTN.' : ''}` });
   }
 
   // Ô chiều chuyển nấc (để trống thì điền) và kết quả chụp công tắc K (điền khi trống hoặc còn là nội dung app tự điền lần trước)

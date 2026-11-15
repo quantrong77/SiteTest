@@ -140,6 +140,59 @@
 
   function recompute() {
     res = T().evaluate(state, FX, schema);
+    const rows = Appendix.shortCircuitResults(state, FX);
+    const section = res.sec.shortCircuit;
+    if (section) {
+      const layout = state.cfg.template === 'custom' ? state.cfg.layout : state.cfg.template;
+      const is3Phase = ['3P', '110'].includes(layout), phaseGroups = new Set();
+      const add = finding => {
+        res.findings.push(Object.assign({ sec: 'shortCircuit' }, finding));
+        section.counts[finding.status]++;
+        section.status = Evaluate.worst(section.status, finding.status);
+      };
+      rows.forEach(x => {
+        const loc = [x.serial, x.row.pair, `nấc ${x.row.tap || '—'}`, x.phase && `pha ${x.phase}`].filter(Boolean).join(' · ');
+        const conditions = [];
+        if (!x.sameFrequency) conditions.push('Tần số thử chưa khớp tần số định mức');
+        if (!x.currentAdequate) conditions.push('Dòng thử cần đạt ít nhất 25% In');
+        const suffix = conditions.length ? `${conditions.join('. ')}.` : '';
+        add({ item: 'Trở kháng ngắn mạch Uk so với Test Report', loc,
+          meas: x.ukPct == null ? 'Chưa đủ số liệu tính Uk' : `${Evaluate.fmt(x.ukPct, 3)} %`,
+          ref: x.ref && x.ref.ukPct != null ? `${Evaluate.fmt(x.ref.ukPct, 3)} % (Test Report)` : '',
+          dev: x.deltaUkPct == null ? '' : `${Evaluate.fmt(x.deltaUkPct, 2)} %`, limit: '|ΔUk| ≤3%; f thử = f định mức; I thử ≥25% In',
+          status: x.ukStatus, basis: 'QĐ 1901/QĐ-EVNNPT Điều 35; QĐ 1387/QĐ-EVNNPT Điều 25–26',
+          note: [!x.ref && 'Chưa có dữ liệu Test Report tương ứng', suffix].filter(Boolean).join(' ') });
+        if (x.uk1387Status !== 'na') {
+          const baseUk = x.testCase === 'new' ? x.nameplateUkPct : x.initialUkPct;
+          const delta = x.testCase === 'new' ? x.deltaUk1387Pct : x.deltaInitialUkPct;
+          const criterion = x.testCase === 'new' ? '|ΔUk| ≤5% tại nấc chính' : '|ΔUk| ≤3% so với Uk ban đầu';
+          add({ item: x.testCase === 'new' ? 'Uk so với nhãn máy' : 'Uk so với giá trị ban đầu', loc,
+            meas: x.ukPct == null ? 'Chưa đủ số liệu tính Uk' : `${Evaluate.fmt(x.ukPct, 3)} %`,
+            ref: baseUk == null ? '' : `${Evaluate.fmt(baseUk, 3)} %`,
+            dev: delta == null ? '' : `${Evaluate.fmt(delta, 2)} %`, limit: criterion,
+            status: x.uk1387Status, basis: 'QĐ 1387/QĐ-EVNNPT Điều 27',
+            note: [baseUk == null && (x.testCase === 'new' ? 'Chưa có Uk nhãn máy/Test Report' : 'Cần nhập Uk ban đầu'), suffix].filter(Boolean).join(' ') });
+        }
+        add({ item: 'Tổn hao có tải Pk so với Test Report', loc,
+          meas: x.pkAtReportTempKw == null ? 'Chưa đủ số liệu quy đổi Pk' : `${Evaluate.fmt(x.pkAtReportTempKw, 3)} kW`,
+          ref: x.ref && x.ref.pkKw != null ? `${Evaluate.fmt(x.ref.pkKw, 3)} kW (Test Report)` : '',
+          dev: x.deltaPkPct == null ? '' : `${Evaluate.fmt(x.deltaPkPct, 2)} %`, limit: 'Pk quy đổi ≤115% Test Report',
+          status: x.pkStatus, basis: 'QĐ 1901/QĐ-EVNNPT Điều 35; QĐ 1387/QĐ-EVNNPT Điều 27',
+          note: [!x.ref && 'Chưa có dữ liệu Test Report tương ứng', x.pkStatus === 'warn' && 'Thiếu dữ liệu hiệu chỉnh Pk theo nhiệt độ', suffix].filter(Boolean).join(' ') });
+        if (is3Phase) {
+          const group = `${x.row.pair}|${x.row.tap}`;
+          if (!phaseGroups.has(group)) {
+            phaseGroups.add(group);
+            add({ item: 'Độ lệch Uk giữa các pha', loc: `${x.row.pair} · nấc ${x.row.tap || '—'}`,
+              meas: x.phaseDeltaPct == null ? 'Chưa đủ số liệu cả ba pha' : `${Evaluate.fmt(x.phaseDeltaPct, 2)} %`,
+              limit: 'Độ lệch giữa các pha ≤3%', status: x.phaseStatus,
+              basis: 'QĐ 1901/QĐ-EVNNPT Điều 35; QĐ 1387/QĐ-EVNNPT Điều 27',
+              note: x.phaseDeltaPct == null ? 'Cần đủ Uk của pha A, B và C với điều kiện thử đạt' : '' });
+          }
+        }
+      });
+    }
+    if (section && section.status) section.text = section.status === 'fail' ? 'Không đạt' : section.status === 'warn' ? 'Cần xem xét' : 'Đạt';
   }
 
   // ---------------------------------------------------------------- nav
@@ -363,6 +416,7 @@
     let body = '';
     if (step === 'prep' || step === 'guide') body = Workflow.procedureHTML(T(), s.id, step, esc, DB.role === 'admin');
     else if (step === 'eval') body = findingsHTML(s.id);
+    else if (s.id === 'shortCircuit') body = AppendixUI.shortCircuitHTML(App) + `<div class="wf-sum" data-fsum="${s.id}"></div>`;
     else {
       body = (U.intro ? U.intro(s.id, App) : '') + (U.sectionTools ? U.sectionTools(s.id, App) : '');
       if (s.fields) body += '<div class="fields">' + s.fields.map(f => sectionField(f)).join('') + '</div>';

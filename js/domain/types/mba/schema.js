@@ -255,7 +255,10 @@
         })),
       },
       {
-        id: 'ir', no: 3, title: 'Điện trở cách điện cuộn dây, lõi từ, gông từ', en: 'Insulation resistance',
+        id: 'shortCircuit', no: 3, title: 'Thí nghiệm ngắn mạch máy biến áp', en: 'Short-circuit impedance & load loss',
+      },
+      {
+        id: 'ir', no: 4, title: 'Điện trở cách điện cuộn dây, lõi từ, gông từ', en: 'Insulation resistance',
         groups: PH3.map((ph, i) => ({
           id: ph, title: unitTitle(ph),
           fields: [{ k: `ir.${ph}.t`, label: 'Nhiệt độ đo (°C)', num: true, doc: { before: 5 + 2 * i, re: /temperature\)\s*\/(?<v>\s*)oC/ } }],
@@ -272,11 +275,11 @@
         ]),
       },
       {
-        id: 'vector', no: 4, title: 'Kiểm tra tổ đấu dây', en: 'Vector group',
+        id: 'vector', no: 5, title: 'Kiểm tra tổ đấu dây', en: 'Vector group',
         fields: [{ k: 'vector.result', label: 'Tổ đấu dây đo được', doc: { before: 11, re: /group\)\s*\/(?<v>.*)$/ } }],
       },
       {
-        id: 'bushing', no: 5, title: 'Tgδ và điện dung các sứ đầu vào', en: 'Bushings',
+        id: 'bushing', no: 6, title: 'Tgδ và điện dung các sứ đầu vào', en: 'Bushings',
         groups: BUSHING3.map((B, i) => ({
           id: B.id, title: B.title, term: B.term,
           fields: [
@@ -292,7 +295,7 @@
         })),
       },
       {
-        id: 'wtgd', no: 7, title: 'Tgδ và điện dung các cuộn dây', en: 'Winding tgδ',
+        id: 'wtgd', no: 8, title: 'Tgδ và điện dung các cuộn dây', en: 'Winding tgδ',
         groups: PH3.map((ph, i) => ({
           id: ph, title: unitTitle(ph),
           fields: [{ k: `wtgd.${ph}.t`, label: 'Nhiệt độ cuộn dây/dầu (°C)', num: true, doc: { before: 16 + i, re: /t\s*=(?<v>\s*)oC/ } }],
@@ -308,10 +311,10 @@
         ]),
       },
       {
-        id: 'dcr', no: 8, title: 'Điện trở một chiều các cuộn dây', en: 'Winding resistance (mΩ)',
+        id: 'dcr', no: 9, title: 'Điện trở một chiều các cuộn dây', en: 'Winding resistance (mΩ)',
         groups: [
           {
-            id: 'hv', title: `8a. Cuộn cao áp — đo ${hvPairs.map(p => p.app).join(' / ')} (mΩ)`,
+            id: 'hv', title: `9a. Cuộn cao áp — đo ${hvPairs.map(p => p.app).join(' / ')} (mΩ)`,
             fields: [{ k: 'cfg.hvMeas', cfg: 'hvMeas', label: 'Phép đo cuộn cao áp', options: HV_MEAS }]
               .concat(PH3.map(ph => ({ k: `dcr.${ph}.t`, label: `Nhiệt độ đo máy pha ${ph} (°C)`, num: true,
                 doc: { before: 19, re: new RegExp(`Pha ${ph}:\\s*t\\s*=(?<v>\\s*)oC`) } }))),
@@ -323,36 +326,36 @@
             }],
           },
           {
-            id: 'mv', title: '8b. Cuộn trung áp — Am-N / Bm-N / Cm-N (mΩ)',
+            id: 'mv', title: '9b. Cuộn trung áp — Am-N / Bm-N / Cm-N (mΩ)',
             grids: [{ id: 'dcr.mv', title: '', tables: [20], rows: [{ k: 'r', label: 'Giá trị', doc: 1 }],
               cols: phaseCols(['AmN', 'BmN', 'CmN'], 0, () => 'ΔR vs XX (%)', { calc: true }).concat([col('dP', 'ΔR(A,B,C) (%)', 3, { calc: true })]) }],
           },
           {
-            id: 'lv', title: '8c. Cuộn hạ áp — a-x / b-y / c-z (mΩ)',
+            id: 'lv', title: '9c. Cuộn hạ áp — a-x / b-y / c-z (mΩ)',
             grids: [{ id: 'dcr.lv', title: '', tables: [21], rows: [{ k: 'r', label: 'Giá trị', doc: 1 }],
               cols: phaseCols(['ax', 'by', 'cz'], 0, () => 'ΔR vs XX (%)', { calc: true }).concat([col('dP', 'ΔR(ax,by,cz) (%)', 3, { calc: true })]) }],
           },
         ],
       },
       {
-        id: 'ratio', no: 9, title: 'Tỷ số biến', en: 'Voltage ratio',
+        id: 'ratio', no: 10, title: 'Tỷ số biến', en: 'Voltage ratio',
         groups: [
-          { id: 'hm', title: '9a. HV : MV', grids: [{ id: 'ratio.hm', title: 'Theo nấc', tables: [22], rows: tapRows(taps), corner: 'Nấc', editHdr: true,
+          { id: 'hm', title: '10a. HV : MV', grids: [{ id: 'ratio.hm', title: 'Theo nấc', tables: [22], rows: tapRows(taps), corner: 'Nấc', editHdr: true,
             cols: hdr('ratio.hm', phaseCols(['UAN/UAmN', 'UBN/UBmN', 'UCN/UCmN'], 1, () => 'ΔK so Kđm (%)', { auto: true }).concat([col('dP', 'ΔKmax (%)', 4, { calc: true })])) }] },
-          { id: 'hl', title: '9b. HV : LV', grids: [{ id: 'ratio.hl', title: 'Theo nấc', tables: [23], rows: tapRows(taps), corner: 'Nấc', editHdr: true,
+          { id: 'hl', title: '10b. HV : LV', grids: [{ id: 'ratio.hl', title: 'Theo nấc', tables: [23], rows: tapRows(taps), corner: 'Nấc', editHdr: true,
             cols: hdr('ratio.hl', phaseCols(['UAN/Uax', 'UBN/Uby', 'UCN/Ucz'], 1, () => 'ΔK so Kđm (%)', { auto: true }).concat([col('dP', 'ΔKmax (%)', 4, { calc: true })])) }] },
-          { id: 'ml', title: '9c. MV : LV (nấc 9)', grids: [{ id: 'ratio.ml', title: '', tables: [24], rows: [{ k: 'r', label: 'Nấc 9', doc: 1 }], editHdr: true,
+          { id: 'ml', title: '10c. MV : LV (nấc 9)', grids: [{ id: 'ratio.ml', title: '', tables: [24], rows: [{ k: 'r', label: 'Nấc 9', doc: 1 }], editHdr: true,
             cols: hdr('ratio.ml', phaseCols(['UAmN/Uax', 'UBmN/Uby', 'UCmN/Ucz'], 1, () => 'ΔK so Kđm (%)', { auto: true }).concat([col('dP', 'ΔKmax (%)', 4, { calc: true })])) }] },
         ],
       },
       {
-        id: 'moisture', no: 10, title: 'Hàm lượng ẩm trong cách điện cứng', en: 'Moisture in solid insulation',
+        id: 'moisture', no: 11, title: 'Hàm lượng ẩm trong cách điện cứng', en: 'Moisture in solid insulation',
         fields: [{ k: 'moist.method', label: 'Phương pháp / thiết bị', placeholder: 'vd: FDS/PDC – Omicron Dirana' }],
         grids: [{ id: 'moist', title: 'Theo pha', tables: [25], rows: [{ k: 'r', label: 'Hàm lượng ẩm (%)', doc: 1 }],
           cols: PH3.map((ph, i) => col(ph, `CHL${ph} (%)`, i, { phase: true })) }],
       },
       {
-        id: 'oltc', no: 11, title: 'Kiểm tra bộ điều áp dưới tải', en: 'OLTC',
+        id: 'oltc', no: 12, title: 'Kiểm tra bộ điều áp dưới tải', en: 'OLTC',
         fields: [
           { k: 'oltc.type', label: 'Kiểu (Type)', doc: { t: 26, r: 0, c: 0, re: /\(Type\):(?<v>.*)$/ } },
           { k: 'oltc.serial', label: 'Số chế tạo', doc: { t: 26, r: 0, c: 1, re: /\(Serial No\):(?<v>.*)$/ } },
@@ -370,7 +373,7 @@
         }],
       },
       {
-        id: 'bct', no: 13, title: 'Biến dòng chân sứ (phụ lục)', en: 'Bushing CT',
+        id: 'bct', no: 14, title: 'Biến dòng chân sứ (phụ lục)', en: 'Bushing CT',
         fields: [
           { k: 'bct.visual', label: 'Kiểm tra bên ngoài' },
           { k: 'bct.t_ir', label: 'Nhiệt độ đo cách điện (°C)', num: true },
@@ -495,7 +498,10 @@
         ],
       },
       {
-        id: 'ir', no: 3, title: 'Điện trở cách điện cuộn dây, lõi từ, gông từ', en: 'Insulation resistance',
+        id: 'shortCircuit', no: 3, title: 'Thí nghiệm ngắn mạch máy biến áp', en: 'Short-circuit impedance & load loss',
+      },
+      {
+        id: 'ir', no: 4, title: 'Điện trở cách điện cuộn dây, lõi từ, gông từ', en: 'Insulation resistance',
         fields: [{ k: 'ir.t', label: 'Nhiệt độ đo (°C)', num: true, doc: { before: 4, re: /temperature\):(?<v>\s*)oC/ } }],
         grids: [
           {
@@ -510,14 +516,14 @@
         extraDoc: [{ k: 'ir.k1', doc: { before: 5, re: /K1\s*=(?<v>.*)$/ } }],
       },
       {
-        id: 'vector', no: 4, title: 'Kiểm tra tổ đấu dây', en: 'Vector group',
+        id: 'vector', no: 5, title: 'Kiểm tra tổ đấu dây', en: 'Vector group',
         fields: [{ k: 'vector.result', label: 'Tổ đấu dây đo được', doc: { before: 7, re: /\(Vector\s*group\)\s*:(?<v>.*)$/ } }],
       },
       {
-        id: 'bushing', no: 5, title: 'Tgδ, điện dung và thử AC sứ đầu vào', en: 'Bushings',
+        id: 'bushing', no: 6, title: 'Tgδ, điện dung và thử AC sứ đầu vào', en: 'Bushings',
         groups: [
           {
-            id: 'hv', title: '5.1 Sứ phía cao áp (HV)', term: '1.1',
+            id: 'hv', title: '6.1 Sứ phía cao áp (HV)', term: '1.1',
             fields: [
               { k: 'b.hv.t', label: 'Nhiệt độ dầu (°C)', num: true, doc: { before: 7, re: /t=(?<v>\s*)oC/ } },
               { k: 'b.hv.btype', label: 'Loại cách điện sứ', type: 'select', options: ['RIP', 'OIP', 'RIS', 'RBP', 'GIF'], doc: { before: 8, re: /Loại\s*sứ:(?<v>)/ } },
@@ -532,7 +538,7 @@
             ],
           },
           {
-            id: 'mv', title: '5.2 Sứ phía trung áp và trung tính (MV, N)', term: '2.1',
+            id: 'mv', title: '6.2 Sứ phía trung áp và trung tính (MV, N)', term: '2.1',
             fields: [
               { k: 'b.mv.t', label: 'Nhiệt độ dầu (°C)', num: true, doc: { before: 9, re: /t=(?<v>\s*)oC/ } },
               { k: 'b.mv.btype', label: 'Loại cách điện sứ', type: 'select', options: ['RIP', 'OIP', 'RIS', 'RBP', 'GIF'], doc: { before: 11, re: /Loại\s*sứ:(?<v>)/ } },
@@ -548,7 +554,7 @@
             ],
           },
           {
-            id: 'lv', title: '5.3 Sứ phía hạ áp (LV)', term: '3.1',
+            id: 'lv', title: '6.3 Sứ phía hạ áp (LV)', term: '3.1',
             fields: [
               { k: 'b.lv.t', label: 'Nhiệt độ dầu (°C)', num: true, doc: { before: 12, re: /t=(?<v>\s*)oC/ } },
               { k: 'b.lv.btype', label: 'Loại cách điện sứ', type: 'select', options: ['RIP', 'OIP', 'RIS', 'RBP', 'GIF'], doc: { before: 13, re: /Loại\s*sứ:(?<v>)/ } },
@@ -563,7 +569,7 @@
             ],
           },
           {
-            id: 'ac', title: '5.4 Thử điện áp xoay chiều tăng cao (sứ hạ áp)',
+            id: 'ac', title: '6.4 Thử điện áp xoay chiều tăng cao (sứ hạ áp)',
             grids: [{
               id: 'b.ac', title: 'Thử AC 1 phút', tables: [14], transposed: true,
               rows: [
@@ -577,7 +583,7 @@
         ],
       },
       {
-        id: 'wtgd', no: 6, title: 'Tgδ và điện dung các cuộn dây', en: 'Winding tgδ',
+        id: 'wtgd', no: 7, title: 'Tgδ và điện dung các cuộn dây', en: 'Winding tgδ',
         fields: [{ k: 'wtgd.t', label: 'Nhiệt độ cuộn dây/dầu (°C)', num: true, doc: { before: 15, re: /nhiệt độ:(?<v>\s*)oC/ } }],
         grids: [
           {
@@ -593,10 +599,10 @@
         extraDoc: [{ k: 'wtgd.k2', doc: { before: 16, re: /K2\s*=(?<v>.*)$/ } }],
       },
       {
-        id: 'dcr', no: 7, title: 'Điện trở một chiều các cuộn dây', en: 'Winding resistance (mΩ)',
+        id: 'dcr', no: 8, title: 'Điện trở một chiều các cuộn dây', en: 'Winding resistance (mΩ)',
         groups: [
           {
-            id: 'hv', title: `7.1 Cuộn cao áp — đo ${hvPairs.map(p => p.app).join(' / ')} (mΩ)`,
+            id: 'hv', title: `8.1 Cuộn cao áp — đo ${hvPairs.map(p => p.app).join(' / ')} (mΩ)`,
             fields: [
               // Cách đo cuộn cao áp (cấu hình chung với mục 0): A-N (nối tiếp + chung) hoặc A-Am (chỉ cuộn nối tiếp)
               { k: 'cfg.hvMeas', cfg: 'hvMeas', label: 'Phép đo cuộn cao áp', options: HV_MEAS },
@@ -612,7 +618,7 @@
             }],
           },
           {
-            id: 'mv', title: '7.2 Cuộn trung áp — Am-N / Bm-N / Cm-N (mΩ)',
+            id: 'mv', title: '8.2 Cuộn trung áp — Am-N / Bm-N / Cm-N (mΩ)',
             fields: [{ k: 'dcr.mv.t', label: 'Nhiệt độ (°C)', num: true, doc: { before: 19, re: /t\s*=(?<v>\s*)oC/ } }],
             grids: [{
               id: 'dcr.mv', title: '', tables: [19], rows: [{ k: 'r', label: 'Giá trị', doc: 1 }],
@@ -621,7 +627,7 @@
             }],
           },
           {
-            id: 'lv', title: '7.3 Cuộn hạ áp — ab / bc / ca (mΩ)',
+            id: 'lv', title: '8.3 Cuộn hạ áp — ab / bc / ca (mΩ)',
             fields: [{ k: 'dcr.lv.t', label: 'Nhiệt độ (°C)', num: true, doc: { before: 20, re: /t=(?<v>\s*)oC/ } }],
             grids: [{
               id: 'dcr.lv', title: '', tables: [20], rows: [{ k: 'r', label: 'Giá trị', doc: 1 }],
@@ -632,24 +638,24 @@
         ],
       },
       {
-        id: 'ratio', no: 8, title: 'Tỷ số biến', en: 'Voltage ratio',
+        id: 'ratio', no: 9, title: 'Tỷ số biến', en: 'Voltage ratio',
         groups: [
           {
-            id: 'hm', title: '8.1 Cuộn HV : MV', grids: [{
+            id: 'hm', title: '9.1 Cuộn HV : MV', grids: [{
               id: 'ratio.hm', title: 'Theo nấc', tables: [21, 22], rows: tapRows(taps), corner: 'Nấc', editHdr: true,
               cols: hdr('ratio.hm', [col('A', 'UAB/UAmBm', 1, { phase: true }), col('dA', 'ΔK_A (%)', 2, { auto: true }), col('B', 'UBC/UBmCm', 3, { phase: true }), col('dB', 'ΔK_B (%)', 4, { auto: true }),
                 col('C', 'UCA/UCmAm', 5, { phase: true }), col('dC', 'ΔK_C (%)', 6, { auto: true }), col('dP', 'ΔK(A,B,C) (%)', 7, { calc: true })]),
             }],
           },
           {
-            id: 'hl', title: '8.2 Cuộn HV : LV', grids: [{
+            id: 'hl', title: '9.2 Cuộn HV : LV', grids: [{
               id: 'ratio.hl', title: 'Theo nấc', tables: [23], rows: tapRows(taps), corner: 'Nấc', editHdr: true,
               cols: hdr('ratio.hl', [col('A', 'UAB/Uab', 1, { phase: true }), col('dA', 'ΔK_A (%)', 2, { auto: true }), col('B', 'UBC/Ubc', 3, { phase: true }), col('dB', 'ΔK_B (%)', 4, { auto: true }),
                 col('C', 'UCA/Uca', 5, { phase: true }), col('dC', 'ΔK_C (%)', 6, { auto: true }), col('dP', 'ΔK(A,B,C) (%)', 7, { calc: true })]),
             }],
           },
           {
-            id: 'ml', title: '8.3 Cuộn MV : LV', grids: [{
+            id: 'ml', title: '9.3 Cuộn MV : LV', grids: [{
               id: 'ratio.ml', title: '', tables: [24], rows: [{ k: 'r', label: 'Giá trị', doc: 1 }], editHdr: true,
               cols: hdr('ratio.ml', [col('A', 'UAmBm/Uab', 0, { phase: true }), col('dA', 'ΔK (%)', 1, { auto: true }), col('B', 'UBmCm/Ubc', 2, { phase: true }), col('dB', 'ΔK (%)', 3, { auto: true }),
                 col('C', 'UCmAm/Uca', 4, { phase: true }), col('dC', 'ΔK (%)', 5, { auto: true }), col('dP', 'ΔK(A,B,C) (%)', 6, { calc: true })]),
@@ -658,7 +664,7 @@
         ],
       },
       {
-        id: 'oltc', no: 9, title: 'Kiểm tra bộ điều áp dưới tải', en: 'OLTC',
+        id: 'oltc', no: 10, title: 'Kiểm tra bộ điều áp dưới tải', en: 'OLTC',
         fields: [
           { k: 'oltc.type', label: 'Kiểu (Type)', doc: { t: 25, r: 0, c: 0, re: /\(Type\):(?<v>.*)$/ } },
           { k: 'oltc.serial', label: 'Số chế tạo', doc: { t: 25, r: 0, c: 2, re: /\(Serial No\):(?<v>.*)$/ } },
@@ -678,14 +684,14 @@
         }],
       },
       {
-        id: 'moisture', no: 10, title: 'Hàm lượng ẩm trong cách điện cứng', en: 'Moisture in solid insulation',
+        id: 'moisture', no: 11, title: 'Hàm lượng ẩm trong cách điện cứng', en: 'Moisture in solid insulation',
         fields: [
           { k: 'moist.val', label: 'Độ ẩm cách điện cứng (%)', num: true, doc: { before: 26, re: /Độ ẩm:(?<v>\s*)%/ } },
           { k: 'moist.method', label: 'Phương pháp / thiết bị', placeholder: 'vd: FDS/PDC – Omicron Dirana' },
         ],
       },
       {
-        id: 'bct', no: 11, title: 'Biến dòng chân sứ', en: 'Bushing CT',
+        id: 'bct', no: 12, title: 'Biến dòng chân sứ', en: 'Bushing CT',
         fields: [
           { k: 'bct.visual', label: 'Kiểm tra bên ngoài', doc: { before: 26, re: /\(General\s*inspection\)\s*:(?<v>.*)$/ } },
           { k: 'bct.t_ir', label: 'Nhiệt độ đo cách điện (°C)', num: true, doc: { before: 26, re: /t\s*=(?<v>\s*)oC/ } },

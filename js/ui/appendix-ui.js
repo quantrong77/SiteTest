@@ -1,5 +1,5 @@
 // Trang phụ lục BBTN: quản lý đồ thị OLTC, báo cáo SFRA và phép đo DFR.
-// Trang "Phụ lục BBTN": chụp sóng OLTC (từ mục 9) và báo cáo SFRA — mở SFRA Analyzer để phân tích, tải báo cáo Word
+// Trang "Phụ lục BBTN": chụp sóng OLTC và báo cáo SFRA — mở SFRA Analyzer để phân tích, tải báo cáo Word
 // về rồi nạp vào đây; khi xuất BBTN báo cáo được nối nguyên văn thành phụ lục. File báo cáo giữ trong kho file của
 // trình duyệt (FileStore), đi kèm file .json khi lưu và lên Storage khi lưu CSDL.
 (function () {
@@ -11,10 +11,43 @@
   const when = iso => { const d = new Date(iso); return Number.isNaN(+d) ? '' : d.toLocaleString('vi-VN'); };
   const storagePath = (st, id) => `${st.v['meta.serial'] || 'MBA'}/${st.db.sessionId}/appendix/${id}.docx`;
 
-  function render(A) {
-    const st = A.state, esc = A.esc, att = st.att || {}, fra = att.fra, oils = att.oil && att.oil.items || [], osc = att.oltc || {};
+  function shortCircuitHTML(A) {
+    const st = A.state, esc = A.esc;
+    const rows = st.att && st.att.shortCircuit && st.att.shortCircuit.rows || [];
+    const results = Appendix.shortCircuitResults(st, A.FX);
     const layout = st.cfg.template === 'custom' ? st.cfg.layout : st.cfg.template || '1P';
     const is3Phase = ['3P', '110'].includes(layout);
+    const number = (row, key, label) => `<div class="field"><label>${label}</label><input type="text" inputmode="decimal" data-sc-field="${key}" data-id="${esc(row.id)}" aria-label="${label}" value="${esc(row[key] ?? '')}"></div>`;
+    const text = (row, key, label) => `<div class="field"><label>${label}</label><input type="text" data-sc-field="${key}" data-id="${esc(row.id)}" aria-label="${label}" value="${esc(row[key] ?? '')}"></div>`;
+    const cards = rows.map((row, i) => {
+      const result = results[i] || {};
+      return `<div class="appx-file"><div class="appx-file-head"><b>Phép đo ${i + 1} · ${esc(row.pair || 'chưa chọn cặp cuộn')} · nấc ${esc(row.tap || '—')}</b><span class="spacer"></span><button class="btn small danger" data-act="appxScDel" data-id="${esc(row.id)}" aria-label="Xóa phép đo ${i + 1}">×</button></div>
+      <div class="fields">
+        <div class="field"><label>Cặp cuộn dây</label><select data-sc-field="pair" data-id="${esc(row.id)}" aria-label="Cặp cuộn dây phép đo ${i + 1}">${Appendix.shortCircuitPairs.map(x => `<option value="${x}" ${row.pair === x ? 'selected' : ''}>${x}</option>`).join('')}</select></div>
+        ${text(row, 'tap', 'Nấc phân áp')}
+        ${is3Phase ? `<div class="field"><label>Pha</label><select data-sc-field="phase" data-id="${esc(row.id)}" aria-label="Pha phép đo ${i + 1}"><option value="">Không áp dụng / tổng 3 pha</option>${['A', 'B', 'C'].map(x => `<option value="${x}" ${row.phase === x ? 'selected' : ''}>${x}</option>`).join('')}</select></div>` : ''}
+        <div class="field"><label>Trường hợp</label><select data-sc-field="testCase" data-id="${esc(row.id)}" aria-label="Trường hợp thí nghiệm"><option value="new" ${result.testCase === 'new' ? 'selected' : ''}>Sau lắp đặt mới</option><option value="overhaul" ${result.testCase === 'overhaul' ? 'selected' : ''}>Sau đại tu</option><option value="operation" ${result.testCase === 'operation' ? 'selected' : ''}>Trong vận hành</option></select></div>
+        <div class="field"><label>Vị trí nấc</label><select data-sc-field="tapRole" data-id="${esc(row.id)}" aria-label="Vị trí nấc"><option value="main" ${result.tapRole === 'main' ? 'selected' : ''}>Nấc chính</option><option value="other" ${result.tapRole === 'other' ? 'selected' : ''}>Nấc khác</option></select></div>
+        ${number(row, 'tempC', 'Nhiệt độ đo (°C)')}${number(row, 'frequencyHz', 'Tần số đo (Hz)')}${number(row, 'ratedFrequencyHz', 'Tần số định mức (Hz)')}
+        ${number(row, 'ratedVoltageKV', 'Điện áp định mức Un (kV)')}${number(row, 'ratedCurrentA', 'Dòng điện định mức In (A)')}
+        <div class="field"><label>Điện áp thử U</label><input type="text" inputmode="decimal" list="scVoltageChoices" data-sc-field="testVoltage" data-id="${esc(row.id)}" aria-label="Điện áp thử U" value="${esc(row.testVoltage ?? row.testVoltageKV ?? '')}"></div>
+        <div class="field"><label>Đơn vị U thử</label><select data-sc-field="testVoltageUnit" data-id="${esc(row.id)}" aria-label="Đơn vị điện áp thử"><option value="V" ${(row.testVoltageUnit || (row.testVoltageKV !== undefined ? 'kV' : 'V')) === 'V' ? 'selected' : ''}>V</option><option value="kV" ${(row.testVoltageUnit || (row.testVoltageKV !== undefined ? 'kV' : 'V')) === 'kV' ? 'selected' : ''}>kV</option></select></div>
+        ${number(row, 'testCurrentA', 'Dòng điện đo I (A)')}${number(row, 'powerKw', 'Công suất đo P (kW)')}${number(row, 'copperLossKw', 'Thành phần PI²R (kW)')}
+        <div class="field"><label>Vật liệu dây dẫn</label><select data-sc-field="tempFactor" data-id="${esc(row.id)}" aria-label="Vật liệu dây dẫn"><option value="">Chưa xác định</option><option value="235" ${String(row.tempFactor) === '235' ? 'selected' : ''}>Đồng (K = 235)</option><option value="225" ${String(row.tempFactor) === '225' ? 'selected' : ''}>Nhôm (K = 225)</option></select></div>
+        ${number(row, 'reportTempC', 'Nhiệt độ Pk Test Report (°C)')}
+        ${result.testCase === 'new' ? number(row, 'nameplateUkPct', 'Uk nhãn máy (%)') : number(row, 'initialUkPct', 'Uk ban đầu (%)')}
+      </div></div>`;
+    }).join('');
+    return `<section class="appx-card"><div class="appx-head"><h3>Số liệu thí nghiệm ngắn mạch</h3>${rows.length ? `<span class="badge st-info">${rows.length} phép đo</span>` : '<span class="badge st-none">Chưa có số liệu</span>'}</div>
+      <p>Test Report đang dùng: ${esc(A.FX && A.FX.data.fileName || 'chưa nạp')}. Nhập điện áp thử theo V hoặc kV; có thể nhập 67 V, 220 V, 380 V hoặc giá trị khác. App quy đổi kết quả về Un và In.</p>
+      <div class="row-actions"><button class="btn primary" data-act="appxScAdd">Thêm phép đo</button>${rows.length ? '<button class="btn small danger" data-act="appxScClear">Xóa toàn bộ phép đo</button>' : ''}</div>
+      ${cards || '<p>Thêm phép đo để nhập cặp cuộn dây, nấc, pha và thông số đo.</p>'}
+      <datalist id="scVoltageChoices"><option value="67"></option><option value="220"></option><option value="380"></option></datalist>
+      <p class="hint-text">Ghi cặp cuộn dây, nấc, pha, nhiệt độ, tần số, U, I và P. Khai báo PI²R và vật liệu dây dẫn nếu cần quy đổi Pk theo nhiệt độ Test Report. Kết quả so sánh nằm trong tab Đánh giá.</p></section>`;
+  }
+
+  function render(A) {
+    const st = A.state, esc = A.esc, att = st.att || {}, fra = att.fra, oils = att.oil && att.oil.items || [], osc = att.oltc || {};
     const labels = Object.fromEntries(Appendix.list(st).map(a => [a.kind, a.label]));
     const oilLabels = Object.fromEntries(Appendix.list(st).filter(a => a.kind === 'oil').map(a => [a.id, a.label]));
     const phases = Object.keys(osc).sort();
@@ -24,8 +57,8 @@
     h += `<section class="appx-card"><div class="appx-head"><h3>Chụp sóng OLTC</h3>${labels.oltc ? `<span class="badge st-pass">${labels.oltc}</span>` : '<span class="badge st-none">Chưa có</span>'}</div>`
       + (phases.length
         ? `<p>${phases.map(ph => `Pha ${ph}: ${osc[ph].rows.length || osc[ph].waves.length} lần chuyển nấc`).join(' · ')}. Bảng số liệu và đồ thị dựng từ file Haefely 2293.</p>`
-        : '<p>Nhập file .csv và .bin của Haefely 2293 ở mục 9 để có phụ lục chụp sóng.</p>')
-      + '<div class="row-actions"><button class="btn" data-nav="oltc">Mở mục 9 – OLTC</button></div></section>';
+        : '<p>Nhập file .csv và .bin của Haefely 2293 ở hạng mục OLTC để có phụ lục chụp sóng.</p>')
+      + '<div class="row-actions"><button class="btn" data-nav="oltc">Mở hạng mục OLTC</button></div></section>';
 
     h += `<section class="appx-card"><div class="appx-head"><h3>Đáp ứng tần số quét (SFRA)</h3>${fra ? `<span class="badge st-pass">${labels.fra}</span>` : '<span class="badge st-none">Chưa có</span>'}</div>
       <ol class="appx-steps">
@@ -51,42 +84,6 @@
     h += `<section class="appx-card"><div class="appx-head"><h3>Đáp ứng tần số điện môi sứ đầu vào (DFR)</h3>${labels.dfr ? `<span class="badge st-pass">${labels.dfr}</span>` : '<span class="badge st-none">Chưa có</span>'}</div>
       <p>Nạp file CSV DIRANA; chỉ trình bày số liệu đo, không đánh giá đạt/không đạt.</p><div class="row-actions"><button class="btn" data-act="dfrFiles">Nạp file .csv…</button><button class="btn" data-act="dfrFolder">Nạp cả thư mục…</button>${dfr.length ? '<button class="btn small danger" data-act="dfrClear">Bỏ phụ lục DFR</button>' : ''}</div>
       ${dfr.length ? `<div class="ftable-wrap"><table class="ftable"><thead><tr><th>Phép đo</th><th>Ngày đo</th><th>Phía</th><th>Pha</th><th>15 Hz: tan / C</th><th>400 Hz: tan / C</th><th>Dùng</th><th></th></tr></thead><tbody>${dfr.slice().sort((a,b)=>{const rank=x=>({HV:0,MV:1,N:2,LV1:3,LV2:4}[x]??5);return rank(a.side)-rank(b.side)||Dfr.PHASES.indexOf(a.phase)-Dfr.PHASES.indexOf(b.phase)||Dfr.dateKey(a.date).localeCompare(Dfr.dateKey(b.date));}).map(m=>{const a=Dfr.at(m,15),b=Dfr.at(m,400), id=esc(m.id); const dec=x=>Number(x).toFixed(2).replace('.', (A.state.cfg.decSep||',')==='.'?'.':',');return `<tr><td>${esc(m.name)}</td><td>${esc(m.date)}</td><td><select aria-label="Phía của ${esc(m.name)}" data-dfr="side" data-id="${id}"><option value="">—</option>${Dfr.SIDES.map(x=>`<option ${m.side===x?'selected':''}>${x}</option>`).join('')}</select></td><td><select aria-label="Pha của ${esc(m.name)}" data-dfr="phase" data-id="${id}"><option value="">—</option>${Dfr.PHASES.map(x=>`<option ${m.phase===x?'selected':''}>${x}</option>`).join('')}</select></td><td>${a?`${dec(a.tan)} / ${dec(a.c)}`:'—'}</td><td>${b?`${dec(b.tan)} / ${dec(b.c)}`:'—'}</td><td><input type="checkbox" aria-label="Dùng phép đo ${esc(m.name)}" data-dfr="use" data-id="${id}" ${m.use?'checked':''}></td><td><button class="btn small danger" data-act="dfrDelete" data-id="${id}" aria-label="Xóa phép đo">×</button></td></tr>`}).join('')}</tbody></table></div><div class="dfr-preview">${Dfr.SIDES.filter(s=>Dfr.table(dfr).some(row=>row.side===s)).map(s=>`<div><b>Đồ thị xếp chồng — ${s}</b><canvas data-dfr-preview="${s}" aria-label="Đồ thị DFR phía ${s}"></canvas></div>`).join('')}</div>` : '<p>Chưa nạp phép đo DFR.</p>'}</section>`;
-    const scRows = att.shortCircuit && att.shortCircuit.rows || [];
-    const scResults = Appendix.shortCircuitResults(st, A.FX);
-    const scGuide = (((A.type || {}).workflow || {}).shortCircuit || {}).guide || [];
-    const scNum = (row, key, label) => `<div class="field"><label>${label}</label><input type="text" inputmode="decimal" data-sc-field="${key}" data-id="${esc(row.id)}" aria-label="${label}" value="${esc(row[key] ?? '')}"></div>`;
-    const scText = (row, key, label) => `<div class="field"><label>${label}</label><input type="text" data-sc-field="${key}" data-id="${esc(row.id)}" aria-label="${label}" value="${esc(row[key] ?? '')}"></div>`;
-    const scPhase = (row, i) => is3Phase ? `<div class="field"><label>Pha</label><select data-sc-field="phase" data-id="${esc(row.id)}" aria-label="Pha ${i + 1}"><option value="">Kh\u00f4ng \u00e1p d\u1ee5ng / t\u1ed5ng 3 pha</option>${['A', 'B', 'C'].map(x => `<option value="${x}" ${row.phase === x ? 'selected' : ''}>${x}</option>`).join('')}</select></div>` : '';
-    const scFmt = (value, digits = 2) => value == null ? '—' : Number(value).toFixed(digits).replace('.', st.cfg.decSep === '.' ? '.' : ',');
-    const scState = value => ({ pass: 'Đạt', fail: 'Không đạt', na: '—', warn: 'Cần xem xét' }[value] || 'Cần xem xét');
-    const scBadge = value => `<span class="badge ${value === 'pass' ? 'st-pass' : value === 'fail' ? 'st-fail' : value === 'na' ? 'st-none' : 'st-warn'}">${scState(value)}</span>`;
-    h += `<section class="appx-card"><div class="appx-head"><h3>Thí nghiệm ngắn mạch MBA</h3>${scRows.length ? '<span class="badge st-pass">Có số liệu</span>' : '<span class="badge st-none">Chưa có</span>'}</div>
-      <ol class="appx-steps">${scGuide.map(step => `<li><div>${esc(step)}</div></li>`).join('')}</ol>
-      <p>Test Report đang dùng: ${esc(A.FX && A.FX.data.fileName || 'chưa nạp')}. Theo QĐ 1387 Điều 26, dòng thử phải ≥25% In; nếu không có điện áp theo Test Report, dùng 380 V hoặc điện áp ≤10 kV rồi nội suy. Nhập U thử bất kỳ theo V hoặc kV, app tự quy đổi về Un.</p>
-      <div class="row-actions"><button class="btn primary" data-act="appxScAdd">Thêm phép đo</button>${scRows.length ? '<button class="btn small danger" data-act="appxScClear">Xóa toàn bộ phép đo</button>' : ''}</div>
-      ${scRows.length ? scRows.map((row, i) => {
-        const result = scResults[i] || {};
-        return `<div class="appx-file"><div class="appx-file-head"><b>Phép đo ${i + 1} · ${esc(row.pair || 'chưa chọn cặp cuộn')} · nấc ${esc(row.tap || '—')}</b>${scBadge(result.overall)}<span class="spacer"></span><button class="btn small danger" data-act="appxScDel" data-id="${esc(row.id)}" aria-label="Xóa phép đo ${i + 1}">×</button></div>
-          <div class="fields"><div class="field"><label>Cặp cuộn dây</label><select data-sc-field="pair" data-id="${esc(row.id)}" aria-label="Cặp cuộn dây phép đo ${i + 1}">${Appendix.shortCircuitPairs.map(x => `<option value="${x}" ${row.pair === x ? 'selected' : ''}>${x}</option>`).join('')}</select></div>
-            ${scText(row, 'tap', 'Nấc phân áp')}
-            ${scPhase(row, i)}
-            <div class="field"><label>Trường hợp</label><select data-sc-field="testCase" data-id="${esc(row.id)}" aria-label="Trường hợp thí nghiệm"><option value="new" ${result.testCase === 'new' ? 'selected' : ''}>Sau lắp đặt mới</option><option value="overhaul" ${result.testCase === 'overhaul' ? 'selected' : ''}>Sau đại tu</option><option value="operation" ${result.testCase === 'operation' ? 'selected' : ''}>Trong vận hành</option></select></div>
-            <div class="field"><label>Vị trí nấc</label><select data-sc-field="tapRole" data-id="${esc(row.id)}" aria-label="Vị trí nấc"><option value="main" ${result.tapRole === 'main' ? 'selected' : ''}>Nấc chính</option><option value="other" ${result.tapRole === 'other' ? 'selected' : ''}>Nấc khác</option></select></div>
-            ${scNum(row, 'tempC', 'Nhiệt độ đo (°C)')}${scNum(row, 'frequencyHz', 'Tần số đo (Hz)')}${scNum(row, 'ratedFrequencyHz', 'Tần số định mức (Hz)')}
-            ${scNum(row, 'ratedVoltageKV', 'Điện áp định mức Un (kV)')}${scNum(row, 'ratedCurrentA', 'Dòng điện định mức In (A)')}
-            <div class="field"><label>Điện áp thử U</label><input type="text" inputmode="decimal" list="scVoltageChoices" data-sc-field="testVoltage" data-id="${esc(row.id)}" aria-label="Điện áp thử U" value="${esc(row.testVoltage ?? row.testVoltageKV ?? '')}"></div>
-            <div class="field"><label>Đơn vị U thử</label><select data-sc-field="testVoltageUnit" data-id="${esc(row.id)}" aria-label="Đơn vị điện áp thử"><option value="V" ${(row.testVoltageUnit || (row.testVoltageKV !== undefined ? 'kV' : 'V')) === 'V' ? 'selected' : ''}>V</option><option value="kV" ${(row.testVoltageUnit || (row.testVoltageKV !== undefined ? 'kV' : 'V')) === 'kV' ? 'selected' : ''}>kV</option></select></div>
-            ${scNum(row, 'testCurrentA', 'Dòng điện đo I (A)')}${scNum(row, 'powerKw', 'Công suất đo P (kW)')}${scNum(row, 'copperLossKw', 'Thành phần PI²R (kW)')}
-            <div class="field"><label>Vật liệu dây dẫn</label><select data-sc-field="tempFactor" data-id="${esc(row.id)}" aria-label="Vật liệu dây dẫn"><option value="">Chưa xác định</option><option value="235" ${String(row.tempFactor) === '235' ? 'selected' : ''}>Đồng (K = 235)</option><option value="225" ${String(row.tempFactor) === '225' ? 'selected' : ''}>Nhôm (K = 225)</option></select></div>
-            ${scNum(row, 'reportTempC', 'Nhiệt độ Pk Test Report (°C)')}
-            ${result.testCase === 'new' ? scNum(row, 'nameplateUkPct', 'Uk nh\u00e3n m\u00e1y (%)') : ''}\n            ${result.testCase !== 'new' ? scNum(row, 'initialUkPct', 'Uk ban đầu (%)') : ''}
-          </div>
-          <div class="ftable-wrap"><table class="ftable"><thead><tr><th>S/N</th><th>f = fđm</th><th>I ≥ 25% In</th><th>Uk đo (%)</th><th>Uk nh\u00e3n m\u00e1y (%)</th><th>\u0394Uk nh\u00e3n (%)</th><th>Uk Test Report (%)</th><th>ΔUk Report (%)</th><th>QĐ 1901</th><th>Uk ban đầu (%)</th><th>ΔUk ban đầu (%)</th><th>QĐ 1387</th><th>Lệch pha (%)</th><th>\u0110\u00e1nh gi\u00e1 pha</th><th>Kết luận</th></tr></thead><tbody><tr><td>${esc(result.serial || '—')}</td><td>${scBadge(result.sameFrequency ? 'pass' : 'warn')}</td><td>${scBadge(result.currentAdequate ? 'pass' : 'warn')}</td><td>${esc(scFmt(result.ukPct, 3))}</td><td>${esc(scFmt(result.nameplateUkPct, 3))}</td><td>${esc(result.deltaUk1387Pct == null ? '\u2014' : scFmt(result.deltaUk1387Pct, 2) + '%')}</td><td>${esc(scFmt(result.ref && result.ref.ukPct, 3))}</td><td>${esc(result.deltaUkPct == null ? '—' : scFmt(result.deltaUkPct, 2) + '%')}</td><td>${scBadge(result.ukStatus)}</td><td>${esc(scFmt(result.initialUkPct, 3))}</td><td>${esc(result.deltaInitialUkPct == null ? '—' : scFmt(result.deltaInitialUkPct, 2) + '%')}</td><td>${scBadge(result.uk1387Status)}</td><td>${esc(result.phaseDeltaPct == null ? '—' : scFmt(result.phaseDeltaPct, 2) + '%')}</td><td>${scBadge(result.phaseStatus)}</td><td>${scBadge(result.overall)}</td></tr></tbody></table></div>
-          <div class="ftable-wrap"><table class="ftable"><thead><tr><th>Pk quy đổi (kW)</th><th>Pk Test Report (kW)</th><th>ΔPk</th><th>Dòng thử ≥25% In</th><th>Đánh giá Pk</th></tr></thead><tbody><tr><td>${esc(scFmt(result.pkAtReportTempKw, 3))}</td><td>${esc(scFmt(result.ref && result.ref.pkKw, 3))}</td><td>${esc(result.deltaPkPct == null ? '—' : scFmt(result.deltaPkPct, 2) + '%')}</td><td>${scBadge(result.currentAdequate ? 'pass' : 'warn')}</td><td>${scBadge(result.pkStatus)}</td></tr></tbody></table></div>
-        </div>`;
-      }).join('') : '<p>Chưa nhập phép đo ngắn mạch.</p>'}
-      <datalist id="scVoltageChoices"><option value="67"></option><option value="220"></option><option value="380"></option></datalist>
-      <p class="hint-text">Uk (%) = U / Un × In / I × 100. Pk quy về dòng định mức: P × (In / I)². QĐ 1901 Điều 35 áp dụng sai lệch Uk ≤3%; QĐ 1387 Điều 27 phân biệt mức 5% (MBA mới, nấc chính) và 3% (sau đại tu/đang vận hành, so với Uk ban đầu). Nếu thiếu dữ liệu quy đổi nhiệt độ hoặc Uk ban đầu, kết luận là “Cần xem xét”.</p></section>`;
     return `<section class="panel appx">${h}</section>`;
   }
 
@@ -146,17 +143,17 @@
       const reason = String(st.v['meta.reason'] || '').toLowerCase();
       const testCase = /đại tu|sửa chữa/.test(reason) ? 'overhaul' : /định kỳ|bất thường|dự phòng|vận hành/.test(reason) ? 'operation' : 'new';
       sc.rows.push({ id: `sc-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`, pair: 'HV-MV', tap: (st.cfg.taps || [])[0] || '', phase: ['3P', '110'].includes(layout) ? 'A' : '', testCase, tapRole: 'main', testVoltageUnit: 'V' });
-      A.persist(); A.render();
+      A.recompute(); A.persist(); A.render();
     }
     if (act === 'appxScDel' && st.att && st.att.shortCircuit) {
       st.att.shortCircuit.rows = (st.att.shortCircuit.rows || []).filter(row => row.id !== b.dataset.id);
       if (!st.att.shortCircuit.rows.length) delete st.att.shortCircuit;
-      A.persist(); A.render();
+      A.recompute(); A.persist(); A.render();
     }
     if (act === 'appxScClear' && st.att && st.att.shortCircuit) {
       if (!confirm('Xóa toàn bộ số liệu thí nghiệm ngắn mạch khỏi biên bản?')) return;
       delete st.att.shortCircuit;
-      A.persist(); A.render(); A.toast('Đã xóa phụ lục thí nghiệm ngắn mạch');
+      A.recompute(); A.persist(); A.render(); A.toast('Đã xóa số liệu thí nghiệm ngắn mạch');
     }
     if (act === 'appxLoadFra') $('#fileFra').click();
     if (act === 'appxOilLoad') $('#fileOil').click();
@@ -285,7 +282,7 @@
       if (el.dataset.scField) {
         const rows = ((A.state.att || {}).shortCircuit || {}).rows || [];
         const row = rows.find(x => x.id === el.dataset.id);
-        if (row) { row[el.dataset.scField] = el.value; A.persist(); A.render(); }
+        if (row) { row[el.dataset.scField] = el.value; A.recompute(); A.persist(); A.render(); }
         return;
       }
       if (!el.dataset.dfr) return;
@@ -306,5 +303,5 @@
     });
   }
 
-  window.AppendixUI = { render, afterRender, action, reportAssets, filesFor, restoreFiles, afterDbSave, ensureFiles, init };
+  window.AppendixUI = { render, shortCircuitHTML, afterRender, action, reportAssets, filesFor, restoreFiles, afterDbSave, ensureFiles, init };
 })();

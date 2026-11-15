@@ -77,6 +77,8 @@
   }
   function contextFor(app, id) {
     id = id || (app && app.currentSection ? app.currentSection() : '');
+    const section = app && app.schema && app.schema.sections.find(x => x.id === id);
+    if (section) return `Mục ${section.no}`;
     return CONTEXT[id] || NAV_CONTEXT[id] || '';
   }
   // Tên trang để quay lại: tiêu đề hạng mục của biểu mẫu hoặc tên trang chung
