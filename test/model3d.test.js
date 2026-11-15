@@ -37,3 +37,13 @@ test('bộ phận sứ chỉ xuất hiện khi nhóm tương ứng có trong sch
   assert.ok(ids.includes('bush-lv'));
   assert.ok(!ids.includes('bush-mv'));
 });
+
+test('hạng mục của bộ phận xếp theo số thứ tự trong mẫu', () => {
+  const ctx = load(DOMAIN.concat(['js/domain/types/mba/model3d-map.js']));
+  const T = ctx.EquipmentTypes.get('MBA');
+  const schema = T.buildSchema(T.defaultCfg());
+  const windings = ctx.MbaModel3DMap.partsFor(schema).find(p => p.id === 'windings');
+  const nos = windings.items.map(i => Number(i.no));
+  assert.deepEqual(nos, nos.slice().sort((a, b) => a - b));
+  assert.ok(windings.items.some(i => i.id === 'vector'));
+});
