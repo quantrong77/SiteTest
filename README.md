@@ -34,11 +34,13 @@ Dữ liệu đang nhập được tự lưu trong trình duyệt; dùng **Lưu .
 2. **Mục 1–11**: mỗi hạng mục có 4 bước *Chuẩn bị · Hướng dẫn đo · Nhập số liệu · Đánh giá* và khung *Tài liệu tham khảo*
    (điều khoản QĐ 1901; quy trình đơn vị và HD máy đo khi có). Thanh điều hướng hiện tiến trình và trạng thái từng hạng mục
    (chưa làm / đang làm / đã nhập / đạt / cần xem xét / không đạt), vẫn nhảy tự do giữa các hạng mục.
+   Các hạng mục MBA tương ứng có hướng dẫn đo rút gọn theo *Tài liệu đào tạo thí nghiệm MBA (2026)*,
+   kèm dẫn mục nguồn; hướng dẫn không thay thế sơ đồ đấu nối và quy trình chi tiết được duyệt.
    Bước Nhập số liệu: nhập vào các bảng giống hệt template. Có thể **dán khối từ Excel** (Ctrl+V vào ô đầu),
    Enter để xuống dòng. Ô viền xanh/đỏ/vàng = Đạt / Không đạt / Cần xem xét; rê chuột vào ô để xem chi tiết.
    Ô nền xám là giá trị tự tính (Kht, PI, quy đổi 20 °C, ΔR, ΔK…); ô chữ nghiêng mờ là giá trị tự tính có thể ghi đè.
 3. **Σ Tổng hợp**: xem toàn bộ kết quả so sánh, chỉnh đánh giá ghi vào BBTN nếu cần, điền kết luận.
-4. **Xuất BBTN .docx** (điền vào template) và **Xuất so sánh .xlsx** (bảng so sánh chi tiết để lưu hồ sơ).
+4. **Xuất BBTN .docx** (điền vào template) và **Xuất so sánh .xlsx** (bảng so sánh chi tiết để lưu hồ sơ). Bảng tổng hợp đầu biên bản có cột **Tiêu chuẩn/giới hạn (QĐ 1901)**; hạng mục không có ngưỡng số chung ghi rõ đối chiếu nhà chế tạo hoặc giá trị gốc.
 
 ## Đọc ảnh nameplate (mục 0)
 
@@ -54,12 +56,13 @@ Dữ liệu đang nhập được tự lưu trong trình duyệt; dùng **Lưu .
   *Đã kiểm tra hết*.
 - OCR trên ảnh chụp thật có thể sai (lóa, chữ khắc mờ, góc chụp): luôn đối chiếu với nameplate.
 
-## Phụ lục BBTN (OLTC, SFRA, dầu MBA)
+## Phụ lục BBTN (OLTC, SFRA, dầu MBA, ngắn mạch MBA)
 
 Trang **Phụ lục BBTN** (thanh điều hướng, nhóm Kết quả). Khi xuất BBTN .docx, mỗi phụ lục được nối thành một section
 riêng sau biên bản (trang mới, đánh số trang lại; nhiều phụ lục thì đánh "PHỤ LỤC 1, 2").
 
 - **Chụp sóng OLTC**: dựng từ file Haefely 2293 nhập ở mục 9.
+- **Thí nghiệm ngắn mạch MBA**: tại trang Phụ lục, thêm dòng cho từng cặp cuộn/nấc/pha; nhập U theo V hoặc kV (có gợi ý 67/220/380 V, chấp nhận giá trị khác), I/P, f, Un/In, nhiệt độ, PI²R và vật liệu dây dẫn nếu cần. App nhận dạng bố cục 1 pha / ba máy 1 pha / MBA 3 pha để ghép số chế tạo và xét lệch pha. Theo QĐ 1387 Điều 26, dòng thử phải ≥25% In; khi thiếu điện áp theo Test Report, dùng 380 V hoặc ≤10 kV rồi nội suy. Bảng tách kết quả Điều 27 QĐ 1387 theo trường hợp với tiêu chí Điều 35 QĐ 1901 đang áp dụng: Uk Test Report, Uk ban đầu, sai lệch pha và Pk đã quy đổi. Kết quả chung chỉ Đạt khi đủ điều kiện và đạt các tiêu chí áp dụng.
 - **SFRA**: bấm *Mở SFRA Analyzer* (https://quantrong77.github.io/-Analysis-SFRA/), phân tích rồi tải báo cáo Word ở mục
   *Báo cáo*; quay lại bấm *Nạp báo cáo SFRA (.docx)…*. App hiện tiêu đề, số phép đo, kết luận của báo cáo; khi xuất,
   nội dung báo cáo (bảng, giản đồ Bode, kết luận) được nối nguyên văn — ảnh và kiểu đoạn được chép sang mã riêng để không

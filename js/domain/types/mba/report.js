@@ -64,6 +64,28 @@
     });
     // Bảng hạng mục ở trang 1: đã thí nghiệm (✓) và đánh giá
     const SUM = schema.summary || { rows: Schema.SUMMARY_ROWS, tick: 3, ev: 4 };
+    const standardCol = SUM.ev + 1, standardHeaderRow = SUM.header ?? 10;
+    const standardRows = [standardHeaderRow, ...Object.values(SUM.rows).flat(), ...(SUM.fra !== undefined ? [SUM.fra] : [])];
+    tpl.ensureSummaryColumn(0, standardCol + 1, 1800, SUM.tick, standardRows);
+    tpl.setCellText(tpl.cell([0], standardHeaderRow, standardCol), 'Tiêu chuẩn\n(QĐ 1901)');
+    const standardFor = (id, row) => {
+      if (id === 'noload') {
+        const reason = String(v['meta.reason'] || '').toLowerCase();
+        const operation = /định kỳ|bất thường|vận hành|sau\s*1\s*năm/.test(reason);
+        const threePhase = schema.layout === Schema.LAYOUT_110 || schema.layout === Schema.LAYOUT_3P;
+        if (!reason && !threePhase) return (QD.REPORT_STANDARDS || {}).noload;
+        if (threePhase) {
+          const p0 = operation ? 'P0 lệch ≤15% giá trị gốc' : 'P0 lệch ≤5% NSX';
+          return `${p0}; I0 TB ≤30% NSX; P0/I0 A-C lệch ≤5%, pha B thường cao 25–50% do lõi (Điều 34).`;
+        }
+        if (operation) return 'P0 lệch ≤15% giá trị khởi đầu (Điều 34).';
+        return 'P0 lệch ≤10% giá trị khởi đầu (MBA 1 pha ≥110 kV, sau lắp/sửa; Điều 34).';
+      }
+      if (id === 'ir' && schema.layout === Schema.LAYOUT_3P && [].concat(SUM.rows.ir || [])[1] === row) {
+        return 'R cách điện lõi/gông >500 MΩ (MBA mới), >100 MΩ (đang vận hành) nếu NSX không quy định (Điều 9, Bảng 1).';
+      }
+      return (QD.REPORT_STANDARDS || {})[id] || 'QĐ 1901 không nêu ngưỡng số chung; đối chiếu NSX/hồ sơ gốc.';
+    };
     schema.sections.forEach(s => {
       const S = res.sec[s.id];
       const tick = state.sum.tick[s.id] ?? !!S.status;
@@ -72,10 +94,14 @@
       [].concat(SUM.rows[s.id] ?? []).forEach(row => {
         tpl.setCellText(tpl.cell([0], row, SUM.tick), tick ? '✓' : '');
         tpl.setCellText(tpl.cell([0], row, SUM.ev), ev === '—' ? '' : (ev || (tick ? S.text : '')));
+        tpl.setCellText(tpl.cell([0], row, standardCol), standardFor(s.id, row));
       });
     });
     // mẫu 3 pha: mục 12 SFRA đánh dấu khi đã nạp báo cáo SFRA làm phụ lục
-    if (SUM.fra !== undefined && state.att && state.att.fra) tpl.setCellText(tpl.cell([0], SUM.fra, SUM.tick), '✓');
+    if (SUM.fra !== undefined) {
+      if (state.att && state.att.fra) tpl.setCellText(tpl.cell([0], SUM.fra, SUM.tick), '✓');
+      tpl.setCellText(tpl.cell([0], SUM.fra, standardCol), standardFor('fra'));
+    }
     // Phụ lục nối cuối biên bản, mỗi phụ lục một section (đánh số trang riêng): chụp sóng OLTC (mỗi pha một phần),
     // báo cáo SFRA (nối nguyên văn file .docx đã nạp)
     const A = assets || {};
@@ -91,6 +117,7 @@
       if (a.kind === 'fra') { tpl.appendSection(Appendix.fraHeader(a.label, state.att.fra)); tpl.importBody(A.fraDoc); }
       if (a.kind === 'oil') { const item = state.att.oil.items.find(x => x.id === a.id); tpl.appendSection(Appendix.oilHeader(a.label, item)); tpl.importBody(A.oilDocs[a.id]); }
       if (a.kind === 'dfr') tpl.appendSection(Dfr.appendix(state, A, out, a.label));
+      if (a.kind === 'shortCircuit') tpl.appendSection(Appendix.shortCircuitAppendix(state, A.shortCircuitRows || [], A.factoryName, out, a.label));
       if (a.kind === 'bct') tpl.appendSection(bctAppendix(state, schema, res, out, a.label));
     });
     return { cells, miss };

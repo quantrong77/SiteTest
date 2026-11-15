@@ -139,6 +139,22 @@
       RATIO_DEV: { sec: 'ratio', label: 'Tỷ số biến — lệch tối đa so với nameplate và giữa các pha', unit: '%', source: 'Điều 9 mục 6; Điều 33' },
       BCT_IR_MIN: { sec: 'bct', label: 'R cách điện TI chân sứ tối thiểu (khi NSX không quy định)', unit: 'MΩ', source: 'Điều 39' },
     },
+    // Tiêu chuẩn rút gọn để in cạnh kết quả tổng hợp trong BBTN; chỗ QĐ dẫn về NSX/baseline được ghi rõ, không tự suy ra ngưỡng.
+    REPORT_STANDARDS: {
+      visual: 'Danh mục kiểm tra hiện trạng; không có ngưỡng số riêng (Điều 9, Bảng 1).',
+      noload: 'P0 sau lắp/sửa: 3 pha ≥110 kV ≤5% NSX; 1 pha ≥110 kV hoặc 3 pha <110 kV ≤10% giá trị gốc; khi vận hành ≤15% giá trị gốc; I0 3 pha ≤30% NSX (Điều 34).',
+      ir: 'R60@20 °C giảm ≤30% so giá trị gốc/lần trước; thiếu giá trị gốc: Bảng 44; PI theo IEEE C57.152 (Điều 9, 29).',
+      vector: 'Cực tính và tổ đấu dây đúng ký hiệu mác máy/tài liệu NSX; không có ngưỡng số (Điều 32).',
+      bushing: 'tgδ theo NSX/B51–53; ΔC1 ≤5% nếu NSX chưa nêu; AC =85% NSX/B50 (≤35 kV, lắp/thay); Δtgδ vận hành ≥70% cảnh báo, >100% không đạt (Điều 38).',
+      wtgd: 'tgδ <1% đạt; nếu cao hơn theo Bảng 6; Δtgδ cùng nhiệt độ ≤30%; ΔC ±5% (Điều 9.5, 30).',
+      dcr: 'ΔR ≤2% so NSX và pha khác tại cùng nấc, cùng nhiệt độ (Điều 9.7, 31).',
+      ratio: 'Δ tỷ số ≤0,5% so mác máy và pha khác tại cùng nấc (Điều 9.6, 33).',
+      oltc: 'Đo toàn bộ hành trình; đánh giá theo đồ thị và hướng dẫn NSX; không có ngưỡng số chung (Điều 37).',
+      moisture: '<2,2% khô; 2,2–3,7% trung bình; 3,7–4,8% ẩm; >4,8% nhiễm ẩm cao (Điều 28).',
+      bct: 'R cách điện ≥200 MΩ khi NSX không quy định; các phép đo khác theo NSX/tiêu chuẩn áp dụng (Điều 39).',
+      fra: 'Đối chiếu đường đáp ứng với baseline/NSX; QĐ không nêu ngưỡng số chung.',
+      shortCircuit: 'Uk sai lệch ≤3% so mác máy; lệch pha ≤3% giá trị trung bình; Pk ≤115% NSX cùng điều kiện (Điều 35).',
+    },
     REF: {
       visual: 'Điều 9 Bảng 1',
       noload: 'Điều 34 mục 3',
@@ -153,6 +169,7 @@
       ratio: 'Điều 9 mục 6; Điều 33 mục 3',
       oltc: 'Điều 37 mục 3',
       moisture: 'Điều 28 mục 3',
+      shortCircuit: 'Điều 35',
       bct: 'Điều 39',
     },
   };

@@ -19,6 +19,8 @@ Mở hướng dẫn này trong app bằng nút ? trên header hoặc phím F1. K
 9. Mở **Phụ lục BBTN** nếu có file OLTC, SFRA, DFR hoặc BBTN dầu cần đính kèm.
 10. Bấm **Xuất BBTN .docx**, **Xuất so sánh .xlsx** và **Lưu .json**.
 
+Khi xuất Word, bảng tổng hợp đầu biên bản có thêm cột **Tiêu chuẩn/giới hạn (QĐ 1901)** theo hạng mục MBA. Nếu quy định dẫn chiếu nhà chế tạo/giá trị gốc hoặc không nêu ngưỡng số chung, cột ghi rõ căn cứ đối chiếu thay vì tự đặt giới hạn.
+
 ## 1. Mở ứng dụng và tạo biên bản
 
 ### Mở ứng dụng
@@ -147,7 +149,8 @@ Hãy dùng đúng nhãn hiển thị trên phiên bản đang chạy.
 
 1. Chọn mục trên thanh điều hướng.
 2. Mỗi mục có các bước **Chuẩn bị**, **Hướng dẫn đo**, **Nhập số liệu**, **Đánh giá**.
-3. Làm theo quy trình và sơ đồ đấu nối của đơn vị trước khi đo.
+3. Các hạng mục MBA đã hỗ trợ có hướng dẫn đo rút gọn theo *Tài liệu đào tạo thí nghiệm MBA (2026)*; mục nguồn hiện trong khung tài liệu tham khảo.
+   Hướng dẫn trong app không thay thế sơ đồ đấu nối, phương án an toàn và quy trình chi tiết được đơn vị phê duyệt; làm theo các tài liệu đó trước khi đo.
 4. Nhập số liệu bằng bàn phím hoặc dán bảng từ Excel vào ô đầu.
 5. Phím Enter đi xuống hàng trong cùng cột theo bảng.
 6. Ô màu xám thường là tự tính.
@@ -401,6 +404,16 @@ Hãy dùng đúng nhãn hiển thị trên phiên bản đang chạy.
 8. Lưu lại hồ sơ sau khi chỉnh kết luận.
 
 ## 17. Phụ lục BBTN
+
+### Thí nghiệm ngắn mạch MBA
+
+1. Mở trang **Phụ lục BBTN** và bấm **Thêm phép đo** cho từng cặp cuộn dây, nấc và pha cần ghi. Bố cục 1 pha dùng số chế tạo máy chính; mẫu 3 máy 1 pha ghép số chế tạo theo pha; mẫu MBA 3 pha dùng một S/N và các phép đo pha A/B/C.
+2. Theo Điều 25–26 QĐ 1387, thực hiện từng cặp cuộn ở tần số định mức, nối ngắn mạch một cuộn và cấp nguồn vào cuộn còn lại; dòng thử không thấp hơn 25% In. Khi hiện trường không có điện áp theo Test Report, dùng 380 V hoặc điện áp không quá 10 kV rồi nội suy.
+3. Nhập U thử tùy ý theo đơn vị V hoặc kV (có gợi ý 67, 220, 380 V), f đo/f định mức, Un/In, I/P đo, nhiệt độ, cặp cuộn, nấc và pha. App đổi U về kV rồi quy đổi Uk = U/Un × In/I và Pk theo P × (In/I)².
+4. Nếu hiệu chỉnh Pk theo nhiệt độ, nhập PI²R, chọn vật liệu dây dẫn và nhiệt độ Pk trong Test Report. Công thức: Pk₂ = Pcu₁ × (K+t₂)/(K+t₁) + Pstr₁ × (K+t₁)/(K+t₂), Pstr₁ = Pk₁−Pcu₁, K = 235 cho đồng hoặc 225 cho nhôm. Chỉ hiệu chỉnh khi đủ thành phần tổn hao và vật liệu.
+5. App đọc Pk/Uk từ sheet tổn hao/trở kháng của Test Report đang dùng, ghép theo cặp cuộn, nấc và số chế tạo. Có thể chọn trường hợp mới, sau đại tu hoặc đang vận hành; với hai trường hợp sau, nhập thêm Uk ban đầu. Với MBA mới, nhập Uk nhãn máy nếu Test Report không có trị số này để đánh giá Điều 27.
+6. Bảng hiển thị riêng Điều 27 QĐ 1387 (MBA mới: sai số Uk ≤5% tại nấc chính; sau đại tu/đang vận hành: ≤3% so với Uk ban đầu và giữa các pha; Pk ≤115% số liệu nhà chế tạo) và Điều 35 QĐ 1901 đang dùng (Uk ≤3%, Pk ≤115%, lệch pha MBA 3 pha ≤3%). Kết quả chung Đạt khi tất cả tiêu chí áp dụng đạt.
+7. Tần số không khớp, dòng thử dưới 25% In, thiếu Test Report/Uk ban đầu hoặc thiếu dữ liệu quy đổi thì hiện **Cần xem xét**. Khi xuất BBTN, bảng số liệu, so sánh Test Report và đánh giá được nối thành phụ lục riêng.
 
 ### Dầu MBA (DGA và lý hóa dầu)
 
