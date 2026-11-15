@@ -3,6 +3,40 @@
 (function () {
   'use strict';
   const SFRA_URL = 'https://quantrong77.github.io/-Analysis-SFRA/';
+  const DGA_URL = 'https://quantrong77.github.io/dga-webapp/';
+
+  function dgaLink(serial) {
+    const value = String(serial || '').trim();
+    return value ? `${DGA_URL}?serial=${encodeURIComponent(value)}` : DGA_URL;
+  }
+
+  function oilSummary(outline) {
+    const lines = (outline || []).map(x => String(x.text || '').trim());
+    const all = lines.join('\n');
+    const title = lines.find(x => /BIÊN BẢN|PHÂN TÍCH KHÍ HÒA TAN/i.test(x)) || '';
+    const kind = /PHÂN TÍCH KHÍ HÒA TAN/i.test(all) ? 'dga'
+      : /BIÊN BẢN THÍ NGHIỆM DẦU CÁCH ĐIỆN/i.test(all) ? 'oil' : null;
+    const after = re => { const line = lines.find(x => re.test(x)); return line ? line.split(':').slice(1).join(':').trim() : ''; };
+    const ci = lines.findIndex(x => /KẾT LUẬN\s*\(Conclusion\)/i.test(x));
+    const conclusion = [];
+    if (ci >= 0) {
+      const first = lines[ci].split(':').slice(1).join(':').trim();
+      if (first) conclusion.push(first);
+      for (let i = ci + 1; i < lines.length; i++) {
+        if (/TUQ\.|KẾT QUẢ THÍ NGHIỆM|,\s*ngày\s+.+tháng\s+.+năm/i.test(lines[i])) break;
+        if (lines[i]) conclusion.push(lines[i]);
+      }
+    }
+    return { kind, title, serial: after(/Số chế tạo\s*\(Serial No\)/i),
+      sampleDate: after(/Ngày lấy mẫu\s*\((?:Date of sampling|Date)\)/i),
+      project: after(/Tên dự án\/tên trạm\s*\(Project\)/i), conclusion };
+  }
+
+  function serialMatch(fileSerial, serials) {
+    const norm = x => String(x || '').toLowerCase().replace(/\s+/g, '');
+    const target = norm(fileSerial);
+    return !!target && (serials || []).some(x => norm(x) === target);
+  }
 
   // outline: [{ style, text }] các đoạn văn của file → tóm tắt (tiêu đề, số phép đo, kết luận)
   function fraSummary(outline) {
@@ -27,6 +61,8 @@
     if (att.oltc && Object.keys(att.oltc).length) out.push({ kind: 'oltc' });
     if (att.fra && has.fra !== false) out.push({ kind: 'fra' });
     if (att.dfr && Array.isArray(att.dfr.items) && att.dfr.items.some(x => x.use)) out.push({ kind: 'dfr' });
+    const oilHas = id => has.oil === undefined || (typeof has.oil.has === 'function' ? has.oil.has(id) : !!has.oil[id]);
+    (att.oil && att.oil.items || []).filter(x => x.use !== false && oilHas(x.id)).forEach(x => out.push({ kind: 'oil', id: x.id }));
     // mẫu chung 3 pha: biến dòng chân sứ không có bảng trong thân BBTN → phụ lục dựng từ số liệu mục BCT
     if (has.bct) out.push({ kind: 'bct' });
     out.forEach((a, i) => { a.label = out.length > 1 ? `PHỤ LỤC ${i + 1}` : 'PHỤ LỤC'; });
@@ -43,5 +79,15 @@
     ];
   }
 
-  window.Appendix = { SFRA_URL, fraSummary, list, fraHeader };
+  function oilHeader(label, item) {
+    const dga = item.kind === 'dga';
+    return [
+      { type: 'page' },
+      { type: 'p', text: label, bold: true, size: 14, align: 'center' },
+      { type: 'p', text: dga ? 'KẾT QUẢ THÍ NGHIỆM PHÂN TÍCH KHÍ HÒA TAN TRONG DẦU (DGA)' : 'KẾT QUẢ THÍ NGHIỆM DẦU CÁCH ĐIỆN', bold: true, size: 13, align: 'center' },
+      { type: 'p', text: `Biên bản xuất từ app DGA: ${item.name}.`, italic: true, size: 10, align: 'center', after: 240 },
+    ];
+  }
+
+  window.Appendix = { SFRA_URL, DGA_URL, dgaLink, oilSummary, serialMatch, fraSummary, list, fraHeader, oilHeader };
 })();

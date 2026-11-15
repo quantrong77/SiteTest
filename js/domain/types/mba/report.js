@@ -86,9 +86,10 @@
       if (bctToBody(tpl, state, schema, res, out)) bctAppx = false;
       else miss.push('Mục 13 – biến dòng chân sứ (không thấy đề mục trong template, đã xuất thành phụ lục)');
     }
-    if (tpl.appendSection) Appendix.list(state, { fra: !!A.fraDoc, bct: bctAppx }).forEach(a => {
+    if (tpl.appendSection) Appendix.list(state, { fra: !!A.fraDoc, oil: Object.fromEntries(Object.keys(A.oilDocs || {}).map(id => [id, true])), bct: bctAppx }).forEach(a => {
       if (a.kind === 'oltc') tpl.appendSection(oltcAppendix(state, state.att.oltc, A, out, a.label));
       if (a.kind === 'fra') { tpl.appendSection(Appendix.fraHeader(a.label, state.att.fra)); tpl.importBody(A.fraDoc); }
+      if (a.kind === 'oil') { const item = state.att.oil.items.find(x => x.id === a.id); tpl.appendSection(Appendix.oilHeader(a.label, item)); tpl.importBody(A.oilDocs[a.id]); }
       if (a.kind === 'dfr') tpl.appendSection(Dfr.appendix(state, A, out, a.label));
       if (a.kind === 'bct') tpl.appendSection(bctAppendix(state, schema, res, out, a.label));
     });

@@ -320,6 +320,15 @@
       this.appendBlocks(blocks[0] && blocks[0].type === 'page' ? blocks.slice(1) : blocks);
     }
 
+    // Mọi đoạn văn theo thứ tự trong văn bản, kể cả trong ô bảng: { style, text } (vd BBTN dầu của app DGA đặt
+    // tiêu đề, số chế tạo, kết luận trong bảng)
+    lines() {
+      return desc(this.body, 'p').map(p => {
+        const pPr = kids(p, 'pPr')[0], ps = pPr && kids(pPr, 'pStyle')[0];
+        return { style: ps ? wAttr(ps, 'val') : '', text: this.paraText(p).trim() };
+      }).filter(x => x.text);
+    }
+
     // Các đoạn văn cấp thân văn bản: { style, text } (để tóm tắt file trước khi nối)
     outline() {
       return this.children.filter(n => n.localName === 'p').map(p => {
