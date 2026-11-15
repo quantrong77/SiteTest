@@ -215,11 +215,9 @@
   }
 
   function generalConfig(A) {
-    const { cfgField, FX } = A, D = FX && FX.data;
-    const serialOpts = D ? D.order.map(s => [s, `${s} — pha ${D.units[s].phase}`]) : [];
-    let h = '<h3>Ánh xạ cột pha ↔ số chế tạo (để so sánh từng cột với đúng máy)</h3><div class="hint-text">Template có cột A/B/C. Với tổ 3 máy 1 pha, mỗi cột ứng với một máy; nếu chỉ thí nghiệm một máy, đặt cả ba cột về cùng số chế tạo hoặc chỉ nhập cột của máy đó. Cột N (trung tính) dùng số chế tạo máy chính.</div><div class="fields">';
-    ['A', 'B', 'C'].forEach(p => { h += cfgField(`ps.${p}`, `Cột pha ${p} (a)`, serialOpts.length ? { options: [['', '—']].concat(serialOpts) } : {}); });
-    h += '</div><h3>Thông số tính toán & quy ước so sánh</h3><div class="fields">';
+    const { cfgField } = A;
+    let h = '';
+    h += '<h3>Thông số tính toán & quy ước so sánh</h3><div class="fields">';
     h += cfgField('taps', 'Nhãn 19 nấc (thứ tự hàng 1..19 của template)', { wide: true, note: 'Ngăn cách bằng dấu phẩy. Nhãn 9a/9b/9c được so với nấc 9A của xuất xưởng.' });
     h += cfgField('hvMeas', 'Phép đo R một chiều cuộn cao áp (mục 7.1)', { options: Schema.HV_MEAS });
     h += cfgField('lvMode', 'Cuộn hạ áp khi đo', { options: [['unit', 'Từng máy 1 pha (chưa đấu tam giác)'], ['delta', 'Tổ 3 pha đã đấu tam giác']] });
@@ -238,6 +236,38 @@
     h += cfgField('bctErrLimit', 'Giới hạn sai số tỷ số TI chân sứ (%)', { num: true, note: 'QĐ 1901 không nêu số — nhập theo cấp chính xác nếu muốn tự đánh giá Đạt/Không đạt' });
     h += cfgField('decSep', 'Dấu thập phân trong BBTN xuất ra', { options: [[',', 'Dấu phẩy (12,5)'], ['.', 'Dấu chấm (12.5)']] });
     return h + '</div>';
+  }
+
+  function generalTopology(A) {
+    return '<h3>Cấu hình MBA</h3><div class="fields">'
+      + A.cfgField('topology', 'Cấu hình thiết bị', { options: [
+        ['bank1p', 'Tổ 3 MBA một pha — 3 số chế tạo'],
+        ['threePhase', 'MBA ba pha — 1 số chế tạo (110/220 kV)'],
+        ['single1p', 'MBA một pha độc lập — 1 số chế tạo'],
+      ] })
+      + '<div class="field wide"><span class="note">Cấu hình quyết định trường số chế tạo và cách xuất BBTN; điện áp định mức không tự đổi cấu hình.</span></div></div>';
+  }
+
+  function unitSerialFields(A) {
+    if (A.state.cfg.topology !== 'bank1p') return '';
+    const { cfgField } = A;
+    return '<h3>Số chế tạo từng máy trong tổ</h3><div class="fields">'
+      + ['B', 'C'].map(ph => cfgField(`ps.${ph}`, `Số chế tạo máy pha ${ph}`, { list: true })).join('')
+      + '<div class="field wide"><span class="note">Số chế tạo pha A nhập ở trường thông tin thiết bị phía trên; nhập B/C theo nameplate. Có thể gõ tay khi chưa nạp Test Report.</span></div></div>';
+  }
+
+  function reportScopeFields(A) {
+    if (A.state.cfg.topology !== 'bank1p') return '';
+    const selected = new Set(A.state.cfg.reportPhases || ['A', 'B', 'C']);
+    let h = '<h3>Phạm vi xuất BBTN</h3><div class="fields">'
+      + A.cfgField('reportScope', 'Cách lập biên bản', { options: [['combined', 'Một BBTN chung cho cả tổ A+B+C'], ['separate', 'Tách thành BBTN riêng theo pha']] })
+      + '</div>';
+    if (A.state.cfg.reportScope === 'separate') {
+      h += '<div class="phase-export"><span class="phase-export-title">Chọn pha cần xuất</span><div class="phase-export-options">'
+        + ['A', 'B', 'C'].map(ph => `<label><input type="checkbox" data-export-phase="${ph}" ${selected.has(ph) ? 'checked' : ''}> Pha ${ph}<span class="phase-export-sn">${A.esc(A.state.cfg.ps[ph] || 'chưa có S/N')}</span></label>`).join('')
+        + '</div><span class="note">Một pha tải DOCX riêng; nhiều pha tải thành một ZIP chứa từng BBTN.</span></div>';
+    }
+    return h;
   }
 
   function factoryUnits(A) {
@@ -340,5 +370,5 @@
   }
 
   window.TypeUI = window.TypeUI || {};
-  window.TypeUI.MBA = { intro, headTools, sectionTools, sectionFooter, reportAssets, field, rerenderOn, gridTools, rowLabel, generalFiles, generalConfig, factoryUnits, actions, init };
+  window.TypeUI.MBA = { intro, headTools, sectionTools, sectionFooter, reportAssets, field, rerenderOn, gridTools, rowLabel, generalFiles, generalConfig, generalTopology, unitSerialFields, reportScopeFields, factoryUnits, actions, init };
 })();

@@ -63,15 +63,14 @@ Hãy dùng đúng nhãn hiển thị trên phiên bản đang chạy.
 
 ### Chọn mẫu và template
 
-1. Trong lựa chọn template, chọn mẫu theo pha, **3P** hoặc **110** theo hồ sơ.
-2. Mẫu theo pha (**A**, **B**, **C**): mỗi BBTN cho một máy 1 pha của tổ MBA 500 kV.
-3. Mẫu **3P** gộp ba MBA một pha A, B, C vào một biên bản.
-4. Mẫu **110** là MBA ba pha 110–220 kV; cùng biểu mẫu và số mục với mẫu theo pha, nấc đánh số 1…19.
-5. Số mục khác nhau giữa các mẫu: xem bảng dưới. Các phần 4–14 của hướng dẫn này theo cách đánh số mẫu theo pha / 110.
-6. Nếu cần template riêng, dùng nút **Chọn file template…** hoặc nhãn tương đương đang hiện.
-7. Chọn file DOCX bản trống đúng loại và đúng phiên bản biểu mẫu.
-8. Đọc cảnh báo nếu số bảng không khớp template chuẩn.
-9. Xuất thử và kiểm tra các trường trước khi dùng cho hồ sơ chính thức.
+1. Chọn **Cấu hình thiết bị** trước: tổ 3 MBA một pha, MBA ba pha hoặc MBA một pha độc lập. Điện áp định mức không tự chọn topology.
+2. Với tổ 3 MBA một pha (thường là MBA 500 kV), nhập S/N riêng cho pha A, B, C. Các S/N được giữ lại khi đổi file Test Report.
+3. Chọn **Một BBTN chung cho cả tổ A+B+C** hoặc **Tách thành BBTN riêng theo pha**. Khi tách, chọn pha cần xuất; một pha tải DOCX, nhiều pha tải ZIP chứa từng DOCX.
+4. Mẫu theo pha (**A**, **B**, **C**) là mẫu riêng cho từng máy một pha. Mẫu chung **3P** gộp ba MBA một pha A, B, C vào một biên bản.
+5. Với MBA ba pha 110–220 kV, chọn topology MBA ba pha và nhập một S/N; ứng dụng chỉ xuất một BBTN. Với MBA một pha độc lập, chọn topology tương ứng và nhập một S/N.
+6. Số mục khác nhau giữa các mẫu: xem bảng dưới. Các phần 4–14 của hướng dẫn này theo cách đánh số mẫu theo pha / 110.
+7. Nếu cần template riêng, dùng nút **Chọn file template…** và chọn DOCX bản trống đúng loại, đúng layout.
+8. Đọc cảnh báo nếu số bảng không khớp template chuẩn; mở DOCX vừa tải để kiểm tra bảng, số chế tạo và phụ lục.
 
 | Hạng mục | Mẫu theo pha, mẫu 110 | Mẫu chung 3P |
 |---|---:|---:|
@@ -381,7 +380,7 @@ Hãy dùng đúng nhãn hiển thị trên phiên bản đang chạy.
 
 ## 15. Khác biệt nhập liệu mẫu chung 3P
 
-1. Chọn **3P** trong cấu hình template.
+1. Chọn topology **Tổ 3 MBA một pha** và mẫu **3P**.
 2. Nhập số chế tạo của ba máy theo pha A, B, C.
 3. Nhập không tải, cách điện, tgδ cuộn dây và độ ẩm theo từng máy.
 4. Mỗi máy có nhiệt độ đo riêng tại các mục hỗ trợ.
@@ -390,7 +389,7 @@ Hãy dùng đúng nhãn hiển thị trên phiên bản đang chạy.
 7. OLTC được nhập theo máy/pha ở các trường có mặt.
 8. BCT hiển thị số mục 13.
 9. Khi xuất, BCT trở thành phụ lục theo cấu hình report.
-10. Kiểm tra số chế tạo máy chính và cột A/B/C trước khi lưu CSDL.
+10. Trước khi xuất BBTN chung, kiểm tra đủ ba S/N; khi xuất riêng, chọn pha và kiểm tra S/N của từng file.
 
 ## 16. Tổng hợp và kết luận
 

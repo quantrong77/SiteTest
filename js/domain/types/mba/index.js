@@ -6,7 +6,8 @@
 
   function defaultCfg() {
     return {
-      template: 'A', ps: { A: '', B: '', C: '' }, taps: Schema.DEFAULT_TAPS.slice(), hvMeas: 'SER+COM', lvMode: 'unit',
+      template: 'A', topology: 'single1p', reportScope: 'combined', reportPhases: ['A', 'B', 'C'],
+      ps: { A: '', B: '', C: '' }, taps: Schema.DEFAULT_TAPS.slice(), hvMeas: 'SER+COM', lvMode: 'unit',
       iLV: '', sLV: '', sR: '', i0Ref: '', bC1Dev: '', bTgdMax: '', bctCores: { hv: 4, mv: 4, lv: 4 },
       ctNo: { hv: '1,2,3,4,5,6', mv: '4,5,6,7,8', n: '8,9,10', lv: '11,12,13,14' }, bctErrLimit: '', decSep: ',',
       hdr: {}, wtgdLabels: {}, wtgdRows: [], oltcCharts: 'all',
@@ -19,6 +20,12 @@
   function normalizeCfg(saved) {
     const d = defaultCfg();
     const cfg = Object.assign(d, saved);
+    const layout = Schema.layoutOf(saved || d);
+    cfg.topology = layout === Schema.LAYOUT_3P ? 'bank1p' : layout === Schema.LAYOUT_110 ? 'threePhase' : 'single1p';
+    cfg.reportScope = ['combined', 'separate'].includes(cfg.reportScope) ? cfg.reportScope : 'combined';
+    if (cfg.topology !== 'bank1p') cfg.reportScope = 'combined';
+    cfg.reportPhases = Array.isArray(cfg.reportPhases)
+      ? ['A', 'B', 'C'].filter(ph => cfg.reportPhases.includes(ph)) : ['A', 'B', 'C'];
     cfg.ps = Object.assign(defaultCfg().ps, saved.ps || {});
     cfg.ctNo = Object.assign(defaultCfg().ctNo, saved.ctNo || {});
     cfg.bctCores = Object.assign(defaultCfg().bctCores, saved.bctCores || {});
@@ -158,7 +165,7 @@
     autoConclusion: (res, schema, state) => Evaluate.autoConclusion(res, schema, state),
     factory: Factory,
     toRows: MbaRows,
-    report: { fill: MbaReport.fill, filePrefix: 'MBA', minTables: MbaReport.minTables, stdTables: MbaReport.stdTables, defaultReason: 'Sau lắp đặt' },
+    report: { fill: MbaReport.fill, phaseState: MbaReport.phaseState, filePrefix: 'MBA', minTables: MbaReport.minTables, stdTables: MbaReport.stdTables, defaultReason: 'Sau lắp đặt' },
     references,
     // Số liệu đính kèm biên bản (state.att) thuộc hạng mục nào — để xóa / hoàn tác theo hạng mục
     attSections: { oltc: 'oltc', oscAuto: 'oltc' },

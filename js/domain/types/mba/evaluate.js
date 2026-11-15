@@ -16,7 +16,7 @@
     const isNew = /lắp đặt|sửa chữa/i.test(reason);
     const serialOf = ph => {
       const p = String(ph || '').toUpperCase();
-      return p === 'N' ? main : (cfg.ps[p] || main);
+      return p === 'N' || schema.layout === Schema.LAYOUT_110 || cfg.topology !== 'bank1p' ? main : (cfg.ps[p] || main);
     };
     const F = FX; // API xuất xưởng (có thể null)
     const add = f => findings.push(Object.assign({ status: 'info' }, f));

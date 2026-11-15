@@ -85,6 +85,7 @@
       cur.rows.forEach(r => {
         const v = String(r.value || '').trim();
         if (r.use && v) {
+          if (st.cfg.topology === 'bank1p' && r.k === 'meta.serial') st.cfg.ps.A = v;
           if (r.k.startsWith('cfg.')) st.cfg[r.k.slice(4)] = v; else st.v[r.k] = v;
           filled.push(r.label);
         }

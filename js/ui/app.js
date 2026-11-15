@@ -111,6 +111,10 @@
       state.v = {};
       await readTemplateDefaults();
     }
+    if (state.cfg.topology === 'bank1p') {
+      state.cfg.ps.A = state.cfg.ps.A || state.v['meta.serial'] || '';
+      state.v['meta.serial'] = state.cfg.ps.A;
+    }
     if (!state.v['meta.reason']) state.v['meta.reason'] = T().report.defaultReason || '';
   }
 
@@ -327,10 +331,18 @@
   // ---------------------------------------------------------------- pages
   function renderGeneral() {
     const D = FX && FX.data, U = TU();
+    const topology = state.cfg.topology || 'single1p';
+    const topologyOfTemplate = key => key === '3P' ? 'bank1p' : key === '110' ? 'threePhase' : 'single1p';
+    const templates = Object.keys(EMB.templates).filter(k => topologyOfTemplate(k) === topology);
+    const custom = lsGet(LS_TPL) ? JSON.parse(lsGet(LS_TPL)) : null;
+    if (custom && topologyOfTemplate(state.cfg.layout) === topology) templates.push('custom');
+    const templateOptions = templates.map(k => [k, k === 'custom' ? `Tùy chỉnh: ${custom.name}` : EMB.templates[k].name]);
     let h = headHTML('0', 'Thông tin chung & cấu hình', 'General & settings');
-    h += `<h3>Thông tin thiết bị (điền vào đầu biên bản)</h3>${U.headTools ? U.headTools(App) : ''}${flagBannerHTML()}<div class="fields">${schema.head.map(f => fieldHTML(f)).join('')}</div>`;
+    h += U.generalTopology ? U.generalTopology(App) : '';
+    h += `<h3>Thông tin thiết bị (điền vào đầu biên bản)</h3>${U.headTools ? U.headTools(App) : ''}${flagBannerHTML()}<div class="fields">${schema.head.map(f => fieldHTML(topology === 'bank1p' && f.k === 'meta.serial' ? Object.assign({}, f, { label: 'Số chế tạo máy pha A' }) : f)).join('')}</div>`;
+    h += U.unitSerialFields ? U.unitSerialFields(App) : '';
     h += '<h3>Template & số liệu xuất xưởng</h3><div class="fields">';
-    h += cfgField('template', 'Template BBTN dùng để xuất', { options: (Object.keys(EMB.templates).length ? Object.keys(EMB.templates).map(k => [k, EMB.templates[k].name]) : [['A', '(chưa có — nạp template .docx)']]).concat(lsGet(LS_TPL) ? [['custom', 'Tùy chỉnh: ' + JSON.parse(lsGet(LS_TPL)).name]] : []) });
+    h += cfgField('template', 'Mẫu BBTN theo cấu hình', { options: templateOptions.length ? templateOptions : [[state.cfg.template, topology === 'bank1p' ? 'Mẫu chung 3 MBA một pha' : topology === 'threePhase' ? 'Mẫu MBA ba pha' : 'Mẫu MBA một pha']] });
     h += `<div class="field"><label>Nạp template khác (.docx cùng cấu trúc)</label><button class="btn" data-act="loadDocx">Chọn file template…</button></div>`;
     // nhiều file (vd AT1, AT2): chọn file đang dùng; app tự chọn theo số chế tạo máy chính khi nhập hoặc mở biên bản
     h += FXS.length > 1
@@ -338,6 +350,7 @@
       : `<div class="field"><label>File số liệu xuất xưởng</label><div class="calcval file" title="${esc(D ? D.fileName : '')}">${esc(D ? D.fileName : 'chưa nạp')}</div></div>`;
     h += `<div class="field"><label>Thêm file xuất xưởng (.xlsx, giữ cả các file đã nạp)</label><button class="btn" data-act="loadXlsx">Thêm file .xlsx…</button></div>`;
     h += (U.generalFiles ? U.generalFiles(App) : '') + '</div>';
+    h += U.reportScopeFields ? U.reportScopeFields(App) : '';
     if (D && D.warnings.length) h += `<div class="callout warn"><b>${esc(D.fileName)}:</b><br>${D.warnings.map(esc).join('<br>')}</div>`;
     h += U.generalConfig ? U.generalConfig(App) : '';
     h += U.factoryUnits ? U.factoryUnits(App) : '';
@@ -529,7 +542,15 @@
         updateEditTools();
       }
       if (TU().rerenderOn && TU().rerenderOn.test(el.dataset.k)) { recompute(); renderMain(); persist(); return; }
-      if (el.dataset.k === 'meta.serial' && e.type === 'change') onSerialChange();
+      if (el.dataset.k === 'meta.serial' && e.type === 'change') {
+        if (state.cfg.topology === 'bank1p') {
+          state.cfg.ps.A = el.value.trim();
+          onSerialChange();
+          schema = T().buildSchema(state.cfg);
+          recompute(); renderMain(); persist(); return;
+        }
+        onSerialChange();
+      }
       scheduleEval();
     } else if ((el.dataset.hk || el.dataset.lbl) && e.type === 'change') {
       // đề mục cột / nhãn hàng sửa được (vd mục 6, 8 MBA): lưu vào cấu hình, dựng lại schema mà không vẽ lại trang
@@ -541,14 +562,47 @@
       if (!t) el.value = el.dataset.hk ? el.placeholder : '';
       schema = T().buildSchema(state.cfg); recompute(); updateComputed(); persist();
     } else if (el.dataset.cfg && e.type === 'change') {
+      const before = schema.layout;
+      const previousTopology = el.dataset.cfg === 'topology' ? state.cfg.topology : null;
       setCfg(el.dataset.cfg, el.value);
       clearFlag('cfg.' + el.dataset.cfg, el);
-      if (/^(taps|bctCores|hvMeas|template)/.test(el.dataset.cfg)) {
+      if (/^ps\.[BC]$/.test(el.dataset.cfg) && state.cfg.topology === 'bank1p') {
+        pickFactory(true);
+      }
+      if (el.dataset.cfg === 'topology') {
+        const topology = el.value;
+        const standard = topology === 'bank1p' ? '3P' : topology === 'threePhase' ? '110' : 'A';
+        const requiredLayout = topology === 'bank1p' ? '3P' : topology === 'threePhase' ? '110' : '1P';
+        if (state.cfg.template === 'custom' && state.cfg.layout !== requiredLayout) {
+          state.cfg.topology = previousTopology;
+          toast(`Template tùy chỉnh hiện tại có bố cục ${state.cfg.layout}; nạp template phù hợp trước khi đổi cấu hình.`, true);
+        } else {
+          if (state.cfg.template !== 'custom') {
+            const currentIsSingle = ['A', 'B', 'C'].includes(state.cfg.template);
+            state.cfg.template = topology === 'single1p' && currentIsSingle ? state.cfg.template : standard;
+          }
+          if (topology !== 'bank1p') state.cfg.reportScope = 'combined';
+          applyFactoryDefaults(state.cfg);
+          if (topology === 'bank1p') {
+            state.cfg.ps.A = state.cfg.ps.A || state.v['meta.serial'] || '';
+            state.v['meta.serial'] = state.cfg.ps.A;
+          }
+        }
+      } else if (el.dataset.cfg === 'template') {
+        const layout = Schema.layoutOf(state.cfg);
+        state.cfg.topology = layout === Schema.LAYOUT_3P ? 'bank1p' : layout === Schema.LAYOUT_110 ? 'threePhase' : 'single1p';
+        if (state.cfg.topology !== 'bank1p') state.cfg.reportScope = 'combined';
+        applyFactoryDefaults(state.cfg);
+        if (state.cfg.topology === 'bank1p') {
+          state.cfg.ps.A = state.cfg.ps.A || state.v['meta.serial'] || '';
+          state.v['meta.serial'] = state.cfg.ps.A;
+        }
+      }
+      if (/^(taps|bctCores|hvMeas|template|topology|reportScope|ps\.)/.test(el.dataset.cfg)) {
         if (el.dataset.cfg === 'taps' && state.cfg.taps.length !== 19) toast(`Cần đúng 19 nhãn nấc (đang có ${state.cfg.taps.length}) — tạm dùng mặc định`, true);
-        const before = schema.layout;
         schema = T().buildSchema(state.cfg);
         // đổi giữa mẫu theo pha và mẫu chung 3 pha: biểu mẫu đổi bố cục, lấy giá trị mặc định của template mới cho ô còn trống
-        if (el.dataset.cfg === 'template' && schema.layout !== before) {
+        if (['template', 'topology'].includes(el.dataset.cfg) && schema.layout !== before) {
           await fillTemplateDefaults();
           renderNav();
           toast(schema.layout === '3P' ? 'Đã chuyển sang mẫu chung 3 pha: không tải, cách điện, tgδ cuộn dây, ẩm nhập theo từng máy A, B, C'
@@ -556,7 +610,12 @@
         }
       }
       recompute();
-      if (/^(template|bctCores|taps|oltcCharts|hvMeas)/.test(el.dataset.cfg)) renderMain(); else updateComputed();
+      if (/^(template|topology|reportScope|ps\.|bctCores|taps|oltcCharts|hvMeas)/.test(el.dataset.cfg)) renderMain(); else updateComputed();
+      persist();
+    } else if (el.dataset.exportPhase && e.type === 'change') {
+      const phase = el.dataset.exportPhase, selected = new Set(state.cfg.reportPhases || []);
+      if (el.checked) selected.add(phase); else selected.delete(phase);
+      state.cfg.reportPhases = ['A', 'B', 'C'].filter(ph => selected.has(ph));
       persist();
     } else if (el.dataset.fxsel !== undefined && e.type === 'change') {
       const entry = FXS[+el.value];
@@ -704,6 +763,10 @@
     if (!EquipmentTypes.has(type)) throw new Error(`Biên bản loại “${type}” chưa được hỗ trợ trong phiên bản này`);
     const cfg = EquipmentTypes.get(type).normalizeCfg(st.cfg);
     state = { type, v: st.v, cfg, sum: st.sum || { tick: {}, ev: {} }, att: st.att || {}, created: st.created, db: st.db || null };
+    if (cfg.topology === 'bank1p') {
+      cfg.ps.A = cfg.ps.A || state.v['meta.serial'] || '';
+      if (cfg.ps.A) state.v['meta.serial'] = cfg.ps.A;
+    }
     if (st.imported) state.imported = st.imported; // BBTN cũ nhập từ .docx: lưu CSDL với nguồn 'manual'
     EditHistory.reset();
     state.sum.tick = state.sum.tick || {}; state.sum.ev = state.sum.ev || {};
@@ -744,8 +807,6 @@
   function setFactory(entry, quiet) {
     FX = entry.api;
     if (state) {
-      const ps = state.cfg.ps || {};
-      Object.keys(ps).forEach(k => { if (ps[k] && !FX.has(ps[k])) ps[k] = ''; });
       applyFactoryDefaults(state.cfg);
       schema = T().buildSchema(state.cfg);
     }
@@ -754,7 +815,8 @@
   // Chọn file chứa số chế tạo máy chính (rồi đến các cột pha) của biên bản đang mở
   function pickFactory(quiet) {
     if (!state || FXS.length < 2) return false;
-    const sns = [state.v['meta.serial']].concat(Object.values(state.cfg.ps || {})).map(x => String(x || '').trim()).filter(Boolean);
+    const sns = [state.v['meta.serial']].concat(state.cfg.topology === 'bank1p' ? Object.values(state.cfg.ps || {}) : [])
+      .map(x => String(x || '').trim()).filter(Boolean);
     const hit = sns.map(sn => FXS.find(x => x.api.has(sn))).find(Boolean);
     if (!hit || hit.api === FX) return false;
     setFactory(hit, quiet);
@@ -765,6 +827,62 @@
   // ---------------------------------------------------------------- export
   async function exportDocx() {
     recompute();
+    if (state.cfg.topology === 'bank1p' && schema.layout !== Schema.LAYOUT_3P) {
+      toast('Cấu hình tổ 3 MBA một pha cần mẫu chung 3P trước khi xuất BBTN.', true); return;
+    }
+    if (state.cfg.topology === 'bank1p' && state.cfg.reportScope === 'separate') {
+      const phases = ['A', 'B', 'C'].filter(ph => (state.cfg.reportPhases || []).includes(ph));
+      if (!phases.length) { toast('Chọn ít nhất một pha cần xuất BBTN.', true); return; }
+      const missing = phases.filter(ph => !String(state.cfg.ps[ph] || '').trim());
+      if (missing.length) { toast(`Thiếu số chế tạo pha ${missing.join(', ')}.`, true); return; }
+      const R = T().report, docs = [];
+      for (const phase of phases) {
+        const template = EMB.templates[phase];
+        if (!template || !template.b64) { toast(`Không tìm thấy template BBTN pha ${phase}.`, true); return; }
+        const cfg = JSON.parse(JSON.stringify(state.cfg));
+        cfg.template = phase; cfg.topology = 'bank1p'; cfg.reportScope = 'combined';
+        const phaseSchema = T().buildSchema(cfg);
+        const phaseState = R.phaseState(state, schema, phaseSchema, phase);
+        const serial = phaseState.v['meta.serial'];
+        const phaseFX = (FXS.find(entry => entry.api.has(serial)) || {}).api || FX;
+        const phaseRes = T().evaluate(phaseState, phaseFX, phaseSchema);
+        const phaseApp = Object.assign({}, App, { state: phaseState, res: phaseRes, schema: phaseSchema, FX: phaseFX });
+        const assets = Object.assign(
+          TU().reportAssets ? await TU().reportAssets(phaseApp) : {},
+          await AppendixUI.reportAssets(phaseApp),
+        );
+        const tpl = await DocxTemplate.load(template.b64);
+        if (tpl.tables.length < (phaseSchema.tables || R.stdTables) - 1) toast(`Cảnh báo: template pha ${phase} có ${tpl.tables.length} bảng — kiểm tra vị trí điền.`, true);
+        const { cells, miss } = R.fill(tpl, { state: phaseState, res: phaseRes, schema: phaseSchema, assets });
+        const blob = await tpl.toBlob();
+        const name = `BBTN_${R.filePrefix}_${safeName(serial)}_${safeName(phaseState.v['meta.date'])}_Pha_${phase}.docx`;
+        docs.push({ blob, name, serial, cells, miss });
+      }
+      if (docs.length === 1) download(docs[0].blob, docs[0].name);
+      else {
+        const zip = new JSZip();
+        docs.forEach(doc => zip.file(doc.name, doc.blob));
+        const zipName = `BBTN_${R.filePrefix}_Tach_pha_${safeName(state.v['meta.date'])}.zip`;
+        download(await zip.generateAsync({ type: 'blob' }), zipName);
+      }
+      docs.forEach(doc => {
+        toast(`Đã xuất ${doc.name} (${doc.cells} ô số liệu)${doc.miss.length ? ` — không định vị được: ${doc.miss.slice(0, 4).join(', ')}${doc.miss.length > 4 ? '…' : ''}` : ''}`, doc.miss.length > 0);
+      });
+      if (state.db && state.db.sessionId && DB.user && DB.canEdit()) {
+        for (const doc of docs) {
+          try {
+            await DB.uploadDoc(state.db.sessionId, state.db.equipmentId || null, 'BBTN_DOCX', `${doc.serial}/${state.db.sessionId}/${doc.name}`, doc.name, doc.blob);
+          } catch (err) { toast(`Đã tải ${doc.name} nhưng chưa lưu được vào CSDL: ${err.message}`, true); }
+        }
+      }
+      return;
+    }
+    if (state.cfg.topology === 'bank1p' && ['A', 'B', 'C'].some(ph => !String(state.cfg.ps[ph] || '').trim())) {
+      toast('BBTN chung cho tổ 3 MBA cần nhập đủ số chế tạo pha A, B và C.', true); return;
+    }
+    if (state.cfg.topology !== 'bank1p' && !String(state.v['meta.serial'] || '').trim()) {
+      toast('Nhập số chế tạo MBA trước khi xuất BBTN.', true); return;
+    }
     const data = templateData();
     if (!data) { toast('Chưa có template BBTN — nạp file .docx ở mục 0 “Thông tin chung & cấu hình”', true); return; }
     const tpl = await DocxTemplate.load(data), R = T().report;
@@ -884,6 +1002,13 @@
       lsSet(LS_TPL, JSON.stringify({ name: f.name, b64: abToB64(buf) }));
       state.cfg.template = 'custom';
       state.cfg.layout = is3P ? '3P' : is110 ? '110' : '1P';
+      state.cfg.topology = is3P ? 'bank1p' : is110 ? 'threePhase' : 'single1p';
+      if (state.cfg.topology !== 'bank1p') state.cfg.reportScope = 'combined';
+      applyFactoryDefaults(state.cfg);
+      if (state.cfg.topology === 'bank1p') {
+        state.cfg.ps.A = state.cfg.ps.A || state.v['meta.serial'] || '';
+        state.v['meta.serial'] = state.cfg.ps.A;
+      }
       schema = T().buildSchema(state.cfg); recompute(); renderNav();
       renderMain(); persist(); toast('Đã nạp template ' + f.name + (is3P ? ' (mẫu chung 3 pha)' : is110 ? ' (MBA 3 pha 110–220 kV)' : ''));
     }));

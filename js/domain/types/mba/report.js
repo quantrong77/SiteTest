@@ -5,6 +5,108 @@
 
   // assets: tài nguyên giao diện dựng sẵn — ảnh đồ thị chụp sóng OLTC theo pha { oltcCharts: { A: [{ png, w, h, dir, caption }] } },
   // báo cáo SFRA đã mở { fraDoc: DocxTemplate }
+  function phaseState(state, sourceSchema, targetSchema, phase) {
+    const projected = JSON.parse(JSON.stringify(state));
+    const sourceV = state.v || {}, targetV = Object.assign({}, sourceV);
+    const serial = String((state.cfg.ps || {})[phase] || '').trim();
+    projected.cfg.template = phase;
+    projected.cfg.topology = 'bank1p';
+    projected.cfg.reportScope = 'combined';
+    targetV['meta.serial'] = serial;
+
+    const fieldSources = {
+      'ir.t': `ir.${phase}.t`,
+      'ir.k1': `ir.${phase}.k1`,
+      'wtgd.t': `wtgd.${phase}.t`,
+      'wtgd.k2': `wtgd.${phase}.k2`,
+      'dcr.hv.t': `dcr.${phase}.t`,
+    };
+    const fieldKeys = schema => {
+      const keys = new Set();
+      eachField(schema, f => keys.add(f.k));
+      (schema.sections || []).forEach(s => (s.extraDoc || []).forEach(f => keys.add(f.k)));
+      return keys;
+    };
+    const sourceFieldKeys = fieldKeys(sourceSchema), targetFieldKeys = fieldKeys(targetSchema);
+    targetFieldKeys.forEach(key => delete targetV[key]);
+    eachField(targetSchema, f => {
+      const sourceKey = fieldSources[f.k] || f.k;
+      if (sourceFieldKeys.has(sourceKey) && sourceV[sourceKey] !== undefined) targetV[f.k] = sourceV[sourceKey];
+    });
+    (targetSchema.sections || []).forEach(s => (s.extraDoc || []).forEach(f => {
+      const sourceKey = fieldSources[f.k] || f.k;
+      if (sourceFieldKeys.has(sourceKey) && sourceV[sourceKey] !== undefined) targetV[f.k] = sourceV[sourceKey];
+    }));
+    const moistureKey = `moist.r.${phase}`;
+    if (targetFieldKeys.has('moist.val') && sourceV[moistureKey] !== undefined) targetV['moist.val'] = sourceV[moistureKey];
+    targetV['meta.serial'] = serial;
+
+    const sourceGrids = new Map();
+    eachGrid(sourceSchema, g => sourceGrids.set(g.id, g));
+    const gridSources = {
+      'nl.rated': `nl.${phase}.rated`,
+      'ir.meas': `ir.${phase}.meas`,
+      'ir.c20': `ir.${phase}.c20`,
+      'wtgd.meas': `wtgd.${phase}.meas`,
+    };
+    const lowerPhase = phase.toLowerCase();
+    eachGrid(targetSchema, targetGrid => {
+      const sourceId = gridSources[targetGrid.id] || targetGrid.id;
+      const sourceGrid = sourceGrids.get(sourceId);
+      targetGrid.rows.forEach(row => targetGrid.cols.forEach(col => delete targetV[`${targetGrid.id}.${row.k}.${col.k}`]));
+      if (!sourceGrid) return;
+      targetGrid.rows.forEach(row => {
+        targetGrid.cols.forEach(col => {
+          const targetKey = `${targetGrid.id}.${row.k}.${col.k}`;
+          if (col.calc || col.nodoc) return;
+          let sourceForCell = sourceGrid;
+          let sourceColKey = col.k;
+          if (targetGrid.id === 'b.mv.meas' && col.k === 'N') {
+            sourceForCell = sourceGrids.get('b.n.meas');
+            sourceColKey = phase;
+          } else if (targetGrid.id === 'b.mv.c20' && col.k === 'N') {
+            sourceForCell = sourceGrids.get('b.n.c20');
+            sourceColKey = phase;
+          }
+          if (!sourceForCell) return;
+          const sourceRow = sourceForCell.rows.find(r => r.k === row.k);
+          if (!sourceRow) return;
+          const sourceCol = sourceForCell.cols.find(c => c.k === sourceColKey);
+          if (!sourceCol || sourceCol.calc || sourceCol.nodoc) return;
+          if (sourceCol.phase && sourceCol.k !== phase && sourceCol.k !== lowerPhase) return;
+          const sourceKey = `${sourceForCell.id}.${sourceRow.k}.${sourceCol.k}`;
+          if (sourceV[sourceKey] !== undefined) targetV[targetKey] = sourceV[sourceKey];
+        });
+      });
+    });
+
+    const att = projected.att || (projected.att = {});
+    if (att.oltc) att.oltc = att.oltc[phase] ? { [phase]: att.oltc[phase] } : {};
+    if (att.fra && att.fra.serial && String(att.fra.serial).trim() !== serial) delete att.fra;
+    if (att.shortCircuit && Array.isArray(att.shortCircuit.rows)) {
+      att.shortCircuit.rows = att.shortCircuit.rows.filter(row => {
+        const rowPhase = String(row.phase || '').toUpperCase(), rowSerial = String(row.serial || '').trim();
+        return (!rowPhase || rowPhase === phase) && (!rowSerial || rowSerial === serial);
+      });
+      if (!att.shortCircuit.rows.length) delete att.shortCircuit;
+    }
+    if (att.dfr && Array.isArray(att.dfr.items)) {
+      att.dfr.items = att.dfr.items.filter(item => {
+        const itemPhase = String(item.phase || '').toUpperCase(), itemSerial = String(item.serial || '').trim();
+        return (!itemPhase || itemPhase === phase) && (!itemSerial || itemSerial === serial);
+      });
+    }
+    if (att.oil && Array.isArray(att.oil.items)) {
+      att.oil.items = att.oil.items.filter(item => {
+        if (item.phase && String(item.phase).toUpperCase() !== phase) return false;
+        if (item.serial && String(item.serial).trim() !== serial) return false;
+        return true;
+      });
+    }
+    projected.v = targetV;
+    return projected;
+  }
+
   function fill(tpl, { state, res, schema, assets }) {
     const miss = [];
     const out = Report.decimal(state.cfg.decSep);
@@ -204,5 +306,5 @@
   }
 
   // Template chuẩn MBA 500 kV có 73 bảng; ít hơn 72 thì vị trí điền có thể lệch (mẫu chung 3 pha: 28 bảng, schema.tables)
-  window.MbaReport = { fill, oltcAppendix, bctAppendix, bctBlocks, bctToBody, hasBct, minTables: 72, stdTables: 73 };
+  window.MbaReport = { fill, phaseState, oltcAppendix, bctAppendix, bctBlocks, bctToBody, hasBct, minTables: 72, stdTables: 73 };
 })();
