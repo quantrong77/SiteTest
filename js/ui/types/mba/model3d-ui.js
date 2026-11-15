@@ -162,9 +162,9 @@
       });
     });
     const bounds = box.getBoundingClientRect();
-    menu.style.left = `${Math.max(8, Math.min(x - bounds.left, bounds.width - 230))}px`;
     box.appendChild(menu);
-    // đặt menu sau khi biết chiều cao thật để không bị khung mô hình cắt mất dòng cuối
+    // đặt menu sau khi biết kích thước thật để không bị khung mô hình cắt mép phải / dòng cuối
+    menu.style.left = `${Math.max(8, Math.min(x - bounds.left, bounds.width - menu.offsetWidth - 8))}px`;
     menu.style.top = `${Math.max(8, Math.min(y - bounds.top, bounds.height - menu.offsetHeight - 8))}px`;
     menu.querySelector('button').focus();
     menu._outside = event => { if (!menu.contains(event.target)) closePartMenu(root); };
