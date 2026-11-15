@@ -635,3 +635,6 @@ Thông báo cụ thể có thể khác theo lỗi backend; giữ nguyên thông 
 - [Mã trang CSDL](../js/ui/db-ui.js)
 - [Schema MBA](../js/domain/types/mba/schema.js)
 - [Quy đổi và ngưỡng](../js/domain/qd1901.js)
+## Mô hình 3D MBA
+
+Mở **Mô hình 3D** trên thanh điều hướng. Xoay bằng cách kéo chuột hoặc cảm ứng, thu phóng bằng con lăn hoặc chụm hai ngón. Mỗi bộ phận liệt kê các hạng mục có trong mẫu biên bản hiện tại; bấm bộ phận để mở hạng mục hoặc chọn trong menu nếu có nhiều hạng mục. Nếu thư viện 3D không tải được, danh sách liên kết vẫn hoạt động.
