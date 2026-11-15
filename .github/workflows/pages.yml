@@ -2,7 +2,7 @@ name: Triển khai GitHub Pages
 
 on:
   push:
-    branches: [main]
+    branches: [main, codex/shadcn-ui-refactor]
   workflow_dispatch:
 
 permissions:
