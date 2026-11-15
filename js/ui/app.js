@@ -140,7 +140,7 @@
 
   // ---------------------------------------------------------------- nav
   function navItems() {
-    return [{ id: 'general', no: '0', title: 'Thông tin chung & cấu hình' }]
+    return [{ id: 'general', no: '0', title: 'Thông tin chung & cấu hình' }, { id: 'model3d', no: '3D', title: 'Mô hình 3D MBA' }]
       .concat(schema.sections.map(s => ({ id: s.id, no: String(s.no), title: s.title })))
       .concat([{ id: 'summary', no: 'Σ', title: 'Tổng hợp & kết luận' }, { id: 'appendix', no: 'PL', title: 'Phụ lục BBTN' }, { id: 'factory', no: 'XX', title: 'Số liệu xuất xưởng' },
         { id: 'db', no: 'DB', title: 'CSDL – biên bản đã lưu' }, { id: 'catalog', no: '≡', title: 'Trạm – Ngăn – Thiết bị' }, { id: 'trend', no: '↗', title: 'Xu hướng' },
@@ -427,6 +427,7 @@
     const main = $('#main');
     let html;
     if (current === 'general') html = renderGeneral();
+    else if (current === 'model3d') html = MbaModel3DUI.render(schema, res);
     else if (current === 'summary') html = renderSummary();
     else if (current === 'factory') html = renderFactory();
     else if (current === 'db') html = DbUI.renderDb();
@@ -442,6 +443,7 @@
     main.innerHTML = html + dl;
     updateComputed();
     if (current === 'db' || current === 'trend') DbUI.afterRender(current);
+    if (current === 'model3d') MbaModel3DUI.init(main);
     if (current === 'catalog') Catalog.afterRender();
     if (current === 'kconf') KConf.afterRender();
     if (current === 'appendix') AppendixUI.afterRender(App);
@@ -619,6 +621,7 @@
   async function onClick(e) {
     const b = e.target.closest('button');
     if (!b) return;
+    if (b.dataset.m3dgo) { App.go(b.dataset.m3dgo); return; }
     if (b.dataset.nav === 'help') { HelpUI.open(App); return; }
     if (b.dataset.nav) { current = b.dataset.nav; renderNav(); renderMain(); $('#main').scrollTop = 0; window.scrollTo(0, 0); return; }
     if (b.dataset.filter) { filters[b.dataset.fsec] = b.dataset.filter; updateComputed(); return; }

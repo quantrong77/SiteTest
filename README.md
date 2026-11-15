@@ -343,3 +343,4 @@ lõi app dùng chung cho mọi loại. Biên bản lưu `state.type`; biên bả
 ### Phụ lục DFR sứ đầu vào
 
 Trang Phụ lục cho phép nạp CSV từ OMICRON DIRANA (từng file hoặc cả thư mục), chọn phía/pha và phép đo dùng khi có đo lại. BBTN trình bày tanδ (%) và điện dung C (pF) tại 15 Hz, 400 Hz cùng đồ thị đáp ứng tần số; đây là số liệu tham khảo, không có kết luận đạt/không đạt.
+Mở **Mô hình 3D** trên thanh điều hướng để xem sơ đồ MBA; chọn hạng mục từ danh sách bộ phận để chuyển nhanh tới biểu mẫu.
