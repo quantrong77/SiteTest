@@ -12,8 +12,9 @@
   const storagePath = (st, id) => `${st.v['meta.serial'] || 'MBA'}/${st.db.sessionId}/appendix/${id}.docx`;
 
   function render(A) {
-    const st = A.state, esc = A.esc, att = st.att || {}, fra = att.fra, osc = att.oltc || {};
+    const st = A.state, esc = A.esc, att = st.att || {}, fra = att.fra, oils = att.oil && att.oil.items || [], osc = att.oltc || {};
     const labels = Object.fromEntries(Appendix.list(st).map(a => [a.kind, a.label]));
+    const oilLabels = Object.fromEntries(Appendix.list(st).filter(a => a.kind === 'oil').map(a => [a.id, a.label]));
     const phases = Object.keys(osc).sort();
     let h = '<div class="panel-head"><span class="secno">PL</span><h2>Phụ lục BBTN</h2><span class="en">Appendices</span></div>';
     h += '<p class="hint-text">Khi xuất BBTN .docx, các phụ lục dưới đây được nối sau biên bản; mỗi phụ lục bắt đầu trang mới và đánh số trang riêng.</p>';
@@ -38,6 +39,12 @@
         <dt>Kết luận</dt><dd>${fra.conclusion && fra.conclusion.length ? fra.conclusion.map(esc).join('<br>') : '—'}</dd></dl></div>`;
     }
     h += '</section>';
+    const serials = [...new Set([st.v['meta.serial'], ...Object.values(st.cfg.ps || {})].filter(Boolean))].join(' / ');
+    h += `<section class="appx-card" id="appx-oil"><div class="appx-head"><h3>Dầu MBA — DGA và lý hóa dầu</h3></div>
+      <ol class="appx-steps"><li><div><b>Mở app DGA.</b> Chọn thiết bị theo số chế tạo, nhập và đánh giá kết quả, sau đó xuất BBTN .docx.</div>
+        <div class="row-actions"><a class="btn primary" href="${Appendix.dgaLink(st.v['meta.serial'])}" target="_blank" rel="noopener">Mở app DGA</a><button class="btn" data-act="appxOilCopy">Chép số chế tạo</button></div></li>
+        <li><div><b>Nạp BBTN dầu.</b> Có thể chọn nhiều file DGA và lý hóa dầu; các file được nối nguyên văn thành phụ lục riêng.</div><button class="btn${oils.length ? '' : ' primary'}" data-act="appxOilLoad">Nạp BBTN dầu (.docx)…</button></li></ol>
+      ${oils.length ? `<div class="ftable-wrap"><table class="ftable"><thead><tr><th>Tên file</th><th>Loại</th><th>Số chế tạo</th><th>Ngày lấy mẫu</th><th>Kết luận</th><th>Nối vào BBTN</th><th>Phụ lục</th><th></th></tr></thead><tbody>${oils.map(x => `<tr><td><span data-oilfile="${esc(x.id)}" class="badge st-none">Đang kiểm tra file…</span><br>${esc(x.name)}</td><td>${x.kind === 'dga' ? 'DGA' : x.kind === 'oil' ? 'Lý hóa dầu' : 'Không nhận dạng'}</td><td>${esc(x.serial || '—')}</td><td>${esc(x.sampleDate || '—')}</td><td>${esc((x.conclusion || []).join(' ') || '—')}</td><td><input type="checkbox" aria-label="Nối ${esc(x.name)} vào BBTN" data-oil-use="${esc(x.id)}" ${x.use !== false ? 'checked' : ''}></td><td>${oilLabels[x.id] ? `<span class="badge st-pass">${oilLabels[x.id]}</span>` : '—'}</td><td><button class="btn small danger" data-act="appxOilDel" data-id="${esc(x.id)}">Bỏ</button></td></tr>`).join('')}</tbody></table></div>` : '<p>Chưa nạp BBTN dầu.</p>'}</section>`;
     const dfr = att.dfr && att.dfr.items || [];
     h += `<section class="appx-card"><div class="appx-head"><h3>Đáp ứng tần số điện môi sứ đầu vào (DFR)</h3>${labels.dfr ? `<span class="badge st-pass">${labels.dfr}</span>` : '<span class="badge st-none">Chưa có</span>'}</div>
       <p>Nạp file CSV DIRANA; chỉ trình bày số liệu đo, không đánh giá đạt/không đạt.</p><div class="row-actions"><button class="btn" data-act="dfrFiles">Nạp file .csv…</button><button class="btn" data-act="dfrFolder">Nạp cả thư mục…</button>${dfr.length ? '<button class="btn small danger" data-act="dfrClear">Bỏ phụ lục DFR</button>' : ''}</div>
@@ -49,8 +56,30 @@
   async function afterRender(A) {
     const fra = A.state.att && A.state.att.fra, el = $('[data-frafile]');
     if (fra && el) { const rec = await FileStore.get(fra.id).catch(() => null); el.className = `badge ${rec ? 'st-pass' : 'st-warn'}`; el.textContent = rec ? 'File có trên máy này' : 'Thiếu file trên máy này — nạp lại báo cáo'; }
+    for (const x of (((A.state.att || {}).oil || {}).items || [])) {
+      const badge = document.querySelector(`[data-oilfile="${CSS.escape(x.id)}"]`);
+      if (!badge) continue;
+      const rec = await FileStore.get(x.id).catch(() => null);
+      badge.className = `badge ${rec ? 'st-pass' : 'st-warn'}`; badge.textContent = rec ? 'File có trên máy này' : 'Thiếu file';
+    }
     const used = ((A.state.att || {}).dfr || {}).items || [];
     document.querySelectorAll('[data-dfr-preview]').forEach(cv => DfrChart.draw(cv, Dfr.table(used).filter(row=>row.side===cv.dataset.dfrPreview).map(row=>row.m), true));
+  }
+
+  async function loadOil(files, A) {
+    const state = A.state, serials = [state.v['meta.serial'], ...Object.values(state.cfg.ps || {})];
+    state.att = state.att || {}; state.att.oil = state.att.oil || { items: [] };
+    for (const f of files) {
+      let bytes = await f.arrayBuffer(), doc;
+      try { doc = await DocxTemplate.load(bytes); } catch (_) { A.toast(`${f.name}: không phải file Word .docx`, true); continue; }
+      const sum = Appendix.oilSummary(doc.lines());
+      if (!sum.kind && !confirm(`${f.name} không giống BBTN dầu xuất từ app DGA. Vẫn dùng file này làm phụ lục?`)) continue;
+      if (sum.serial && !Appendix.serialMatch(sum.serial, serials) && !confirm(`Số chế tạo trong file (${sum.serial}) không khớp số chế tạo của biên bản (${serials.filter(Boolean).join(' / ') || 'chưa khai báo'}). Vẫn nạp file?`)) continue;
+      const id = `oil-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
+      await FileStore.put(id, { name: f.name, type: f.type, bytes });
+      state.att.oil.items.push({ id, name: f.name, size: f.size, importedAt: new Date().toISOString(), ...sum, use: true });
+    }
+    A.persist(); A.render();
   }
 
   async function loadFile(f, A) {
@@ -73,6 +102,19 @@
   async function action(act, b, A) {
     const st = A.state;
     if (act === 'appxLoadFra') $('#fileFra').click();
+    if (act === 'appxOilLoad') $('#fileOil').click();
+    if (act === 'appxOilCopy') {
+      const sn = [...new Set([st.v['meta.serial'], ...Object.values(st.cfg.ps || {})].filter(Boolean))].join(' / ');
+      if (!sn) return A.toast('Chưa khai báo số chế tạo ở mục 0.', true);
+      try { await navigator.clipboard.writeText(sn); A.toast(`Đã chép số chế tạo: ${sn}`); } catch (_) { A.toast('Không chép được số chế tạo — kiểm tra quyền clipboard của trình duyệt.', true); }
+    }
+    if (act === 'appxOilDel' && st.att && st.att.oil) {
+      const item = st.att.oil.items.find(x => x.id === b.dataset.id);
+      if (!item || !confirm(`Bỏ phụ lục dầu “${item.name}” khỏi biên bản? File gốc trên máy của anh/chị không bị xóa.`)) return;
+      st.att.oil.items = st.att.oil.items.filter(x => x.id !== b.dataset.id);
+      if (item) FileStore.del(item.id).catch(() => {});
+      A.persist(); A.render();
+    }
     if (act === 'appxDelFra' && st.att && st.att.fra) {
       if (!confirm('Bỏ phụ lục SFRA khỏi biên bản? File báo cáo gốc trên máy của anh/chị không bị xóa.')) return;
       FileStore.del(st.att.fra.id).catch(() => {});
@@ -115,23 +157,31 @@
     if (errors.length) A.toast(errors.join('\n'), true);
   }
 
-  // Báo cáo SFRA đã mở cho phụ lục khi xuất BBTN; thiếu file thì báo và xuất không có phụ lục này
+  // Đọc lại các file phụ lục khi xuất; thiếu file thì báo và bỏ riêng phụ lục tương ứng
   async function reportAssets(A) {
-    const fra = A.state.att && A.state.att.fra;
-    if (!fra) return {};
-    if (opened.id !== fra.id) {
+    const att = A.state.att || {}, fra = att.fra;
+    if (fra && opened.id !== fra.id) {
       const rec = await FileStore.get(fra.id).catch(() => null);
-      if (!rec) { A.toast(`Thiếu file báo cáo SFRA “${fra.name}” trên máy này — BBTN xuất không có phụ lục SFRA. Nạp lại ở trang Phụ lục.`, true); return {}; }
-      opened = { id: fra.id, doc: await DocxTemplate.load(rec.bytes) };
+      if (!rec) { A.toast(`Thiếu file báo cáo SFRA “${fra.name}” trên máy này — BBTN xuất không có phụ lục SFRA. Nạp lại ở trang Phụ lục.`, true); opened = { id: null, doc: null }; }
+      else opened = { id: fra.id, doc: await DocxTemplate.load(rec.bytes) };
     }
-    return { fraDoc: opened.doc };
+    const oilDocs = {};
+    for (const item of ((att.oil && att.oil.items) || []).filter(x => x.use !== false)) {
+      const rec = await FileStore.get(item.id).catch(() => null);
+      if (!rec) { A.toast(`Thiếu file phụ lục dầu “${item.name}” trên máy này — nạp lại ở trang Phụ lục.`, true); continue; }
+      oilDocs[item.id] = await DocxTemplate.load(rec.bytes);
+    }
+    return { fraDoc: fra ? opened.doc : null, oilDocs };
   }
 
   // ---- đi kèm biên bản: .json (base64), CSDL (Storage)
   async function filesFor(st) {
     const fra = st.att && st.att.fra, out = {};
-    const rec = fra ? await FileStore.get(fra.id).catch(() => null) : null;
-    if (rec) out[fra.id] = { name: rec.name, type: rec.type, b64: App.abToB64(rec.bytes) };
+    const items = [fra, ...((st.att && st.att.oil && st.att.oil.items) || [])].filter(Boolean);
+    for (const item of items) {
+      const rec = await FileStore.get(item.id).catch(() => null);
+      if (rec) out[item.id] = { name: rec.name, type: rec.type, b64: App.abToB64(rec.bytes) };
+    }
     return out;
   }
   async function restoreFiles(files) {
@@ -141,26 +191,32 @@
     }
   }
   async function afterDbSave(st) {
-    const fra = st.att && st.att.fra;
-    if (!fra || !st.db || !st.db.sessionId) return;
-    const rec = await FileStore.get(fra.id).catch(() => null);
-    if (!rec) return;
-    const blob = new Blob([rec.bytes], { type: rec.type || 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' });
-    await DB.uploadDoc(st.db.sessionId, st.db.equipmentId || null, 'OTHER', storagePath(st, fra.id), fra.name, blob);
+    const items = [st.att && st.att.fra, ...((st.att && st.att.oil && st.att.oil.items) || [])].filter(Boolean);
+    if (!st.db || !st.db.sessionId) return;
+    for (const item of items) {
+      const rec = await FileStore.get(item.id).catch(() => null);
+      if (!rec) continue;
+      const blob = new Blob([rec.bytes], { type: rec.type || 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' });
+      await DB.uploadDoc(st.db.sessionId, st.db.equipmentId || null, 'OTHER', storagePath(st, item.id), item.name, blob);
+    }
   }
   // Mở biên bản từ CSDL trên máy khác: tải báo cáo SFRA từ Storage về kho file của trình duyệt
   async function ensureFiles(st) {
-    const fra = st.att && st.att.fra;
-    if (!fra || !st.db || !st.db.sessionId || await FileStore.get(fra.id).catch(() => null)) return;
+    const items = [st.att && st.att.fra, ...((st.att && st.att.oil && st.att.oil.items) || [])].filter(Boolean);
+    if (!items.length || !st.db || !st.db.sessionId) return;
     const docs = await DB.listDocs(st.db.sessionId);
-    const d = docs.find(x => String(x.storage_path).includes(`/appendix/${fra.id}.docx`));
-    if (!d) return;
-    const blob = await DB.downloadDoc(d.storage_path);
-    await FileStore.put(fra.id, { name: fra.name, type: blob.type, bytes: await blob.arrayBuffer() });
+    for (const item of items) {
+      if (await FileStore.get(item.id).catch(() => null)) continue;
+      const d = docs.find(x => String(x.storage_path).includes(`/appendix/${item.id}.docx`));
+      if (!d) continue;
+      const blob = await DB.downloadDoc(d.storage_path);
+      await FileStore.put(item.id, { name: item.name, type: blob.type, bytes: await blob.arrayBuffer() });
+    }
   }
 
   function init(A) {
     $('#fileFra').addEventListener('change', e => A.readFile(e.target, f => loadFile(f, A)));
+    $('#fileOil').addEventListener('change', async e => { await loadOil(Array.from(e.target.files || []), A); e.target.value = ''; });
     ['fileDirana','diranaFolder'].forEach(id => $('#' + id).addEventListener('change', async e => { await loadDirana(Array.from(e.target.files || []), A); e.target.value = ''; }));
     document.addEventListener('change', e => {
       const el = e.target;
@@ -173,6 +229,12 @@
       if (el.dataset.dfr === 'use') items.forEach(x => { if (x.side === m.side && x.phase === m.phase) x.useManual = true; });
       if (m.use) items.forEach(x => { if (x.id !== m.id && x.side === m.side && x.phase === m.phase) x.use = false; });
       A.persist(); A.render();
+    });
+    document.addEventListener('change', e => {
+      const el = e.target;
+      if (!el.dataset.oilUse) return;
+      const item = ((A.state.att.oil || {}).items || []).find(x => x.id === el.dataset.oilUse);
+      if (item) { item.use = el.checked; A.persist(); A.render(); }
     });
   }
 

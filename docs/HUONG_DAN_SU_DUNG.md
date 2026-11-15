@@ -16,7 +16,7 @@ Mở hướng dẫn này trong app bằng nút ? trên header hoặc phím F1. K
 6. Chọn hạng mục, đọc hướng dẫn đo, nhập hoặc nạp kết quả máy đo.
 7. Kiểm tra ô tự tính, cảnh báo và các giá trị so sánh xuất xưởng.
 8. Mở **Σ Tổng hợp**, rà phát hiện và bấm **Điền kết luận tự động**.
-9. Mở **Phụ lục BBTN** nếu có file OLTC, SFRA hoặc DFR cần đính kèm.
+9. Mở **Phụ lục BBTN** nếu có file OLTC, SFRA, DFR hoặc BBTN dầu cần đính kèm.
 10. Bấm **Xuất BBTN .docx**, **Xuất so sánh .xlsx** và **Lưu .json**.
 
 ## 1. Mở ứng dụng và tạo biên bản
@@ -401,6 +401,15 @@ Hãy dùng đúng nhãn hiển thị trên phiên bản đang chạy.
 8. Lưu lại hồ sơ sau khi chỉnh kết luận.
 
 ## 17. Phụ lục BBTN
+
+### Dầu MBA (DGA và lý hóa dầu)
+
+1. Mở trang **Phụ lục BBTN**, bấm **Mở app DGA** và chọn thiết bị theo số chế tạo. Có thể dùng **Chép số chế tạo** để dán vào app.
+2. Nhập/đánh giá kết quả trong app DGA và xuất BBTN dầu dạng `.docx`.
+3. Quay lại app BBTN, bấm **Nạp BBTN dầu (.docx)…**; có thể chọn nhiều file DGA và lý hóa dầu.
+4. Xem lại loại file, số chế tạo, ngày lấy mẫu và kết luận. Xác nhận cảnh báo nếu file không nhận dạng hoặc số chế tạo không khớp.
+5. Chọn **Nối vào BBTN** cho từng file cần đính kèm. File bị thiếu trên máy hiện tại cần nạp lại trước khi xuất.
+6. Tệp được lưu kèm file JSON và tải lên Storage cùng phiên CSDL như phụ lục SFRA; app DGA vẫn là ứng dụng riêng, không dùng CSDL Supabase của BBTN.
 
 ### Chụp sóng OLTC
 

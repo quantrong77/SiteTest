@@ -54,7 +54,7 @@ Dữ liệu đang nhập được tự lưu trong trình duyệt; dùng **Lưu .
   *Đã kiểm tra hết*.
 - OCR trên ảnh chụp thật có thể sai (lóa, chữ khắc mờ, góc chụp): luôn đối chiếu với nameplate.
 
-## Phụ lục BBTN (chụp sóng OLTC, SFRA)
+## Phụ lục BBTN (OLTC, SFRA, dầu MBA)
 
 Trang **Phụ lục BBTN** (thanh điều hướng, nhóm Kết quả). Khi xuất BBTN .docx, mỗi phụ lục được nối thành một section
 riêng sau biên bản (trang mới, đánh số trang lại; nhiều phụ lục thì đánh "PHỤ LỤC 1, 2").
@@ -64,6 +64,7 @@ riêng sau biên bản (trang mới, đánh số trang lại; nhiều phụ lụ
   *Báo cáo*; quay lại bấm *Nạp báo cáo SFRA (.docx)…*. App hiện tiêu đề, số phép đo, kết luận của báo cáo; khi xuất,
   nội dung báo cáo (bảng, giản đồ Bode, kết luận) được nối nguyên văn — ảnh và kiểu đoạn được chép sang mã riêng để không
   đụng định dạng template; bỏ phần chân trang, đánh số danh sách, chú thích của file nguồn.
+- **Dầu MBA**: mở app DGA của đơn vị, tra thiết bị theo số chế tạo, nhập/đánh giá và xuất BBTN dầu .docx. Nạp một hoặc nhiều BBTN DGA/lý hóa; kiểm tra số chế tạo và chọn file cần nối. File đính kèm đi cùng JSON và CSDL theo cơ chế SFRA.
 - File báo cáo giữ trong kho file của trình duyệt (IndexedDB), đi kèm file **.json** khi *Lưu .json* (base64) và được
   tải lên Storage (`documents`, kind `OTHER`, đường dẫn `<S/N>/<lần TN>/appendix/<mã>.docx`) khi *Lưu CSDL*; mở biên
   bản từ CSDL ở máy khác thì tự tải về.
@@ -315,7 +316,7 @@ lõi app dùng chung cho mọi loại. Biên bản lưu `state.type`; biên bả
 | `equipment-types.js` | Đăng ký và tra loại thiết bị |
 | `report.js`, `records.js` | Đọc giá trị mặc định từ template; lưu biên bản / Test report qua kho dữ liệu (`Records.setRepo`) |
 | `types/mba/nameplate.js` | Tách thông tin thiết bị từ chữ OCR của ảnh nameplate, độ tin cậy, trạng thái từng trường |
-| `appendix.js` | Danh sách và đánh số phụ lục, tóm tắt báo cáo SFRA |
+| `appendix.js` | Danh sách và đánh số phụ lục, tóm tắt SFRA và BBTN dầu |
 | `edit-history.js` | Lịch sử chỉnh sửa theo hạng mục: hoàn tác, xóa số liệu hạng mục |
 | `criteria.js` | Bộ tiêu chí: ngưỡng gốc QĐ 1901 và ngưỡng đơn vị đã chỉnh, câu ghi vào kết luận |
 | `test-items.js` | Hạng mục dùng chung cho mọi loại thiết bị: quy đổi về 20 °C / 75 °C, so sánh R một chiều, tỷ số biến, lệch pha, điện dung |
@@ -337,7 +338,7 @@ lõi app dùng chung cho mọi loại. Biên bản lưu `state.type`; biên bả
 | `workflow.js` | Tiến trình, 4 bước của hạng mục, khung Tài liệu tham khảo |
 | `types/mba/ui.js`, `types/mba/cpc-dialog.js`, `types/mba/mrct-dialog.js`, `types/mba/wa2293-dialog.js`, `types/mba/oltc-chart.js`, `types/mba/nameplate-dialog.js` | Giao diện riêng của MBA (chú thích hạng mục, cấu hình mục 0, sứ, CPC 100, Megger MRCT, Haefely 2293, đồ thị chụp sóng, đọc ảnh nameplate) |
 | `criteria-ui.js` | Trang Bộ tiêu chí đánh giá |
-| `appendix-ui.js` | Trang Phụ lục BBTN: liên kết SFRA Analyzer, nạp báo cáo SFRA |
+| `appendix-ui.js` | Trang Phụ lục BBTN: liên kết SFRA/DGA, nạp báo cáo SFRA và BBTN dầu |
 | `db-ui.js`, `catalog-ui.js`, `kconf-ui.js`, `auth-ui.js` | Trang CSDL & Xu hướng; danh mục Trạm – Ngăn – Thiết bị; hệ số K sứ; đăng nhập |
 | `supabase/migrations/` | Lược đồ CSDL, view xu hướng, RLS, Storage |
 

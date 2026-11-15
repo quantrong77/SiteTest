@@ -13,7 +13,13 @@
   }
 
   function itemLinks(part) {
-    return part.items.map(item => `<button class="m3d-link" data-m3dgo="${esc(item.id)}">${esc(item.no)}. ${esc(item.title)}</button>`).join('');
+    return part.items.map(item => {
+      const label = item.no ? `${esc(item.no)}. ${esc(item.title)}` : esc(item.title);
+      // liên kết ra app ngoài (app DGA) mở tab mới, kèm số chế tạo của biên bản
+      if (item.link === 'dga') return `<a class="m3d-link" href="${esc(Appendix.dgaLink(App.state.v['meta.serial']))}" target="_blank" rel="noopener">${label}</a>`;
+      const anchor = item.anchor ? ` data-m3danchor="${esc(item.anchor)}"` : '';
+      return `<button class="m3d-link" data-m3dgo="${esc(item.id)}"${anchor}>${label}</button>`;
+    }).join('');
   }
 
   function partList(parts, res) {
@@ -156,9 +162,10 @@
       button.setAttribute('role', 'menuitem');
       button.addEventListener('click', event => {
         event.stopPropagation();
-        const sectionId = button.dataset.m3dgo;
+        const sectionId = button.dataset.m3dgo, anchor = button.dataset.m3danchor;
         closePartMenu(root);
         App.go(sectionId);
+        if (anchor) document.getElementById(anchor)?.scrollIntoView({ block: 'start' });
       });
     });
     const bounds = box.getBoundingClientRect();
@@ -228,7 +235,7 @@
         hovered.material.emissiveIntensity = .7;
         const name = names.get(hovered.userData.part) || hovered.userData.part;
         const part = parts.find(item => item.id === hovered.userData.part);
-        const targets = part ? part.items.map(item => `${item.no}. ${item.title}`).join(' · ') : '';
+        const targets = part ? part.items.map(item => (item.no ? `${item.no}. ${item.title}` : item.title)).join(' · ') : '';
         renderer.domElement.title = `${name} — ${targets}`;
         note.textContent = `${name}${targets ? `: ${targets}` : ''}`;
       } else {
