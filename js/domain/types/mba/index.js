@@ -165,7 +165,7 @@
     // nhập BBTN cũ (.docx/.pdf) → biên bản của app
     importReport: (tpl, fileName) => MbaImportReport.read(tpl, fileName),
     // nhập BBTN PDF có lớp chữ (PTC3/BM.01, MBA 110–220 kV)
-    importPdfReport: (pages, fileName) => MbaPdfImportReport.read(pages, fileName),
+    importPdfReport: (pages, fileName, opts) => MbaPdfImportReport.read(pages, fileName, opts),
     buildSchema: cfg => Schema.build(cfg),
     evaluate: (state, FX, schema) => Evaluate.evaluate(state, FX, schema),
     autoConclusion: (res, schema, state) => Evaluate.autoConclusion(res, schema, state),

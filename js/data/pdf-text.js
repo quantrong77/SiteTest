@@ -58,9 +58,13 @@
     try {
       for (let n = 1; n <= pdf.numPages; n++) {
         const page = await pdf.getPage(n);
+        const viewport = page.getViewport({ scale: 1 });
         const tc = await page.getTextContent();
-        pages.push(tc.items.filter(it => it.str && it.str.trim())
-          .map(it => ({ str: it.str, x: it.transform[4], y: it.transform[5], w: it.width })));
+        const items = tc.items.filter(it => it.str && it.str.trim())
+          .map(it => ({ str: it.str, x: it.transform[4], y: it.transform[5], w: it.width }));
+        items.pageWidth = viewport.width;
+        items.pageHeight = viewport.height;
+        pages.push(items);
       }
     } finally { await pdf.destroy(); }
     return pages;
@@ -102,16 +106,53 @@
         const pageNo = index + 1;
         if (onProgress) onProgress({ status: 'Đang dựng ảnh trang', page: pageNo, total: missing.length, progress: 0 });
         const page = await pdf.getPage(pageNo);
-        const viewport = page.getViewport({ scale: 1.6 });
+        const viewport = page.getViewport({ scale: 2.2 });
         const canvas = document.createElement('canvas');
         try {
           canvas.width = Math.ceil(viewport.width); canvas.height = Math.ceil(viewport.height);
           const context = canvas.getContext('2d', { willReadFrequently: true });
           if (!context) throw new Error('Trình duyệt không hỗ trợ dựng trang PDF để OCR.');
           await page.render({ canvasContext: context, viewport }).promise;
-          const result = await worker.recognize(canvas);
-          const text = String(result.data.text || '').trim();
-          pages[index] = text ? [{ str: text, x: 0, y: 0, w: viewport.width }] : [];
+          // Tesseract.js 6+ chỉ trả text mặc định; yêu cầu blocks để lấy lại bbox của từng từ.
+          const result = await worker.recognize(canvas, {}, { text: true, blocks: true });
+          const words = (result.data.words || []).filter(word => word.text && word.text.trim() && word.bbox)
+            .map(word => ({
+              str: word.text, x: word.bbox.x0, y: viewport.height - word.bbox.y1,
+              w: Math.max(0, word.bbox.x1 - word.bbox.x0),
+            }));
+          function addBox(box) {
+            if (!box || !box.text || !box.text.trim() || !box.bbox) return;
+            words.push({
+              str: box.text, x: box.bbox.x0, y: viewport.height - box.bbox.y1,
+              w: Math.max(0, box.bbox.x1 - box.bbox.x0),
+            });
+          }
+          function visitBlock(node) {
+            if (!node) return;
+            if (Array.isArray(node)) { node.forEach(visitBlock); return; }
+            if (Array.isArray(node.words) && node.words.length) { node.words.forEach(addBox); return; }
+            if (Array.isArray(node.lines) && node.lines.length) { node.lines.forEach(visitBlock); return; }
+            if (Array.isArray(node.paragraphs) && node.paragraphs.length) { node.paragraphs.forEach(visitBlock); return; }
+            addBox(node);
+          }
+          if (!words.length) visitBlock(result.data.blocks || []);
+          if (!words.length) {
+            (result.data.lines || []).forEach(line => {
+              if (!line.text || !line.text.trim() || !line.bbox) return;
+              words.push({
+                str: line.text, x: line.bbox.x0, y: viewport.height - line.bbox.y1,
+                w: Math.max(0, line.bbox.x1 - line.bbox.x0),
+              });
+            });
+          }
+          if (!words.length && String(result.data.text || '').trim()) {
+            String(result.data.text).split(/\r?\n/).map(x => x.trim()).filter(Boolean).forEach((line, row) => {
+              words.push({ str: line, x: 0, y: viewport.height - (row + 1) * 18, w: viewport.width });
+            });
+          }
+          words.pageWidth = viewport.width;
+          words.pageHeight = viewport.height;
+          pages[index] = words;
           if (Number.isFinite(result.data.confidence)) confidences.push(result.data.confidence);
         } finally {
           page.cleanup();
