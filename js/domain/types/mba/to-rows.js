@@ -244,9 +244,9 @@
     });
 
     const session = {
-      kind: kindOf(v['meta.reason']), test_date: isoDate(v['meta.date']), reason: str(v['meta.reason']) || null,
+      kind: kindOf(v['meta.reason']), test_date: isoDate(v['meta.date']), report_no: state.imported && state.imported.reportNo || null, reason: str(v['meta.reason']) || null,
       ambient_temp_c: ok(amb) ? amb : null, humidity_pct: ok(toNum(v['meta.hum'])) ? toNum(v['meta.hum']) : null,
-      // BBTN cũ nhập từ file .docx: nguồn 'manual', ghi tên file gốc
+      // BBTN cũ nhập từ file .docx/.pdf: nguồn 'manual', ghi tên file gốc
       source: state.imported ? 'manual' : 'field_app', ...(state.imported ? { source_file: state.imported.file || null } : {}), template_code: cfg.template, conclusion: str(v['meta.conclusion']) || Evaluate.autoConclusion(res, schema, state) || null,
       remark: str(v['meta.remark']) || null,
       summary: Object.fromEntries(Object.entries(res.sec).map(([k, s]) => [k, { status: s.status, text: s.text, counts: s.counts }])),

@@ -21,6 +21,7 @@
   const lsSet = (k, v) => { try { v === null ? localStorage.removeItem(k) : localStorage.setItem(k, v); return true; } catch (e) { return false; } };
 
   let FX = null, state = null, schema = null, res = null, current = 'general';
+  let activePdfReview = null;
   let FXS = []; // các file xuất xưởng đã nạp: [{ name, api, emb }] — FX là file đang dùng (chọn theo số chế tạo)
   const filters = {};
 
@@ -98,6 +99,7 @@
   // ---------------------------------------------------------------- state
   // keepCfg: giữ cấu hình của biên bản đang mở (cùng loại thiết bị)
   async function newRecord(keepCfg, type) {
+    clearPdfReview();
     const code = type || EquipmentTypes.codeOf(state);
     const cfg = keepCfg ? JSON.parse(JSON.stringify(state.cfg)) : EquipmentTypes.get(code).defaultCfg();
     state = { type: code, v: {}, cfg, sum: { tick: {}, ev: {} }, att: {}, created: new Date().toISOString() };
@@ -519,6 +521,7 @@
     else if (current === 'importReport') html = ImportReportUI.render(App);
     else html = renderSection(schema.sections.find(s => s.id === current));
     const dl = FX ? `<datalist id="dlSerials">${FX.data.order.map(s => `<option value="${esc(s)}">`).join('')}</datalist>` : '';
+    if (activePdfReview) html = pdfReviewHTML(html);
     main.innerHTML = html + dl;
     updateComputed();
     if (current === 'db' || current === 'trend') DbUI.afterRender(current);
@@ -528,6 +531,34 @@
     if (current === 'appendix') AppendixUI.afterRender(App);
     if (current === 'criteria') CriteriaUI.afterRender();
     if (current === 'standards') StandardsUI.afterRender();
+  }
+
+  function clearPdfReview() {
+    if (activePdfReview && activePdfReview.url) URL.revokeObjectURL(activePdfReview.url);
+    activePdfReview = null;
+  }
+
+  function pdfReviewHTML(formHTML) {
+    if (!activePdfReview) return formHTML;
+    const importId = state.imported && state.imported.importId;
+    const canMarkReviewed = state.imported && state.imported.format === 'pdf' && importId && !state.imported.reviewed;
+    return `<div class="pdf-review-shell">
+      <div class="pdf-review-toolbar"><div><strong>Đối chiếu BBTN PDF</strong><span>${esc(activePdfReview.fileName || 'Tài liệu PDF')}</span></div>
+        <div class="row-actions" style="margin:0">${canMarkReviewed ? `<button class="btn small primary" type="button" data-act="impReviewDone" data-id="${esc(importId)}">Đã soát</button>` : ''}
+          <button class="btn small" type="button" data-act="closePdfReview">Đóng soát song song</button></div></div>
+      <div class="pdf-review-split"><section class="pdf-review-source" aria-label="Biên bản PDF gốc">
+        <iframe title="Biên bản PDF gốc" src="${esc(activePdfReview.url)}"></iframe></section>
+        <section class="pdf-review-form" aria-label="Biểu mẫu để soát và nhập số liệu">${formHTML}</section></div>
+    </div>`;
+  }
+
+  function closePdfReview() {
+    const returnTo = activePdfReview && activePdfReview.returnTo || 'general';
+    clearPdfReview();
+    current = returnTo;
+    renderNav();
+    renderMain();
+    window.scrollTo(0, 0);
   }
 
   // Xu hướng tại ô: tải lịch sử đo của thiết bị trong biên bản (đã lưu CSDL, đã đăng nhập); không dựng lại trang
@@ -758,6 +789,7 @@
     const act = b.dataset.act;
     try {
       if (act === 'new') openTypeDialog();
+      else if (act === 'closePdfReview') closePdfReview();
       else if (act === 'help') HelpUI.open(App);
       else if (act === 'save') await saveJson();
       else if (act === 'open') $('#fileJson').click();
@@ -1090,7 +1122,16 @@
     render() { renderNav(); renderMain(); },
     go(id) { current = id; renderNav(); renderMain(); window.scrollTo(0, 0); },
     currentSection() { return current; },
-    openState(st, db) { loadState(st); state.db = db; recompute(); current = 'general'; renderMain(); persist(); loadInlineTrend(); },
+    openState(st, db, pdfReview) {
+      clearPdfReview();
+      loadState(st); state.db = db;
+      if (pdfReview && pdfReview.blob) activePdfReview = {
+        url: URL.createObjectURL(pdfReview.blob),
+        fileName: pdfReview.fileName || pdfReview.blob.name || 'BBTN.pdf',
+        returnTo: pdfReview.returnTo || 'general',
+      };
+      recompute(); current = 'general'; renderMain(); persist(); loadInlineTrend();
+    },
   };
   boot().catch(err => { console.error(err); toast('Lỗi khởi động: ' + err.message, true); });
 })();

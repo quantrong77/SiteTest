@@ -217,7 +217,7 @@ Người đăng nhập Google lần đầu được tạo tài khoản quyền *
 | `test_sessions` | Mỗi lần thí nghiệm: `FAT` (Test report xuất xưởng), `SAT` (sau lắp đặt), `PERIODIC`, `AFTER_REPAIR`…; kèm toàn bộ biểu mẫu (`app_state`) để mở lại và xuất lại BBTN |
 | `measurements` | Một giá trị một dòng: hạng mục · đại lượng · sơ đồ/cuộn · pha · nấc, giá trị đo, nhiệt độ, **giá trị quy đổi chuẩn** (20 °C / 75 °C), đánh giá |
 | `test_findings` | Kết quả so sánh – đánh giá của app tại thời điểm lưu |
-| `documents` + Storage `test-documents` | File BBTN .docx đã xuất, Test report gốc |
+| `documents` + Storage `test-documents` | File BBTN .docx đã xuất, PDF BBTN gốc, Test report gốc, ảnh hiện trường |
 | `v_trend_delta` | Chuỗi xu hướng kèm giá trị khởi đầu (FAT nếu có) và % thay đổi |
 
 Phân quyền (RLS): viewer xem; editor nhập/sửa và xóa bản nháp của mình; admin toàn quyền.
@@ -228,7 +228,7 @@ Phân quyền (RLS): viewer xem; editor nhập/sửa và xóa bản nháp của 
 - Trước khi **Lưu CSDL** hoặc **Nhập Test report**, chọn Trạm/Ngăn lộ ở trang CSDL để thiết bị mới được gắn vào ngăn đó.
 - **Nhập Test report vào CSDL** (trang CSDL): tạo lần thí nghiệm FAT cho từng máy, kèm sứ và BCT — mốc khởi đầu của xu hướng. Chạy lại chỉ cập nhật, không tạo trùng.
 - **Lưu CSDL** (thanh trên cùng hoặc trang CSDL): lưu biên bản đang nhập dạng nháp, hoặc **Lưu & chốt** khi đã hoàn chỉnh.
-- **Mở / Xuất BBTN .docx** từ danh sách biên bản đã lưu: mở lại biểu mẫu và xuất đúng template; file .docx được lưu kèm vào Storage.
+- **Mở / Mở cùng PDF / Xuất BBTN .docx** từ danh sách biên bản đã lưu: mở lại biểu mẫu, đối chiếu PDF gốc cạnh biểu mẫu nếu có, hoặc xuất đúng template.
 - **Xu hướng**: chọn MBA (có thể gồm cả sứ/OLTC), chọn chuỗi số liệu → biểu đồ theo thời gian từng pha/thiết bị, bảng % thay đổi,
   và danh sách các chuỗi thay đổi nhiều nhất ở lần đo gần nhất.
 
@@ -275,12 +275,13 @@ không lấy số chế tạo theo pha từ file xuất xưởng tổ máy 1 pha
 
 ### Nhập BBTN cũ vào CSDL (chuỗi xu hướng)
 
-Trang **Nhập BBTN cũ** (nhóm Cơ sở dữ liệu): chọn nhiều file .docx hoặc cả thư mục BBTN đã ban hành theo một trong các mẫu trên.
-App nhận dạng mẫu theo số bảng của phần biên bản (bảng phụ lục không tính), đoán số cuộn thứ cấp biến dòng chân sứ theo bảng có số
-liệu, đọc mọi ô nhập theo đúng vị trí dùng để xuất (ô tự tính được tính lại), đọc ngày dạng dd/mm/yyyy, dd.mm.yyyy hoặc
-"ngày … tháng … năm …". Bảng soát cho biết mẫu, số chế tạo, ngày, số ô đọc được và cảnh báo (thiếu số chế tạo / ngày, đọc quá ít ô).
-*Mở để soát* nạp thành biên bản đang mở để kiểm tra, sửa rồi lưu; *Lưu CSDL* lưu thẳng (đã chốt) với nguồn `manual`, kèm tên và
-file gốc trên Storage. Mẫu chung 3 pha ghi số chế tạo cả 3 máy trong một ô: máy chính lấy số đầu, cột pha A/B/C theo thứ tự.
+Trang **Nhập BBTN cũ** (nhóm Cơ sở dữ liệu): chọn một/nhiều file hoặc cả thư mục `.docx` và `.pdf`.
+DOCX được đọc theo bảng như trước. PDF có lớp chữ theo mẫu PTC3/BM.01 110–220 kV được nhận dạng thông tin bìa; PDF scan được render bằng PDF.js
+và OCR bằng [Tesseract.js](https://github.com/naptha/tesseract.js) (`vie+eng`) ngay trên máy người dùng. Engine và dữ liệu ngôn ngữ tải theo yêu cầu ở lần đầu, sau đó được cache trong trình duyệt.
+Mở PDF cạnh biểu mẫu trong cùng trang để đối chiếu, nhập/hiệu chỉnh số liệu. Bảng soát cho biết mẫu, số chế tạo, ngày, số biên bản, số ô số liệu
+và cảnh báo. Bấm **Đã soát** sau khi đã nhập ít nhất một giá trị đo rồi **Lưu CSDL**; ứng dụng lưu số đo để xem xu hướng và tải file gốc
+lên Storage. Từ danh sách biên bản đã lưu, **Mở cùng PDF** mở lại PDF gốc cạnh biểu mẫu. OCR chỉ đọc chữ in; kiểm tra kết quả vì có thể nhận sai,
+và số liệu đo trong PDF hiện cần nhập, đối chiếu thủ công. Cần áp dụng migration `20261116000100_bbtn_pdf_import.sql` trước khi lưu PDF vào CSDL.
 
 ## Phát triển với agent (Codex, Claude Code)
 

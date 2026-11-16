@@ -554,20 +554,17 @@ Số liệu thí nghiệm ngắn mạch được nhập ở **Mục 3**; khi xu�
 ## 21. Nhập BBTN cũ
 
 1. Mở trang **Nhập BBTN cũ** trong nhóm Cơ sở dữ liệu.
-2. Chọn một hoặc nhiều file DOCX cũ.
-3. Có thể chọn thư mục nếu trình duyệt và giao diện cho phép.
-4. Chờ bảng soát hiển thị kết quả đọc.
-5. Kiểm tra mẫu được nhận dạng, số chế tạo, ngày và số ô đọc được.
-6. Đọc cảnh báo thiếu trường hoặc số ô đọc thấp.
-7. Bấm **Mở để soát** để nạp một biên bản vào giao diện.
-8. Kiểm tra giá trị đã đọc, sửa sai và lưu theo luồng thông thường.
-9. Bấm **Lưu CSDL** trong bảng nhập để nhập thẳng theo cơ chế đó.
-10. Xác nhận thiết bị, ngày và nguồn dữ liệu trước khi ghi.
-11. Mẫu 3P lưu số chế tạo máy chính ở một trường.
-12. Mẫu 3P chỉ hạn chế số chế tạo máy chính theo parser hiện tại.
-13. Không dùng lệnh nhập hàng loạt nếu bảng soát chưa đúng.
-14. BBTN cũ không đảm bảo đọc được mọi template hoặc bản scan.
-15. Chỉ DOCX có cấu trúc bảng phù hợp mới được parser hỗ trợ.
+2. Chọn một/nhiều file `.docx`, `.pdf` hoặc chọn cả thư mục.
+3. DOCX được đọc theo cấu trúc bảng của mẫu PTC3/BM.01 đã hỗ trợ; PDF có lớp chữ được đọc trực tiếp, PDF scan được OCR bằng [Tesseract.js](https://github.com/naptha/tesseract.js) (`vie+eng`) sau khi PDF.js render từng trang.
+4. Kiểm tra mẫu, số chế tạo, ngày thí nghiệm, số biên bản, số ô số liệu và các cảnh báo trong bảng.
+5. Với PDF, bấm **Soát cạnh PDF** để mở bản gốc trong khung trái và biểu mẫu trong khung phải cùng trang.
+6. Đối chiếu nội dung bìa, nhập hoặc sửa số liệu đo trong biểu mẫu bên phải. PDF không có trường form nên số liệu bảng đo chưa được tự động trích xuất.
+7. Bấm **Đã soát** trên thanh phía trên khung PDF sau khi đã nhập ít nhất một giá trị đo; nếu đã đóng khung song song, mở lại file rồi đánh dấu. Kiểm tra số liệu và ngày trước khi lưu.
+8. Bấm **Lưu CSDL** hoặc **Lưu các biên bản đã soát**. Mỗi phiên lưu số liệu đo phục vụ xu hướng và đính kèm file gốc trong Storage.
+9. Để xem lại, vào **CSDL** → **Biên bản đã lưu** → **Mở cùng PDF**. PDF và biểu mẫu mở cạnh nhau, không cần tab mới.
+10. OCR chạy trên máy này, nhưng lần đầu cần Internet để tải engine và dữ liệu tiếng Việt/tiếng Anh; Tesseract.js lưu cache trong trình duyệt.
+11. OCR nhận dạng chữ in; soát lại trường bìa và số liệu theo PDF gốc. Số liệu bảng đo hiện chưa tự động đưa vào biểu mẫu; chữ viết tay có thể nhận sai.
+12. Trước khi lưu PDF, quản trị CSDL cần áp dụng migration `20261116000100_bbtn_pdf_import.sql` để cho phép loại tài liệu `BBTN_PDF`.
 
 ## 22. Thư viện tài liệu
 

@@ -35,6 +35,7 @@ const legacyScripts = [
   'js/domain/types/mba/import-2293.js',
   'js/domain/types/mba/nameplate.js',
   'js/domain/types/mba/import-report.js',
+  'js/domain/types/mba/import-report-pdf.js',
   'js/domain/types/mba/index.js',
   'js/data/docx.js',
   'js/data/file-store.js',

@@ -62,9 +62,9 @@
       h += `<tr class="${s.n_fail ? 'st-fail' : ''}"><td class="num">${esc(s.test_date)}</td><td>${esc(Common.KIND_LABEL[s.kind] || s.kind)}</td>
         <td>${esc(s.serial_no)}${s.equipment_name ? `<div class="note">${esc(s.equipment_name)}</div>` : ''}${s.bay_code ? `<div class="note">${esc(s.substation_name || '')} · ${esc(s.bay_code)}</div>` : ''}</td>
         <td><span class="badge ${s.status === 'final' ? 'st-pass' : 'st-info'}">${s.status === 'final' ? 'Đã chốt' : 'Nháp'}</span>${cur ? ' <span class="badge st-missing">đang mở</span>' : ''}</td>
-        <td class="num">${s.n_values}</td><td class="num">${s.n_fail || ''}</td><td>${s.source === 'factory_import' ? 'Test report' : 'Hiện trường'}</td>
+        <td class="num">${s.n_values}</td><td class="num">${s.n_fail || ''}</td><td>${s.source === 'factory_import' ? 'Test report' : s.source === 'manual' ? 'BBTN cũ' : 'Hiện trường'}</td>
         <td><div class="row-actions" style="margin:0">
-          ${s.has_form ? `<button class="btn small" data-act="dbOpen" data-id="${s.id}">Mở</button><button class="btn small" data-act="dbExport" data-id="${s.id}">Xuất BBTN .docx</button>` : ''}
+          ${s.has_form ? `<button class="btn small" data-act="dbOpen" data-id="${s.id}">Mở</button><button class="btn small" data-act="dbReviewPdf" data-id="${s.id}">Mở cùng PDF</button><button class="btn small" data-act="dbExport" data-id="${s.id}">Xuất BBTN .docx</button>` : ''}
           <button class="btn small" data-act="dbDocs" data-id="${s.id}">Tài liệu</button>
           <button class="btn small" data-act="dbTrendOf" data-eq="${s.equipment_id}">Xu hướng</button>
           <button class="btn small" data-act="dbDelete" data-id="${s.id}">Xóa</button></div>
@@ -74,7 +74,8 @@
   }
   function docsHTML(list) {
     if (!list.length) return '<div class="note">Chưa có tài liệu.</div>';
-    return list.map(d => `<div class="note"><a href="#" data-dl="${esc(d.storage_path)}" data-name="${esc(d.file_name)}">${esc(d.file_name)}</a> · ${esc(d.kind)}</div>`).join('');
+    const label = { BBTN_DOCX: 'BBTN DOCX', BBTN_PDF: 'BBTN gốc (PDF)', FACTORY_REPORT: 'Test report' };
+    return list.map(d => `<div class="note"><a href="#" data-dl="${esc(d.storage_path)}" data-name="${esc(d.file_name)}">${esc(d.file_name)}</a> · ${esc(label[d.kind] || d.kind)}</div>`).join('');
   }
 
   async function loadSessions() {
@@ -273,6 +274,19 @@
         App.toast(`Đã nhập Test report: ${out.map(o => `${o.serial} (${o.n} giá trị)`).join(', ')}`);
       } else if (act === 'dbRefresh') {
         sessions = null;
+      } else if (act === 'dbReviewPdf') {
+        const row = await DB.loadSession(btn.dataset.id);
+        if (!row.app_state) throw new Error('Biên bản này không có dữ liệu biểu mẫu để mở lại');
+        const files = await DB.listDocs(row.id);
+        const source = files.find(d => d.kind === 'BBTN_PDF');
+        if (!source) throw new Error('Phiên này chưa lưu PDF BBTN gốc. Mở “Tài liệu” để kiểm tra tệp đã đính kèm.');
+        const blob = await DB.downloadDoc(source.storage_path);
+        App.openState(row.app_state, { sessionId: row.id, equipmentId: row.equipment_id, savedAt: row.updated_at }, {
+          blob, fileName: source.file_name, returnTo: 'db',
+        });
+        try { await AppendixUI.ensureFiles(App.state); } catch (err) { App.toast('Không tải được file phụ lục SFRA từ CSDL: ' + err.message, true); }
+        App.toast('Đã mở biểu mẫu cạnh PDF gốc');
+        busy = false; return;
       } else if (act === 'dbOpen' || act === 'dbExport') {
         const row = await DB.loadSession(btn.dataset.id);
         if (!row.app_state) throw new Error('Biên bản này không có dữ liệu biểu mẫu (nhập từ Test report)');

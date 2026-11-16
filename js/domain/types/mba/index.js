@@ -162,8 +162,10 @@
   EquipmentTypes.register({
     code: 'MBA', label: 'Máy biến áp', classCode: 'MBA',
     defaultCfg, normalizeCfg, applyFactoryDefaults, templateKeyFor,
-    // nhập BBTN cũ (.docx) → biên bản của app (js/domain/types/mba/import-report.js)
+    // nhập BBTN cũ (.docx/.pdf) → biên bản của app
     importReport: (tpl, fileName) => MbaImportReport.read(tpl, fileName),
+    // nhập BBTN PDF có lớp chữ (PTC3/BM.01, MBA 110–220 kV)
+    importPdfReport: (pages, fileName) => MbaPdfImportReport.read(pages, fileName),
     buildSchema: cfg => Schema.build(cfg),
     evaluate: (state, FX, schema) => Evaluate.evaluate(state, FX, schema),
     autoConclusion: (res, schema, state) => Evaluate.autoConclusion(res, schema, state),
