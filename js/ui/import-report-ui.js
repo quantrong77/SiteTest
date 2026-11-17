@@ -1,4 +1,4 @@
-// Nhập BBTN cũ theo lô. PDF được đọc trên máy người dùng và soát trong cùng màn hình với biểu mẫu.
+// Nhập BBTN cũ theo lô. Dữ liệu được lưu nháp tự động; PDF có thể soát cạnh sau.
 (function () {
   'use strict';
   const $ = (s, r = document) => r.querySelector(s);
@@ -16,18 +16,24 @@
 
   function canSave(it, A) {
     const st = activeState(it, A);
-    if (!it || it.error || it.saved || !it.reviewed || !st) return false;
+    if (!it || it.error || (it.saved && it.saved.status !== 'draft') || !it.reviewed || !st) return false;
     if (!String(st.v['meta.serial'] || '').trim() || !Common.isoDate(st.v['meta.date'])) return false;
-    if (it.format === 'pdf' && !(it.count > 0)) return false;
     return true;
+  }
+
+  function canSaveDraft(it, A) {
+    const st = activeState(it, A);
+    return Boolean(it && !it.error && !it.saved && !it.processing && st
+      && String(st.v['meta.serial'] || '').trim() && Common.isoDate(st.v['meta.date']));
   }
 
   function render(A) {
     const esc = A.esc;
     let h = '<div class="panel-head"><span class="secno">NB</span><h2>Nhập BBTN cũ</h2><span class="en">Import reports</span></div>';
-    h += `<p class="hint-text">Chọn một/nhiều BBTN hoặc cả thư mục (.docx, .pdf). PDF scan sẽ được OCR tiếng Việt + tiếng Anh ngay trên máy này; lần đầu cần Internet để tải engine và dữ liệu ngôn ngữ. Mở “Soát cạnh PDF” để kiểm tra nội dung, đối chiếu và nhập/sửa số liệu bên cạnh. Chỉ file được lưu mới tải lên CSDL.</p>`;
+    h += `<p class="hint-text">Chọn một/nhiều BBTN hoặc cả thư mục (.docx, .pdf). Số liệu đọc được sẽ vào hạng mục tương ứng và tự lưu ở trạng thái nháp để soát sau. PDF scan được OCR tiếng Việt + tiếng Anh ngay trên máy này; lần đầu cần Internet để tải engine và dữ liệu ngôn ngữ. Mở “Soát cạnh PDF” để đối chiếu, bổ sung số liệu rồi xác nhận. Cần đăng nhập tài khoản có quyền nhập liệu; file thiếu số chế tạo hoặc ngày thí nghiệm sẽ chờ bổ sung trước khi lưu.</p>`;
     h += `<div class="row-actions"><button class="btn primary" data-act="impFiles">Chọn file BBTN…</button><button class="btn" data-act="impFolder">Chọn cả thư mục…</button>
-      ${items.length ? '<button class="btn" data-act="impClear">Xóa danh sách</button>' : ''}
+      ${items.length ? '<button class="btn" data-act="impClear">Ẩn danh sách</button>' : ''}
+      ${items.some(it => canSaveDraft(it, A)) ? `<button class="btn" data-act="impSaveDraftAll"${busy ? ' disabled' : ''}>Lưu nháp chưa lưu (${items.filter(it => canSaveDraft(it, A)).length})</button>` : ''}
       ${items.some(it => canSave(it, A)) ? `<button class="btn primary" data-act="impSaveAll"${busy ? ' disabled' : ''}>Lưu các biên bản đã soát (${items.filter(it => canSave(it, A)).length})</button>` : ''}</div>`;
     if (!items.length) return `<section class="panel">${h}<p class="wf-none">Chưa chọn file nào.</p></section>`;
     h += '<div class="grid-wrap"><table class="ftable"><thead><tr><th>File</th><th>Định dạng / mẫu</th><th>Số chế tạo</th><th>Ngày TN</th><th>Số biên bản</th><th>Ô số liệu</th><th>Trạng thái</th><th></th></tr></thead><tbody>';
@@ -38,18 +44,21 @@
       const progressPct = it.progress && it.progress.progress > 0 ? ` · ${Math.round(it.progress.progress * 100)}%` : '';
       const progress = it.progress ? `${esc(progressLabel)} ${it.progress.page ? `${it.progress.page}/${it.progress.total}` : ''}${progressPct}` : 'Đang xử lý';
       const status = it.processing ? `<span class="badge st-info">${progress}</span>`
+        : it.saving ? '<span class="badge st-info">Đang lưu bản nháp</span>'
         : it.error ? '<span class="badge st-fail">Lỗi đọc</span>'
-        : it.saved ? '<span class="badge st-pass">Đã lưu CSDL</span>'
+        : it.saved ? `<span class="badge ${it.saved.status === 'final' ? 'st-pass' : 'st-info'}">${it.saved.status === 'final' ? 'Đã lưu · đã soát' : it.reviewed ? 'Đã soát · chờ cập nhật' : 'Đã lưu nháp · chờ soát'}</span>`
           : it.reviewed ? '<span class="badge st-info">Đã soát</span>' : '<span class="badge st-warn">Cần soát</span>';
+      const notes = [...(it.warnings || []), ...(it.saveNotice ? [it.saveNotice] : [])];
       const warnings = it.error ? `<div class="note">${esc(it.error)}</div>`
-        : it.warnings && it.warnings.length ? `<div class="note">${it.warnings.map(esc).join('<br>')}</div>` : '';
+        : notes.length ? `<div class="note">${notes.map(esc).join('<br>')}</div>` : '';
       const format = it.format === 'pdf' ? `PDF · ${esc(LAYOUT_NAME[it.layout] || it.layout || 'chưa nhận dạng')}` : `DOCX · ${esc(LAYOUT_NAME[it.layout] || it.layout || 'chưa nhận dạng')}`;
       return `<tr><td>${esc(it.file)}</td><td>${format}</td><td>${esc(v['meta.serial'] || '—')}</td><td>${esc(v['meta.date'] || '—')}</td><td>${esc(it.reportNo || st && st.imported && st.imported.reportNo || '—')}</td>
         <td class="num">${Number(it.count) || 0}</td><td>${status}${warnings}</td><td><div class="row-actions" style="margin:0">
         ${it.state && !it.error && !it.processing ? `<button class="btn small" data-act="impOpen" data-id="${it.id}">${it.format === 'pdf' ? 'Soát cạnh PDF' : 'Mở để soát'}</button>` : ''}
-        ${it.format === 'pdf' && it.state && !it.error && !it.processing && !it.reviewed ? `<button class="btn small" data-act="impReviewDone" data-id="${it.id}">Đã soát</button>` : ''}
-        ${canSave(it, A) ? `<button class="btn small primary" data-act="impSave" data-id="${it.id}"${busy ? ' disabled' : ''}>Lưu CSDL</button>` : ''}
-        <button class="btn small" data-act="impDel" data-id="${it.id}" aria-label="Bỏ ${esc(it.file)}">Bỏ</button></div></td></tr>`;
+        ${it.state && !it.error && !it.processing && !it.reviewed ? `<button class="btn small" data-act="impReviewDone" data-id="${it.id}">Đã soát</button>` : ''}
+        ${canSaveDraft(it, A) ? `<button class="btn small" data-act="impSaveDraft" data-id="${it.id}"${busy ? ' disabled' : ''}>Lưu nháp</button>` : ''}
+        ${canSave(it, A) ? `<button class="btn small primary" data-act="impSave" data-id="${it.id}"${busy ? ' disabled' : ''}>Lưu &amp; chốt</button>` : ''}
+        <button class="btn small" data-act="impDel" data-id="${it.id}" aria-label="Ẩn ${esc(it.file)}">Ẩn</button></div></td></tr>`;
     }).join('');
     return `<section class="panel">${h}</tbody></table></div></section>`;
   }
@@ -57,7 +66,7 @@
   async function readFiles(files, A) {
     const reports = Array.from(files || []).filter(f => /\.(docx|pdf)$/i.test(f.name) && !/^~\$/.test(f.name));
     if (!reports.length) { A.toast('Không có file .docx hoặc .pdf trong lựa chọn', true); return; }
-    let n = 0;
+    let n = 0, saved = 0;
     for (const f of reports) {
       const format = /\.pdf$/i.test(f.name) ? 'pdf' : 'docx';
       const it = { id: 'imp' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6), file: f.webkitRelativePath || f.name, blob: f, format, reviewed: format === 'docx', processing: true };
@@ -83,14 +92,41 @@
         Object.assign(it, parsed);
         it.reportNo = it.reportNo || (it.state.imported && it.state.imported.reportNo) || '';
         it.state.imported = Object.assign({}, it.state.imported, { importId: it.id, format, reportNo: it.reportNo });
-        it.reviewed = format === 'docx';
+        it.reviewed = false;
         n++;
       } catch (e) { it.error = e.message; }
       it.processing = false;
       it.progress = null;
+      if (!it.error && await autoSaveDraft(it, A)) saved++;
       A.render();
     }
-    A.toast(`Đã đọc ${n}/${reports.length} file BBTN — mở từng file để soát trước khi lưu`);
+    A.toast(`Đã đọc ${n}/${reports.length} file BBTN; tự lưu ${saved}/${n} bản nháp. Mở từng file để soát sau.`);
+  }
+
+  async function autoSaveDraft(it, A) {
+    if (!it || !it.state || it.error || it.saved) return false;
+    const state = it.state;
+    const missing = [];
+    if (!String(state.v['meta.serial'] || '').trim()) missing.push('số chế tạo');
+    if (!Common.isoDate(state.v['meta.date'])) missing.push('ngày thí nghiệm');
+    if (missing.length) {
+      it.saveNotice = 'Chưa tự lưu: cần bổ sung ' + missing.join(' và ') + ' trong biểu mẫu.';
+      return false;
+    }
+    if (!window.DB || !DB.user || !DB.canEdit()) {
+      it.saveNotice = 'Chưa tự lưu: đăng nhập bằng tài khoản có quyền nhập liệu để lưu vào CSDL.';
+      return false;
+    }
+    it.saving = true; busy = true; A.render();
+    try {
+      await save(it, A, 'draft');
+      return true;
+    } catch (e) {
+      it.saveNotice = 'Chưa lưu vào CSDL: ' + e.message;
+      return false;
+    } finally {
+      it.saving = false; busy = false; A.render();
+    }
   }
 
   function evalOf(it, A) {
@@ -100,18 +136,23 @@
     return { state, schema, res: T.evaluate(state, FX, schema) };
   }
 
-  async function save(it, A) {
+  async function save(it, A, status) {
     const { state, schema, res } = evalOf(it, A);
-    const r = await Records.saveField(state, res, schema, 'final');
+    status = status || 'final';
+    it.saveNotice = '';
+    const r = await Records.saveField(state, res, schema, status);
     state.db = { sessionId: r.id, equipmentId: r.equipmentId, savedAt: new Date().toISOString() };
     it.state = JSON.parse(JSON.stringify(state));
     it.count = r.n;
-    it.saved = { id: r.id };
+    it.saved = { id: r.id, status };
     if (A.state.imported && A.state.imported.importId === it.id) A.persist();
     try {
       const kind = it.format === 'pdf' ? 'BBTN_PDF' : 'BBTN_DOCX';
       await DB.uploadDoc(r.id, r.equipmentId, kind, `${state.v['meta.serial']}/${r.id}/imported/${it.blob.name}`, it.blob.name, it.blob);
-    } catch (e) { A.toast(`${it.file}: đã lưu số liệu, chưa lưu được file gốc (${e.message})`, true); }
+    } catch (e) {
+      it.saveNotice = `Đã lưu số liệu nhưng chưa lưu được file gốc (${e.message}).`;
+      A.toast(`${it.file}: ${it.saveNotice}`, true);
+    }
     return r;
   }
 
@@ -130,23 +171,66 @@
       A.toast(it.format === 'pdf' ? `Đã mở ${it.file} cạnh biểu mẫu — sửa dữ liệu ở khung bên phải` : `Đã mở ${it.file} để soát`);
       return;
     }
-    if (act === 'impReviewDone' && it) {
-      if (!A.state.imported || A.state.imported.importId !== it.id) { A.toast('Mở “Soát cạnh PDF”, kiểm tra và nhập số liệu trước khi đánh dấu đã soát.', true); return; }
-      it.state = JSON.parse(JSON.stringify(A.state));
-      try { it.count = measuredCount(it.state); } catch (e) { A.toast('Chưa thể kiểm tra số liệu: ' + e.message, true); return; }
-      if (!it.count) { A.toast('Chưa có ô số liệu đo nào. Nhập ít nhất một số liệu trong biểu mẫu rồi soát lại.', true); return; }
-      it.reviewed = true;
-      A.state.imported.reviewed = true;
-      it.state.imported.reviewed = true;
-      A.persist();
-      A.render();
-      A.toast(`Đã soát ${it.file}: ${it.count} dòng số liệu`);
+    if (act === 'impReviewDone') {
+      if (it) {
+        if (!A.state.imported || A.state.imported.importId !== it.id) { A.toast('Mở biểu mẫu cạnh BBTN gốc, kiểm tra số liệu rồi đánh dấu đã soát.', true); return; }
+        it.state = JSON.parse(JSON.stringify(A.state));
+        try { it.count = measuredCount(it.state); } catch (e) { A.toast('Chưa thể kiểm tra số liệu: ' + e.message, true); return; }
+        it.reviewed = true;
+        A.state.imported.reviewed = true;
+        it.state.imported.reviewed = true;
+        A.persist();
+        if (!window.DB || !DB.user || !DB.canEdit()) {
+          it.saveNotice = 'Đã soát tại máy này; cần quyền nhập liệu để cập nhật trạng thái vào CSDL.';
+          A.render();
+          A.toast('Đã soát, nhưng chưa cập nhật được CSDL. Đăng nhập bằng tài khoản có quyền nhập liệu để lưu.', true);
+          return;
+        }
+        busy = true; A.render();
+        try {
+          await save(it, A, 'final');
+          A.toast(`Đã soát và cập nhật ${it.file}: ${it.count} dòng số liệu`);
+        } catch (e) {
+          it.saveNotice = 'Đã soát nhưng chưa cập nhật được CSDL: ' + e.message;
+          A.toast(it.saveNotice, true);
+        } finally { busy = false; A.render(); }
+        return;
+      }
+      const state = A.state;
+      if (!state.imported || state.imported.importId !== (b && b.dataset.id) || !state.db || !state.db.sessionId) {
+        A.toast('Không tìm thấy biên bản đã lưu để cập nhật.', true); return;
+      }
+      if (!window.DB || !DB.user || !DB.canEdit()) { A.toast('Cần tài khoản có quyền nhập liệu để cập nhật trạng thái đã soát trong CSDL.', true); return; }
+      state.imported.reviewed = true;
+      A.persist(); busy = true; A.render();
+      try {
+        const r = await Records.saveField(state, A.res, A.schema, 'final');
+        state.db = { sessionId: r.id, equipmentId: r.equipmentId, savedAt: new Date().toISOString() };
+        A.persist();
+        A.toast('Đã soát và cập nhật biên bản trong CSDL');
+      } catch (e) {
+        state.imported.reviewed = false; A.persist();
+        A.toast('Đã soát nhưng chưa cập nhật được CSDL: ' + e.message, true);
+      } finally { busy = false; A.render(); }
+      return;
+    }
+    if (act === 'impSaveDraft' || act === 'impSaveDraftAll') {
+      if (!window.DB || !DB.user || !DB.canEdit()) { A.toast('Cần đăng nhập bằng tài khoản có quyền nhập liệu để lưu vào CSDL.', true); return; }
+      const list = act === 'impSaveDraft' ? [it].filter(x => x && canSaveDraft(x, A)) : items.filter(x => canSaveDraft(x, A));
+      if (!list.length) { A.toast('Chưa có biên bản đủ số chế tạo và ngày thí nghiệm để lưu nháp.', true); return; }
+      busy = true; A.render();
+      let n = 0;
+      for (const x of list) {
+        try { await save(x, A, 'draft'); n++; } catch (e) { x.saveNotice = 'Chưa lưu vào CSDL: ' + e.message; A.toast(`${x.file}: ${e.message}`, true); }
+      }
+      busy = false; A.render();
+      A.toast(`Đã lưu nháp ${n}/${list.length} biên bản vào CSDL`);
       return;
     }
     if (act === 'impSave' || act === 'impSaveAll') {
       if (!window.DB || !DB.user || !DB.canEdit()) { A.toast('Cần đăng nhập bằng tài khoản có quyền nhập liệu để lưu vào CSDL.', true); return; }
       const list = act === 'impSave' ? [it].filter(x => x && canSave(x, A)) : items.filter(x => canSave(x, A));
-      if (!list.length) { A.toast('Chưa có biên bản hợp lệ đã soát để lưu.', true); return; }
+      if (!list.length) { A.toast('Chưa có biên bản hợp lệ đã soát để lưu hoặc cập nhật.', true); return; }
       busy = true; A.render();
       let n = 0;
       for (const x of list) {

@@ -425,6 +425,11 @@
     fields.forEach(([key, start, end]) => { v[key] = between(cover, start, end); });
     if (!v['meta.reason']) v['meta.reason'] = between(cover, 'Lý do thí nghiệm', 'Ngày thí nghiệm');
     if (!v['meta.date']) v['meta.date'] = between(cover, 'Ngày thí nghiệm (Date)', 'Điều kiện môi trường');
+    if (opts.ocr && !String(v['meta.serial'] || '').trim()) {
+      const serialLine = cover.split(/\r?\n/).find(line => /số\s*chế|serial/i.test(line));
+      const serial = serialLine && serialLine.match(/(?:^|\D)([A-Z]?\d{5,8})(?:\D|$)/i);
+      if (serial) v['meta.serial'] = serial[1];
+    }
     v['meta.date'] = normDate(v['meta.date']) || v['meta.date'];
     const envLine = lines[0].find(x => fold(x).includes('ambient condition')) || '';
     const temp = envLine.match(/(?:Temp\.)\s*=\s*([\d.,+-]+)/i);
