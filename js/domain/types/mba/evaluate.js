@@ -95,7 +95,8 @@
     const isNew = /^\s*sau\s+lắp\s+đặt|sửa\s+chữa|đại\s+tu/i.test(reason);
     const serialOf = ph => {
       const p = String(ph || '').toUpperCase();
-      return p === 'N' || schema.layout === Schema.LAYOUT_110 || cfg.topology !== 'bank1p' ? main : (cfg.ps[p] || main);
+      // cột pha B, C (mẫu theo pha, mẫu chung 3 pha) là máy B, C của tổ khi có số chế tạo; MBA 3 pha 110–220 kV chỉ có một máy
+      return p === 'N' || schema.layout === Schema.LAYOUT_110 ? main : (cfg.ps[p] || main);
     };
     const F = FX; // API xuất xưởng (có thể null)
     const add = f => findings.push(Object.assign({ status: 'info' }, f));

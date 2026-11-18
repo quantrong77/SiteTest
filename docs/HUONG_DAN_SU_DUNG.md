@@ -72,7 +72,8 @@ Hãy dùng đúng nhãn hiển thị trên phiên bản đang chạy.
 1. Chọn **Cấu hình thiết bị** trước: tổ 3 MBA một pha, MBA ba pha hoặc MBA một pha độc lập. Điện áp định mức không tự chọn topology.
 2. Với tổ 3 MBA một pha (thường là MBA 500 kV), nhập S/N riêng cho pha A, B, C. Các S/N được giữ lại khi đổi file Test Report.
 3. Chọn **Một BBTN chung cho cả tổ A+B+C** hoặc **Tách thành BBTN riêng theo pha**. Khi tách, chọn pha cần xuất; một pha tải DOCX, nhiều pha tải ZIP chứa từng DOCX.
-4. Mẫu theo pha (**A**, **B**, **C**) là mẫu riêng cho từng máy một pha. Mẫu chung **3P** gộp ba MBA một pha A, B, C vào một biên bản.
+4. Mẫu theo pha (**A**, **B**, **C**) là mẫu riêng cho từng máy một pha. Mẫu chung **3P** gộp ba MBA một pha A, B, C vào một biên bản. Với mẫu theo pha, nhập **Số chế tạo máy pha B, C trong tổ**: cột pha B, C của bảng R một chiều và tỷ số biến được so với xuất xưởng và ghi CSDL theo máy đó; máy độc lập thì để trống.
+   - Phụ lục *Bảng tra cứu tiêu chuẩn thí nghiệm* (QĐ EVNNPT, IEC, IEEE) mặc định **không kèm** để BBTN đúng mẫu giấy; muốn kèm thì chọn *Kèm phụ lục cuối BBTN* ở mục **Phụ lục BBTN**.
 5. Với MBA ba pha 110–220 kV, chọn topology MBA ba pha và nhập một S/N; ứng dụng chỉ xuất một BBTN. Với MBA một pha độc lập, chọn topology tương ứng và nhập một S/N.
 6. Số mục khác nhau giữa các mẫu: xem bảng dưới. Các phần 4–14 của hướng dẫn này theo cách đánh số mẫu theo pha / 110.
 7. Nếu cần template riêng, dùng nút **Chọn file template…** và chọn DOCX bản trống đúng loại, đúng layout.
