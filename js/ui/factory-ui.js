@@ -46,12 +46,20 @@
       + 'số liệu sửa trong CSDL dùng cho <b>xu hướng</b> các lần thí nghiệm sau.</div>';
     const tools = `<div class="fx-tools"><label class="fx-search"><span class="sr-only">Tìm số liệu xuất xưởng</span>`
       + `<input id="fxSearch" type="search" autocomplete="off" placeholder="Tìm trạm, ngăn, tên thiết bị, số chế tạo, số report…" value="${esc(ui.query)}"></label>`
-      + `<button class="btn" data-act="fxImport" title="Nạp file test report (.xlsx); đã đăng nhập: chọn máy, trạm / ngăn rồi lưu lên CSDL">Nhập test report (.xlsx)…</button>${signedIn() ? '<button class="btn" data-act="fxRefresh" title="Tải lại từ CSDL">Tải lại</button>' : ''}</div>`;
+      + `<button class="btn" data-act="fxImport" title="Nạp file test report (.xlsx); đã đăng nhập: chọn máy, trạm / ngăn rồi lưu lên CSDL">Nhập test report (.xlsx)…</button>${bushingBtn()}${signedIn() ? '<button class="btn" data-act="fxRefresh" title="Tải lại từ CSDL">Tải lại</button>' : ''}</div>`;
     return intro + tools
       + `<div class="fx-layout"><nav class="fx-tree" aria-label="Cây số liệu xuất xưởng" id="fxTreeWrap">${treeHTML()}</nav>`
       + `<div class="fx-body"><div id="fxList">${listHTML()}</div><div id="fxDetail">${detailHTML()}</div></div></div>`
       + `<details class="fx-local"${A.factories.length && !signedIn() ? ' open' : ''}><summary>File .xlsx trên máy này (${A.factories.length}) — chọn file đang dùng, xem sheet gốc</summary>`
       + `<div class="fx-local-body">${A.localFactoryHTML()}</div></details>`;
+  }
+
+  // test report sứ của hãng (MBA: sứ Hitachi, tra theo S/N sứ khi đánh giá mục 5) — chỉ dùng trên máy này, không lưu CSDL
+  function bushingBtn() {
+    const U = window.TypeUI && TypeUI[EquipmentTypes.codeOf(A.state)];
+    if (!U || !U.actions || !U.actions.loadHitachi) return '';
+    const HB = window.HitachiBushing, n = HB && HB.reports ? HB.reports.length : 0;
+    return `<button class="btn" data-act="loadHitachi" title="Test report sứ xuyên của hãng (.xlsx, sheet TestReport + TraCuu) — đang có ${n} sứ; dùng để so C1, tanδ ở mục 5">Nhập test report sứ (.xlsx)…</button>`;
   }
 
   function statusHTML() {

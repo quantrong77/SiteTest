@@ -191,7 +191,7 @@ Hãy dùng đúng nhãn hiển thị trên phiên bản đang chạy.
 
 ### Test report sứ Hitachi
 
-1. Dùng nút nạp XLSX xuất xưởng/test report sứ đang có trong mục 0.
+1. Nạp file test report sứ (.xlsx, sheet TestReport + TraCuu) bằng nút **Thêm file .xlsx…** ở đầu **mục 5** (Tgδ và điện dung các sứ), nút **Nhập test report sứ (.xlsx)…** ở mục **XX**, hoặc bước ④ trình khởi tạo. Nạp được nhiều file, gộp theo S/N sứ.
 2. Chọn file report theo định dạng được bộ đọc hỗ trợ.
 3. Bộ đọc ghép báo cáo theo số chế tạo sứ.
 4. Nếu trùng S/N, dữ liệu nạp sau có thể thay dữ liệu trước.

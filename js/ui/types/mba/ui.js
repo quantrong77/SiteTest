@@ -31,7 +31,7 @@
         return `<div class="callout"><b>Sứ RIP Hitachi Energy</b> quy đổi theo HD vận hành sứ của hãng (mục 19.6–19.8):
           T sứ = T môi trường khi <b>chưa lắp</b>, = (2·T môi trường + T dầu)/3 khi <b>đã lắp</b>; tanδ20 = tanδ/fc; C20 = C·(1 − ∆T·${HK ? String(HK.cCoef).replace('.', ',') : '0,0004'});
           sứ đã lắp cộng ΔC lắp đặt vào C1 (${HK ? HK.dC.map(r => `Ur ≤ ${r.ur} kV: ${r.pf} pF`).join('; ') : ''}).
-          So với <b>test report của hãng tra theo S/N sứ</b> (${esc(HB && HB.source ? `${HB.source}, ${HB.reports.length} sứ` : 'chưa nạp — nạp ở mục 0')}):
+          So với <b>test report của hãng tra theo S/N sứ</b> (${esc(HB && HB.source ? `${HB.source}, ${HB.reports.length} sứ` : 'chưa nạp — nạp bằng nút Thêm file .xlsx ở trên')}):
           ${tl ? `Ur ≤ ${HK.urSplit} kV: C1 ±${tl.low.c1 * 100}%, tanδ1 ±${String(tl.low.tgd1).replace('.', ',')}, C2 ±${tl.low.c2 * 100}%, tanδ2 ±${String(tl.low.tgd2).replace('.', ',')} điểm %; Ur > ${HK.urSplit} kV: C1 ±${tl.high.c1 * 100}%` : ''}.
           Sứ không có trong test report thì so với giá trị nhãn trong hồ sơ MBA (${bl.length} sứ của các máy đang chọn; ${ps}).
           <br>Chọn <b>Theo QĐ 1901</b> hoặc <b>Theo hãng</b> ở ô “Cách quy đổi về 20 °C”: tra hệ số K theo loại cách điện sứ và nhiệt độ sứ (đã lắp: nhiệt độ dầu; chưa lắp: nhiệt độ môi trường), tgδ20 = tgδ(t) × K. Bảng K do Admin cấu hình ở trang “Hệ số quy đổi sứ”.
@@ -60,6 +60,8 @@
       return `<div class="bct-tools"><div class="fields"><div class="field"><label>Số liệu từ máy đo</label><button class="btn primary" data-act="load2293">Nhập file Haefely 2293…</button></div>${id === 'oltc' ? A.cfgField('oltcCharts', 'Đồ thị chụp sóng trong phụ lục BBTN', { options: [['all', 'Từng lần chuyển nấc (2 đồ thị/hàng)'], ['overlay', 'Gộp theo chiều tăng / giảm nấc']] }) : ''}</div>`
         + '<div class="hint-text">Chọn cùng lúc các file <b>.csv</b> xuất từ máy (điện trở một chiều, tỷ số biến, chuyển nấc) và file <b>.bin</b> cùng tên (dạng sóng chụp OLTC); có thể chọn file của cả ba pha. Bỏ qua các file .dat, .mat.</div></div>';
     }
+    // mục 5: test report sứ của hãng (tra theo S/N sứ) — nạp ngay tại mục dùng nó
+    if (id === 'bushing') return `<div class="bct-tools"><div class="fields">${generalFiles(A)}</div><div class="hint-text">File test report sứ Hitachi (.xlsx, sheet TestReport + TraCuu): app gộp theo S/N sứ, so C1, tanδ đo được với giá trị hãng. Nạp được nhiều file (sứ của nhiều máy).</div></div>`;
     if (id !== 'bct') return '';
     return `<div class="bct-tools"><div class="fields">${bctPlaceField(A)}${A.cfgField('bctCores.hv', 'Số cuộn thứ cấp TI phía HV', { options: [4, 5, 6] })}${A.cfgField('bctCores.mv', 'Số cuộn thứ cấp TI phía MV', { options: [4, 5] })}<div class="field"><label>Đặc tính từ hóa từ máy đo</label><button class="btn primary" data-act="loadCpc">Nhập XML CPC 100…</button></div><div class="field"><label>Tỷ số, điện trở, từ hóa</label><button class="btn primary" data-act="loadMrct">Nhập Megger MRCT (.pdbxml, PDF)…</button></div></div><div class="hint-text">CPC 100: chọn một hoặc nhiều file XML (mỗi file một pha/một phía); app lấy 3 điểm (U, I) theo IEC 61869-2 và điền vào bảng đặc tính từ hóa. Megger MRCT: chọn file .pdbxml của PowerDB và/hoặc báo cáo PDF "CT TEST REPORT"; tỷ số đo, sai số, góc pha, cực tính chỉ có trong báo cáo PDF. File có cuộn 5, 6 sẽ tự mở thêm cuộn. Phía LV và trung tính theo template chỉ có 4 và 3 cuộn.</div></div>`;
   }
