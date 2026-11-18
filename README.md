@@ -334,7 +334,8 @@ npm test
 - `test/types.test.js`: đăng ký loại thiết bị, biên bản cũ không ghi loại → MBA, lưu biên bản qua kho dữ liệu.
 - `test/layers.test.js`: ranh giới ba lớp (nghiệp vụ không chạm DOM/mạng; giao diện không truy vấn Supabase trực tiếp;
   `index.html` nạp đủ file theo thứ tự lớp).
-- GitHub Actions chạy test cho mỗi pull request, và chạy trước bước triển khai GitHub Pages.
+- GitHub Actions chạy test cho mỗi pull request, và chạy trước bước triển khai GitHub Pages. **Chỉ `main` được triển khai**;
+  nhánh đang hiệu chỉnh thử trên localhost (`npm run dev`), chạy tay workflow Pages trên nhánh khác chỉ chạy test.
 
 ## Cấu trúc mã
 

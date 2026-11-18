@@ -1,8 +1,9 @@
 name: Triển khai GitHub Pages
 
+# Chỉ triển khai từ main (sau khi test đạt). Nhánh hiệu chỉnh thử trên localhost (npm run dev / npm run build), không deploy.
 on:
   push:
-    branches: [main, codex/shadcn-ui-refactor]
+    branches: [main]
   workflow_dispatch:
 
 permissions:
@@ -16,7 +17,6 @@ concurrency:
 
 jobs:
   test:
-    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -27,12 +27,8 @@ jobs:
 
   deploy:
     needs: test
-    if: >-
-      ${{ always() && (
-        needs.test.result == 'success' ||
-        github.ref == 'refs/heads/codex/shadcn-ui-refactor' ||
-        (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/codex/bbtn-pdf-import-review')
-      ) }}
+    # chạy tay (workflow_dispatch) trên nhánh khác: chỉ chạy test, không triển khai
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     environment:
       name: github-pages

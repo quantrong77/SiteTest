@@ -392,6 +392,7 @@ Test phải dùng số liệu giả.
 CI chạy test bằng Node 22.
 Workflow test chạy trên pull request.
 Workflow Pages chạy test trước khi deploy.
+Chỉ push vào `main` mới triển khai Pages; các nhánh hiệu chỉnh (vd `codex/shadcn-ui-refactor`) thử trên localhost (`npm run dev` / `npm run build`).
 
 ## 15. Bảo mật và triển khai
 
@@ -404,7 +405,7 @@ Không ghi số chế tạo hoặc tên trạm thật trong test.
 Template và dữ liệu xuất xưởng nội bộ được đọc từ thư mục cạnh repo.
 GitHub Actions `test.yml` kiểm tra pull request.
 GitHub Actions `pages.yml` kiểm tra rồi tạo `js/config.js` từ Actions Variables.
-Workflow deploy chỉ đưa `index.html`, `css`, `js` vào artifact Pages.
+Workflow deploy chạy `npm ci` + `npm run build` và đưa thư mục `dist` (vỏ React/Vite + `css`, `js`, `icons`, `docs`) vào artifact Pages.
 Chỉ anon/publishable key được đưa vào cấu hình client.
 
 ## 16. Lịch sử tính năng và quyết định đã ghi nhận
