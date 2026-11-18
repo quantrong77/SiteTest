@@ -5,7 +5,19 @@
 
   const { RANK, worst, toNum, ok, fmt, sgn, devPct, findGrid } = Common;
 
-  function evaluate(state, FX, schema) {
+  // QĐ 1901 Điều 29 mục 3 (Điều 9 mục 4): R60@20 cuộn dây giảm quá 30% so với giá trị khởi đầu hoặc lần trước → hướng xử lý.
+  // Bước có căn cứ ghi rõ điều khoản; bước còn lại là gợi ý kỹ thuật, không phải quy định.
+  const IR_DROP_ACTIONS = 'Hướng xử lý: (1) Kiểm tra điều kiện đo theo Điều 29 mục 2 — nhiệt độ dầu/cuộn dây dùng quy đổi (∆t, K1), '
+    + 'vệ sinh và làm khô bề mặt sứ, độ ẩm / ô nhiễm (dùng vòng màn chắn), Mêgôm ≥2500 V, cùng điện áp và sơ đồ đo với lần trước, '
+    + 'nối đất cuộn dây đủ thời gian — rồi đo lại. (2) Đo hệ số phân cực PI (Điều 9 ghi chú d), đánh giá theo IEEE C57.152. '
+    + '(3) Gợi ý: đối chiếu Kht, tgδ và điện dung cuộn dây, hàm lượng ẩm cách điện cứng, BBTN dầu (DGA, lý hóa). '
+    + '(4) Nếu các hạng mục khác đạt tiêu chuẩn vận hành: báo cáo người có thẩm quyền quyết định đóng điện MBA (Điều 29 mục 3).';
+  const IR_DROP_BASIS = 'QĐ 1901 Điều 29 mục 3 (Điều 9 mục 4)';
+  const isoToVn = d => { const m = String(d || '').match(/^(\d{4})-(\d{2})-(\d{2})/); return m ? `${m[3]}/${m[2]}/${m[1]}` : String(d || '?'); };
+
+  // opts.history: dòng v_trend_delta của thiết bị (lịch sử đo, nếu có); opts.sessionId: lần thí nghiệm đang mở (loại ra khi so)
+  function evaluate(state, FX, schema, opts) {
+    opts = opts || {};
     // hạng mục bỏ tích "Thực hiện": không đánh giá số liệu của hạng mục đó (số liệu vẫn giữ trong biên bản)
     state = Report.performed(state, schema, Schema.ATT_SECTIONS);
     // Ngưỡng theo bộ tiêu chí đang áp dụng (mặc định = QĐ 1901; Admin có thể chỉnh theo đơn vị)
@@ -27,6 +39,16 @@
     const is3P = schema.layout === Schema.LAYOUT_3P;
     const PH3 = ['A', 'B', 'C'];
     const sectionOf = id => schema.sections.find(s => s.id === id);
+    // Xu hướng R60@20 theo lịch sử CSDL (cùng thiết bị, cùng sơ đồ đo như dòng CSDL của to-rows)
+    const history = Array.isArray(opts.history) ? opts.history : [];
+    const testDate = Common.isoDate(txt('meta.date')) || '';
+    const irTrend = (rowK, r20, unit) => {
+      if (!history.length || typeof TrendInline === 'undefined' || typeof MbaRows === 'undefined') return null;
+      const config = MbaRows.IR_CFG[rowK];
+      if (!config || !ok(r20)) return null;
+      return TrendInline.series(history, { item: 'IR', param: 'R60', config, phase: '', tap: '', serial_no: unit, value_cmp: r20, cmp_basis: 'norm' },
+        { sessionId: opts.sessionId, testDate });
+    };
     const unitLabel = s => (F && F.unit(s) ? `${s} (pha ${F.unit(s).phase})` : s || '—');
 
     // ================= 1. Kiểm tra bên ngoài =================
@@ -130,13 +152,28 @@
         const min = QD.irMin(20); // Bảng 5 tại 20 °C
         const cv = QD.convIR(r60, tIR, 20);
         const r20 = cv.val;
+        const trend = irTrend(row.k, r20, main);
         add({ sec: 'ir', item: `R60 ${row.label}`, loc: unitLabel(main), meas: `${fmt(r60, 0)} MΩ @${fmt(tIR, 1)} °C`,
           conv: `${fmt(r20, 0)} MΩ @20 °C (${tIR >= 20 ? '×' : '÷'} K1 = ${fmt(cv.k, 3)})`,
           ref: `${fmt(min, 0)} MΩ (Bảng 5 @20 °C)`, limit: `R60@20 ≥ ${fmt(min, 0)} MΩ`, status: r20 >= min ? 'pass' : 'fail', basis: R.ir,
           note: `K1 theo Bảng 4 với ∆t = ${cv.dt} °C (${cv.expr}).`
             + (cv.dt > 30 ? ' ∆t > 30 °C: vượt Bảng 4, QĐ 1901 không quy định cách tách hệ số — kết quả quy đổi chỉ để tham khảo.' : '')
             + (tIR < 10 || tIR > 40 ? ' Khuyến cáo đo khi nhiệt độ dầu 10–40 °C (Điều 9 mục 4).' : '')
-            + ' XX không có R60 tuyệt đối → chưa áp tiêu chí “giảm ≤30%”; lần đo này là giá trị khởi đầu.', keys: [`${p}.r60`] });
+            + (trend ? ' So với giá trị khởi đầu / lần trước: xem dòng xu hướng R60@20 bên dưới.'
+              : ' XX không có R60 tuyệt đối → chưa áp tiêu chí “giảm ≤30%”; lần đo này là giá trị khởi đầu.'), keys: [`${p}.r60`] });
+        if (trend) {
+          // Điều 29 mục 3: không giảm quá 30% so với giá trị khởi đầu HOẶC lần thí nghiệm trước
+          const lim = L.IR_DROP, dB = trend.fromBase, dP = trend.fromPrevious;
+          const drop = [dB, dP].some(d => d !== null && Number.isFinite(d) && d < -lim);
+          const baseName = trend.base.kind === 'FAT' ? 'xuất xưởng' : 'giá trị khởi đầu';
+          const refs = [`${baseName} ${isoToVn(trend.base.test_date)}: ${fmt(+trend.base.value_cmp, 0)} MΩ (${sgn(dB, 1)} %)`]
+            .concat(dP !== null ? [`lần trước ${isoToVn(trend.previous.test_date)}: ${fmt(+trend.previous.value_cmp, 0)} MΩ (${sgn(dP, 1)} %)`] : []);
+          const worstDev = [dB, dP].filter(d => d !== null && Number.isFinite(d)).reduce((a, b) => Math.min(a, b), Infinity);
+          add({ sec: 'ir', item: `Xu hướng R60@20 ${row.label}`, loc: unitLabel(main), meas: `${fmt(r20, 0)} MΩ @20 °C`, ref: refs.join('; '),
+            dev: Number.isFinite(worstDev) ? `${sgn(worstDev, 1)} %` : '', limit: `giảm ≤ ${lim}% so với giá trị khởi đầu và lần trước`,
+            status: drop ? 'fail' : 'pass', basis: IR_DROP_BASIS, irDrop: drop || undefined,
+            note: drop ? `R60@20 giảm quá ${lim}%. ${IR_DROP_ACTIONS}` : `So ${trend.history.length} lần đo trước trong CSDL.`, keys: [`${p}.r60`] });
+        }
       } else {
         add({ sec: 'ir', item: `R60 ${row.label}`, meas: `${fmt(r60, 0)} MΩ`, status: 'missing', basis: R.ir, note: 'Thiếu nhiệt độ đo → chưa quy đổi/so Bảng 5', keys: [`${base}.t`] });
       }
@@ -635,6 +672,11 @@
     if (!done) return '';
     const parts = [];
     if (failed.length) parts.push(`Hạng mục chưa đạt: ${failed.join('; ')}. Đề nghị kiểm tra, thí nghiệm bổ sung và báo cáo người có thẩm quyền xem xét trước khi đóng điện.`);
+    if (res.findings.some(f => f.irDrop)) {
+      parts.push(`R60 cách điện cuộn dây quy đổi về 20 °C giảm quá ${Criteria.limits().IR_DROP}% so với giá trị khởi đầu / lần thí nghiệm trước: `
+        + 'đề nghị kiểm tra điều kiện đo và đo lại, đo hệ số phân cực PI; nếu các hạng mục thí nghiệm khác đạt tiêu chuẩn vận hành, '
+        + 'việc đóng điện MBA do người có thẩm quyền quyết định (QĐ 1901 Điều 29 mục 3).');
+    }
     if (warned.length) parts.push(`Hạng mục cần theo dõi/xem xét: ${warned.join('; ')}.`);
     if (missing.length) parts.push(`Hạng mục còn thiếu dữ liệu đánh giá: ${missing.join('; ')}.`);
     if (!failed.length && !warned.length && !missing.length) parts.push('Các hạng mục đã thí nghiệm đạt tiêu chuẩn theo QĐ 1901/QĐ-EVNNPT và phù hợp với số liệu xuất xưởng.');

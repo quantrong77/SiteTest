@@ -174,7 +174,8 @@
     // nhập BBTN PDF có lớp chữ (PTC3/BM.01, MBA 110–220 kV)
     importPdfReport: (pages, fileName, opts) => MbaPdfImportReport.read(pages, fileName, opts),
     buildSchema: cfg => Schema.build(cfg),
-    evaluate: (state, FX, schema) => Evaluate.evaluate(state, FX, schema),
+    // opts: { history (lịch sử đo CSDL, xu hướng R60), sessionId }
+    evaluate: (state, FX, schema, opts) => Evaluate.evaluate(state, FX, schema, opts),
     autoConclusion: (res, schema, state) => Evaluate.autoConclusion(res, schema, state),
     factory: Factory,
     toRows: MbaRows,

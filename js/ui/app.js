@@ -141,7 +141,8 @@
   }
 
   function recompute() {
-    res = T().evaluate(state, FX, schema);
+    // lịch sử đo của thiết bị (CSDL / bản lưu tạm) → đánh giá xu hướng so với giá trị khởi đầu / lần trước
+    res = T().evaluate(state, FX, schema, { history: TrendInlineUI.history(), sessionId: state.db && state.db.sessionId });
     const rows = Appendix.shortCircuitResults(state, FX);
     const section = res.sec.shortCircuit;
     if (section && !section.skipped) {
@@ -398,6 +399,15 @@
     const doIt = S ? `<label class="sec-do"><input type="checkbox" data-skipsec="${secId}" ${S.skipped ? '' : 'checked'}> Thực hiện</label>` : '';
     return `<div class="panel-head"><span class="secno">${esc(no)}</span><h2>${esc(title)}</h2><span class="en">${esc(en || '')}</span><span class="spacer"></span>${doIt}${secId && !(S && S.skipped) ? voiceHTML() : ''}${badge}</div>`;
   }
+  // Cảnh báo xu hướng tại hiện trường (vd R60@20 giảm >30% so với giá trị khởi đầu / lần trước — QĐ 1901 Điều 29 mục 3):
+  // hiện ngay đầu hạng mục khi vừa nhập số, kèm hướng xử lý của từng kết luận
+  function trendAlertHTML(secId) {
+    const hits = (res.findings || []).filter(f => f.sec === secId && f.irDrop);
+    if (!hits.length) return '';
+    return `<div class="callout bad" role="alert"><b>Cảnh báo xu hướng (${esc(hits[0].basis || '')}):</b><ul>${hits.map(f =>
+      `<li><b>${esc(f.item)}</b>${f.loc ? ` – ${esc(f.loc)}` : ''}: ${esc(f.meas)}, ${esc(f.dev)} (${esc(f.ref)})</li>`).join('')}</ul>`
+      + `<div>${esc((hits[0].note || '').replace(/^.*?(Hướng xử lý:)/, '$1'))}</div></div>`;
+  }
   // Mục 0: chọn các hạng mục thực hiện trong lần thí nghiệm này
   function itemsChecklistHTML() {
     const skip = state.cfg.skip || {};
@@ -444,7 +454,7 @@
     else if (step === 'eval') body = findingsHTML(s.id);
     else if (s.id === 'shortCircuit') body = AppendixUI.shortCircuitHTML(App) + `<div class="wf-sum" data-fsum="${s.id}"></div>`;
     else {
-      body = (U.intro ? U.intro(s.id, App) : '') + (U.sectionTools ? U.sectionTools(s.id, App) : '');
+      body = trendAlertHTML(s.id) + (U.intro ? U.intro(s.id, App) : '') + (U.sectionTools ? U.sectionTools(s.id, App) : '');
       if (s.fields) body += '<div class="fields">' + s.fields.map(f => sectionField(f)).join('') + '</div>';
       (s.grids || []).forEach(g => { body += gridHTML(g); });
       (s.groups || []).forEach(gr => {
@@ -579,7 +589,9 @@
 
   // Xu hướng tại ô: tải lịch sử đo của thiết bị trong biên bản (đã lưu CSDL, đã đăng nhập); không dựng lại trang
   function loadInlineTrend() {
-    TrendInlineUI.load({ state, schema, type: T(), res }, $('#main')).catch(e => console.warn(e));
+    // lịch sử về (hoặc đổi thiết bị) → đánh giá lại ngay để thấy vi phạm xu hướng tại hiện trường
+    TrendInlineUI.load({ state, schema, type: T(), res }, $('#main'), () => { recompute(); renderNav(); renderMain(); })
+      .catch(e => console.warn(e));
   }
 
   // Cập nhật ô tính toán, trạng thái ô, bảng so sánh mà không render lại form (giữ focus)
@@ -660,10 +672,11 @@
           state.cfg.ps.A = el.value.trim();
           onSerialChange();
           schema = T().buildSchema(state.cfg);
-          recompute(); renderMain(); persist(); return;
+          recompute(); renderMain(); persist(); loadInlineTrend(); return;
         }
         onSerialChange();
         oltcFromDb();
+        loadInlineTrend(); // lịch sử đo của máy này → đánh giá xu hướng ngay khi nhập (biên bản mới tại hiện trường)
       }
       scheduleEval();
     } else if ((el.dataset.hk || el.dataset.lbl) && e.type === 'change') {
@@ -1088,11 +1101,12 @@
     recompute();
     renderNav();
     renderMain();
+    loadInlineTrend(); // lịch sử đo (bản lưu tạm khi mất mạng; tải lại khi đã đăng nhập)
     if (restored && !new URLSearchParams(location.search).has('code')) Notify.show({ type: 'info', msg: 'Đã mở lại biên bản đang nhập dở trên máy này.' });
     // Đăng nhập / đăng xuất / đổi kết nối → làm mới dữ liệu CSDL đang hiển thị
     document.addEventListener('auth:changed', () => {
       DbUI.reset(); Catalog.reset(); KConf.reset(); CriteriaUI.reset(); StandardsUI.reset(); renderNav(); renderMain();
-      if (DB.user) loadInlineTrend(); else TrendInlineUI.reset();
+      loadInlineTrend(); // đã đăng nhập: tải mới; chưa: dùng bản lưu tạm trên máy
       // bảng hệ số quy đổi sứ trong CSDL (admin cấu hình) → dựng lại lựa chọn ở mục 5
       if (DB.user) KConf.load(true);
       // bộ tiêu chí đơn vị (admin cấu hình) → đánh giá lại biên bản đang mở

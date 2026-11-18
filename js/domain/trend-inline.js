@@ -36,15 +36,19 @@
   }
 
   // Tô vàng chỉ khi đại lượng có ngưỡng QĐ 1901 so với giá trị khởi đầu (bộ tiêu chí L = Criteria.limits()):
-  // độ lệch hai chiều (R một chiều, tỷ số, điện dung) hoặc mức tăng (tgδ). Không có ngưỡng thì không tô.
+  // độ lệch hai chiều (R một chiều, tỷ số, điện dung), mức tăng (tgδ) hoặc mức giảm so với khởi đầu HOẶC lần trước
+  // (R60@20 cách điện cuộn dây — Điều 29 mục 3). Không có ngưỡng thì không tô.
   const RULES = {
     'DCR:R': ['DCR_DEV', 'abs'], 'RATIO:K': ['RATIO_DEV', 'abs'], 'WTGD:C': ['WINDING_C_DEV', 'abs'],
     'BUSHING:C1': ['BUSHING_C1_DEV', 'abs'], 'WTGD:TGD': ['WINDING_TGD_RISE', 'rise'], 'BUSHING:TGD1': ['BUSHING_TGD_RISE_WARN', 'rise'],
+    'IR:R60': ['IR_DROP', 'drop'],
   };
-  function warn(target, fromBase, L) {
+  function warn(target, fromBase, L, fromPrevious) {
     const r = RULES[`${target.item}:${target.param}`];
     const lim = r && L ? Number(L[r[0]]) : NaN;
-    if (!Number.isFinite(lim) || !Number.isFinite(fromBase)) return false;
+    if (!Number.isFinite(lim)) return false;
+    if (r[1] === 'drop') return [fromBase, fromPrevious].some(d => d !== null && Number.isFinite(d) && d < -lim);
+    if (!Number.isFinite(fromBase)) return false;
     return r[1] === 'rise' ? fromBase > lim : Math.abs(fromBase) > lim;
   }
 

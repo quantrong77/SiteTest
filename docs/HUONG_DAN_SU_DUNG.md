@@ -239,6 +239,7 @@ Hãy dùng đúng nhãn hiển thị trên phiên bản đang chạy.
 11. Kht và PI là chỉ báo; đọc kết hợp tình trạng và hướng dẫn áp dụng.
 12. Căn cứ gồm Điều 9 mục 4, Bảng 4, Bảng 5 và Điều 29.
 13. Mục này nhập thủ công từ máy đo điện trở cách điện.
+14. **Xu hướng R60@20 (QĐ 1901 Điều 29 mục 3, Điều 9 mục 4):** ngay khi gõ số chế tạo, app tải lịch sử đo của máy (CSDL khi đã đăng nhập; mất mạng thì dùng bản lưu tạm trên máy). Nhập R60 và nhiệt độ là app so R60 quy đổi 20 °C với **giá trị khởi đầu** (xuất xưởng, không có thì lần đo sớm nhất) và **lần thí nghiệm trước**: giảm quá 30% ở một trong hai mốc → **Không đạt**, ô R60 tô vàng và khung cảnh báo đỏ đầu mục kèm hướng xử lý: (1) kiểm tra điều kiện đo theo Điều 29 mục 2 rồi đo lại; (2) đo hệ số phân cực PI (Điều 9 ghi chú d, đánh giá theo IEEE C57.152); (3) gợi ý đối chiếu Kht, tgδ/điện dung cuộn dây, ẩm cách điện cứng, BBTN dầu; (4) nếu các hạng mục khác đạt tiêu chuẩn vận hành, báo cáo người có thẩm quyền quyết định đóng điện. Kết luận tự động ghi câu này.
 
 ## 8. Mục 4: Kiểm tra tổ đấu dây
 
