@@ -14,6 +14,7 @@
   // ======================================================================= biểu mẫu → dòng
   // opts.withKey: kèm khóa ô (state.v) vào từng dòng — dùng cho xu hướng tại ô; dòng lưu CSDL không có khóa
   function fieldRows(state, res, schema, opts = {}) {
+    state = Report.performed(state, schema, Schema.ATT_SECTIONS); // hạng mục không thực hiện: không ghi CSDL
     const v = state.v, cfg = state.cfg;
     const refs = new Map(), rows = [];
     const statusOf = {};

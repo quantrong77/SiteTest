@@ -752,6 +752,7 @@
     ];
     fields.forEach(([key, start, end]) => { v[key] = between(cover, start, end); });
     if (!v['meta.reason']) v['meta.reason'] = between(cover, 'Lý do thí nghiệm', 'Ngày thí nghiệm');
+    if (v['meta.reason']) v['meta.reason'] = Common.optionOf(v['meta.reason'], Schema.REASONS);
     if (!v['meta.date']) v['meta.date'] = between(cover, 'Ngày thí nghiệm (Date)', 'Điều kiện môi trường');
     if (opts.ocr && !String(v['meta.serial'] || '').trim()) {
       const serialLine = cover.split(/\r?\n/).find(line => /số\s*chế|serial/i.test(line));

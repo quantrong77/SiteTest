@@ -6,6 +6,8 @@
   const { RANK, worst, toNum, ok, fmt, sgn, devPct, findGrid } = Common;
 
   function evaluate(state, FX, schema) {
+    // hạng mục bỏ tích "Thực hiện": không đánh giá số liệu của hạng mục đó (số liệu vẫn giữ trong biên bản)
+    state = Report.performed(state, schema, Schema.ATT_SECTIONS);
     // Ngưỡng theo bộ tiêu chí đang áp dụng (mặc định = QĐ 1901; Admin có thể chỉnh theo đơn vị)
     const v = state.v, cfg = state.cfg, L = Criteria.limits(), R = QD.REF;
     const calc = {}, findings = [], notes = {};
@@ -13,7 +15,8 @@
     const txt = k => (v[k] === undefined || v[k] === null ? '' : String(v[k]).trim());
     const main = txt('meta.serial');
     const reason = txt('meta.reason') || 'Sau lắp đặt';
-    const isNew = /lắp đặt|sửa chữa/i.test(reason);
+    // MBA mới (ngưỡng "sau lắp đặt / sửa chữa" của QĐ 1901): Sau lắp đặt, Sau sửa chữa/đại tu. "1 năm sau lắp đặt" là máy đã vận hành.
+    const isNew = /^\s*sau\s+lắp\s+đặt|sửa\s+chữa|đại\s+tu/i.test(reason);
     const serialOf = ph => {
       const p = String(ph || '').toUpperCase();
       return p === 'N' || schema.layout === Schema.LAYOUT_110 || cfg.topology !== 'bank1p' ? main : (cfg.ps[p] || main);
@@ -613,11 +616,13 @@
 
     // ================= Tổng hợp theo hạng mục =================
     const sec = {};
+    for (let i = findings.length - 1; i >= 0; i--) if (Report.isSkipped(state, findings[i].sec)) findings.splice(i, 1);
     schema.sections.forEach(s => { sec[s.id] = { status: null, counts: { pass: 0, warn: 0, fail: 0, missing: 0, info: 0 } }; });
     findings.forEach(f => { const S = sec[f.sec]; if (!S) return; S.counts[f.status]++; S.status = worst(S.status, f.status); });
     Object.values(sec).forEach(S => {
       S.text = !S.status ? '' : S.status === 'fail' ? 'Không đạt' : S.status === 'warn' ? 'Cần xem xét' : S.status === 'missing' ? 'Thiếu dữ liệu' : 'Đạt';
     });
+    schema.sections.forEach(s => { if (Report.isSkipped(state, s.id)) Object.assign(sec[s.id], { skipped: true, text: 'Không thực hiện' }); });
     return { calc, findings, sec, notes };
   }
 

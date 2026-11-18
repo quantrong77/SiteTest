@@ -4,7 +4,7 @@
   const GITHUB = 'https://github.com/quantrong77/SiteTest/blob/main/docs/HUONG_DAN_SU_DUNG.md';
   const CONTEXT = {
     general: 'Mục 0', visual: 'Mục 1', noload: 'Mục 2', ir: 'Mục 3', vector: 'Mục 4', bushing: 'Mục 5',
-    wtgd: 'Mục 6', dcr: 'Mục 7', ratio: 'Mục 8', oltc: 'Mục 9', moisture: 'Mục 10', bct: 'Mục 11',
+    wtgd: 'Mục 6', dcr: 'Mục 7', ratio: 'Mục 8', oltc: 'Mục 9', moisture: 'Mục 10', bct: 'Mục 11', shortCircuit: 'Thí nghiệm ngắn mạch MBA',
     summary: 'Tổng hợp', appendix: 'Phụ lục', db: 'CSDL', trend: 'Xu hướng', importReport: 'Nhập BBTN cũ',
     standards: 'Thư viện', criteria: 'Bộ tiêu chí', kconf: 'hệ số quy đổi sứ'
   };

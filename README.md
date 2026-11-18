@@ -70,13 +70,20 @@ Dữ liệu đang nhập được tự lưu trong trình duyệt; dùng **Lưu .
   *Đã kiểm tra hết*.
 - OCR trên ảnh chụp thật có thể sai (lóa, chữ khắc mờ, góc chụp): luôn đối chiếu với nameplate.
 
-## Phụ lục BBTN (OLTC, SFRA, dầu MBA, ngắn mạch MBA)
+## Hạng mục thực hiện, lý do thí nghiệm
+
+Mục 0 có khối **Hạng mục thực hiện trong lần thí nghiệm này** (và ô **Thực hiện** ở đầu từng hạng mục): bỏ tích → ẩn vùng nhập,
+không đánh giá, không ghi CSDL / BBTN (`cfg.skip`, lọc bằng `Report.performed`); số liệu vẫn giữ. **Lý do thí nghiệm**: Sau lắp đặt,
+1 năm sau lắp đặt, Định kỳ 1/3/6 năm, Tăng cường, Đột xuất, Sau sửa chữa/đại tu (`Schema.REASONS`); mã CSDL theo `Common.kindOf`
+(Tăng cường → OTHER); "1 năm sau lắp đặt" dùng ngưỡng máy đã vận hành.
+
+## Phụ lục BBTN (OLTC, SFRA, dầu MBA) và mục ngắn mạch MBA
 
 Trang **Phụ lục BBTN** (thanh điều hướng, nhóm Kết quả). Khi xuất BBTN .docx, mỗi phụ lục được nối thành một section
 riêng sau biên bản (trang mới, đánh số trang lại; nhiều phụ lục thì đánh "PHỤ LỤC 1, 2").
 
 - **Chụp sóng OLTC**: dựng từ file Haefely 2293 nhập ở hạng mục OLTC.
-- **Thí nghiệm ngắn mạch MBA**: hạng mục chính số 3 với các tab Chuẩn bị, Hướng dẫn đo, Nhập số liệu và Đánh giá. Nhập U theo V hoặc kV (có gợi ý 67/220/380 V, chấp nhận giá trị khác), I/P, f, Un/In, nhiệt độ, PI²R và vật liệu dây dẫn nếu cần. App nhận dạng bố cục 1 pha / ba máy 1 pha / MBA 3 pha để ghép số chế tạo và xét lệch pha. Theo QĐ 1387 Điều 26, dòng thử phải ≥25% In; khi thiếu điện áp theo Test Report, dùng 380 V hoặc ≤10 kV rồi nội suy. Bảng số liệu, so sánh Test Report và đánh giá vẫn được nối vào BBTN xuất ra dưới dạng phụ lục.
+- **Thí nghiệm ngắn mạch MBA**: hạng mục cuối của biên bản (mục 12; mẫu 3 pha chung: mục 14) với các tab Chuẩn bị, Hướng dẫn đo, Nhập số liệu và Đánh giá. Nhập U theo V hoặc kV (có gợi ý 67/220/380 V, chấp nhận giá trị khác), I/P, f, Un/In, nhiệt độ, PI²R và vật liệu dây dẫn nếu cần. App nhận dạng bố cục 1 pha / ba máy 1 pha / MBA 3 pha để ghép số chế tạo và xét lệch pha. Theo QĐ 1387 Điều 26, dòng thử phải ≥25% In; khi thiếu điện áp theo Test Report, dùng 380 V hoặc ≤10 kV rồi nội suy. Khi xuất BBTN: thêm hàng "12. Thí nghiệm ngắn mạch máy biến áp" vào bảng hạng mục trang 1 và mục 12 (bảng số liệu, so sánh Test Report, đánh giá) ngay trước "THIẾT BỊ THÍ NGHIỆM" — không còn là phụ lục. Bảng/hàng do app thêm được đánh dấu để nhập lại BBTN đã xuất không lệch chỉ số bảng.
 - **SFRA**: bấm *Mở SFRA Analyzer* (https://quantrong77.github.io/-Analysis-SFRA/), phân tích rồi tải báo cáo Word ở mục
   *Báo cáo*; quay lại bấm *Nạp báo cáo SFRA (.docx)…*. App hiện tiêu đề, số phép đo, kết luận của báo cáo; khi xuất,
   nội dung báo cáo (bảng, giản đồ Bode, kết luận) được nối nguyên văn — ảnh và kiểu đoạn được chép sang mã riêng để không
