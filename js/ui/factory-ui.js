@@ -11,12 +11,13 @@
   const num = x => (x === null || x === undefined || x === '' || !Number.isFinite(Number(x)) ? '' : String(+Number(x).toPrecision(10)).replace('.', ','));
   const vnDate = d => { const m = String(d || '').match(/^(\d{4})-(\d{2})-(\d{2})/); return m ? `${m[3]}/${m[2]}/${m[1]}` : String(d || ''); };
 
-  const data = { equipment: null, sessions: null, loading: false, error: '', forUser: null };
+  const data = { equipment: null, sessions: null, subs: null, bays: null, loading: false, error: '', forUser: null };
   const ui = { query: '', selected: '', open: new Set(), detail: null, menu: null };
 
   const signedIn = () => !!(window.DB && DB.client && DB.user);
   const localFiles = () => (A.factories || []).map(f => ({ name: f.name, units: f.api.data.order.map(s => ({ serial: s, phase: (f.api.data.units[s] || {}).phase || '' })) }));
-  const fullTree = () => FactoryTree.build(signedIn() ? data.equipment || [] : [], signedIn() ? data.sessions || [] : [], localFiles());
+  const fullTree = () => FactoryTree.build(signedIn() ? data.equipment || [] : [], signedIn() ? data.sessions || [] : [], localFiles(),
+    signedIn() ? { substations: data.subs || [], bays: data.bays || [] } : {});
   const findNode = (nodes, id) => { for (const n of nodes) { if (n.id === id) return n; const c = findNode(n.children || [], id); if (c) return c; } return null; };
   const parentsOf = (nodes, id, path = []) => {
     for (const n of nodes) { if (n.id === id) return path; const p = parentsOf(n.children || [], id, path.concat(n.id)); if (p) return p; }
@@ -29,13 +30,13 @@
     if (data.loading || (!force && data.sessions && data.forUser === DB.user.id)) return;
     data.loading = true; data.error = '';
     try {
-      const [equipment, sessions] = await Promise.all([DB.listEquipment(), DB.listFactorySessions()]);
-      data.equipment = equipment; data.sessions = sessions; data.forUser = DB.user.id;
+      const [equipment, sessions, subs, bays] = await Promise.all([DB.listEquipment(), DB.listFactorySessions(), DB.listSubstations(), DB.listBays()]);
+      Object.assign(data, { equipment, sessions, subs, bays, forUser: DB.user.id });
     } catch (err) { data.error = err.message; }
     data.loading = false;
     if (A.currentSection() === 'factory') A.renderMain();
   }
-  function reset() { data.equipment = data.sessions = null; data.forUser = null; ui.detail = null; }
+  function reset() { data.equipment = data.sessions = data.subs = data.bays = null; data.forUser = null; ui.detail = null; }
 
   // ---------------------------------------------------------------- vẽ
   function render(App) {
@@ -69,7 +70,8 @@
     const node = (n, level) => {
       const kids = n.children || [];
       const exp = kids.length ? isOpen(n) : null;
-      const ctx = n.type === 'serial' ? `session:${n.sessionId}|${n.equipmentId}` : n.type === 'localunit' ? `local:${n.file}|${n.serial}` : n.type === 'equipment' ? `session:${n.sessionId}|` : '';
+      const ctx = (n.type === 'serial' || n.type === 'equipment') && n.noFat ? `nofat:${n.equipmentId}`
+        : n.type === 'serial' ? `session:${n.sessionId}|${n.equipmentId}` : n.type === 'localunit' ? `local:${n.file}|${n.serial}` : n.type === 'equipment' ? `session:${n.sessionId}|` : '';
       return `<li role="none"><div class="fx-row${ui.selected === n.id ? ' on' : ''}" style="--lvl:${level}">`
         + (kids.length ? `<button type="button" class="fx-caret" data-act="fxTog" data-node="${esc(n.id)}" tabindex="-1" aria-hidden="true">${exp ? '▾' : '▸'}</button>` : '<span class="fx-caret" aria-hidden="true"></span>')
         + `<button type="button" class="fx-node t-${n.type}" role="treeitem" data-act="fxSel" data-node="${esc(n.id)}" aria-level="${level}" `
@@ -118,6 +120,10 @@
     const sel = ui.selected && findNode(fullTree(), ui.selected);
     const head = `<div class="fx-list-head"><h3>Số liệu xuất xưởng${sel ? ` — ${esc(sel.label)}` : ''}</h3><span class="muted">${rows.length} dòng</span>`
       + (sel ? '<button class="btn small" data-act="fxSel" data-node="">Bỏ lọc</button>' : '') + '</div>';
+    if (!rows.length && sel && sel.noFat) {
+      return head + '<div class="callout">Thiết bị này <b>chưa có số liệu xuất xưởng</b> trong CSDL. Nạp file test report (.xlsx), sau đó chuột phải máy ở nhóm '
+        + '<b>Chưa lưu CSDL</b> → <b>Lưu lên CSDL</b>.<div class="row-actions"><button class="btn" data-act="loadXlsx">Thêm file test report (.xlsx)…</button></div></div>';
+    }
     if (!rows.length) return head + '<div class="empty">Không có số liệu xuất xưởng phù hợp.</div>';
     return head + '<div class="grid-wrap"><table class="grid fx-table"><thead><tr><th>Số chế tạo</th><th>Thiết bị</th><th>Trạm · Ngăn</th><th>Ngày TN</th>'
       + '<th>Số report</th><th>Số giá trị</th><th>Nguồn</th><th><span class="sr-only">Thao tác</span></th></tr></thead><tbody>'
@@ -189,6 +195,7 @@
       ['fxView', 'Xem số liệu', ''], ['fxEdit', 'Sửa số liệu', can ? '' : 'Tài khoản chỉ xem'],
       ['fxUse', 'Dùng cho biên bản đang lập', 'Tải file test report gốc từ CSDL'], ['fxDownload', 'Tải file test report', ''],
     ];
+    if (kind === 'nofat') return [['loadXlsx', 'Thêm file test report (.xlsx)…', 'Nạp xong: chuột phải máy ở nhóm “Chưa lưu CSDL” → Lưu lên CSDL']];
     if (kind === 'local') return [
       ['fxLocalView', 'Xem sheet gốc', ''], ['fxLocalUse', 'Dùng file này cho biên bản', ''],
       ['fxLocalSave', 'Lưu lên CSDL', signedIn() ? (can ? '' : 'Tài khoản chỉ xem') : 'Cần đăng nhập'],
@@ -375,6 +382,8 @@
     }
   });
   document.addEventListener('pointerdown', e => { if (ui.menu && !ui.menu.el.contains(e.target)) closeMenu(); }, true);
+  // mục menu không thuộc FactoryUI (vd loadXlsx do app.js xử lý): đóng menu sau khi bấm
+  document.addEventListener('click', e => { if (ui.menu && e.target.closest && e.target.closest('.ctx-item')) setTimeout(() => closeMenu(), 0); });
   window.addEventListener('scroll', () => closeMenu(), true);
   window.addEventListener('resize', () => closeMenu());
   document.addEventListener('auth:changed', () => { reset(); if (A && A.currentSection() === 'factory') { A.renderMain(); load(true); } });

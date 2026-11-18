@@ -118,6 +118,9 @@
       state.v['meta.serial'] = state.cfg.ps.A;
     }
     if (!state.v['meta.reason']) state.v['meta.reason'] = T().report.defaultReason || '';
+    rememberTemplateHead();
+    // biên bản mới: chưa gắn ngăn / thiết bị của danh mục
+    ['bayId', 'pickSub', 'pickBay', 'pickEq', 'pickPhase'].forEach(k => { delete state.cfg[k]; });
   }
 
   // Lấy giá trị sẵn có trong template (thông tin chung, Uo = 10 kV…) làm mặc định
@@ -212,7 +215,8 @@
   function navItems() {
     const g = groupId => it => Object.assign(it, { groupId });
     return [
-      { id: 'general', no: '0', title: 'Thông tin chung & cấu hình' }, { id: 'factory', no: 'XX', title: 'Số liệu xuất xưởng' },
+      // "Thông tin chung & cấu hình" (trang general) không nằm trên sidebar: mở bằng nút Mới (trình khởi tạo) hoặc bấm thanh thông tin BBTN
+      { id: 'factory', no: 'XX', title: 'Số liệu xuất xưởng' },
       { id: 'importReport', no: 'NB', title: 'Nhập BBTN cũ' },
     ].map(g('record'))
       .concat([{ id: 'model3d', no: '3D', title: 'Mô hình 3D MBA' }].concat(schema.sections.map(s => ({ id: s.id, no: String(s.no), title: s.title }))).map(g('items')))
@@ -262,14 +266,18 @@
       },
     }));
   }
+  // Thanh thông tin BBTN: bấm để mở lại trình khởi tạo (thông tin chung & cấu hình)
   function renderRecordChip() {
     const v = state.v, u = FX && FX.unit(v['meta.serial']);
-    $('#recordChip').innerHTML = [
-      `<span class="chip chip-type">${esc(T().label)}</span>`,
-      `<span class="chip">S/N <b>${esc(v['meta.serial'] || '—')}</b>${u ? ` · pha ${esc(u.phase)}` : ''}</span>`,
-      `<span class="chip">${esc(v['meta.date'] || 'chưa có ngày')}</span>`,
-      `<span class="chip">${esc(v['meta.reason'] || '')}</span>`,
-    ].join('');
+    const serial = v['meta.serial'] || (state.cfg.ps && state.cfg.ps.A) || '';
+    $('#recordChip').innerHTML = `<button type="button" class="record-edit${current === 'general' ? ' on' : ''}" data-nav="general" data-setup="${current === 'general' ? setupStep : 'test'}" `
+      + `title="Sửa thông tin chung & cấu hình biên bản" aria-label="Sửa thông tin chung & cấu hình biên bản">`
+      + [
+        `<span class="chip chip-type">${esc(T().label)}</span>`,
+        `<span class="chip">S/N <b>${esc(serial || '—')}</b>${u ? ` · pha ${esc(u.phase)}` : ''}</span>`,
+        `<span class="chip">${esc(v['meta.date'] || 'chưa có ngày')}</span>`,
+        `<span class="chip">${esc(v['meta.reason'] || '')}</span>`,
+      ].join('') + '<span class="record-edit-icon" aria-hidden="true">✎</span></button>';
   }
 
   // ---------------------------------------------------------------- ô đọc tự động cần kiểm tra (vd từ ảnh nameplate)
@@ -278,7 +286,9 @@
   function flagHTML(k) {
     const fl = flagOf(k);
     if (!fl) return { cls: '', note: '' };
-    const note = fl.status === 'missing' ? 'Không đọc được trên ảnh — nhập tay' : `Đọc từ ảnh, độ tin cậy ${fl.conf} %${fl.why ? ` (${fl.why})` : ''} — kiểm tra lại`;
+    // fl.src: tự điền khi khởi tạo BBTN (CSDL / Test report); không có src: đọc từ ảnh nameplate
+    const note = fl.src ? (fl.status === 'missing' ? `Chưa có trong ${fl.src} — nhập tay` : `Tự điền từ ${fl.src} — kiểm tra lại`)
+      : fl.status === 'missing' ? 'Không đọc được trên ảnh — nhập tay' : `Đọc từ ảnh, độ tin cậy ${fl.conf} %${fl.why ? ` (${fl.why})` : ''} — kiểm tra lại`;
     return { cls: ` flag-${fl.status}`, note: `<span class="note flag-note">${esc(note)}</span>` };
   }
   // Người dùng sửa ô → coi như đã kiểm tra, bỏ tô nền
@@ -294,9 +304,15 @@
     const fl = Object.entries((state.att && state.att.ocr) || {});
     if (!fl.length) return '<div data-flagbanner hidden></div>';
     const chk = fl.filter(([, x]) => x.status === 'check').map(([, x]) => x.label), miss = fl.filter(([, x]) => x.status === 'missing').map(([, x]) => x.label);
-    return `<div class="callout warn flag-banner" data-flagbanner><b>Thông tin đọc từ ảnh nameplate cần xem lại.</b>
+    // nguồn: ảnh nameplate (không có src) hoặc tự điền khi khởi tạo (CSDL / test report)
+    const fromPhoto = fl.some(([, x]) => !x.src), fromAuto = fl.some(([, x]) => x.src);
+    const autoSrc = [...new Set(fl.filter(([, x]) => x.src && x.status === 'check').map(([, x]) => x.src))];
+    const title = fromAuto && !fromPhoto ? `Thông tin tự điền${autoSrc.length ? ` từ ${autoSrc.join(', ')}` : ''} cần xem lại.`
+      : fromPhoto && !fromAuto ? 'Thông tin đọc từ ảnh nameplate cần xem lại.' : 'Thông tin tự điền và đọc từ ảnh nameplate cần xem lại.';
+    const missText = fromAuto && !fromPhoto ? 'Chưa có trong CSDL / test report, cần nhập tay' : 'Không đọc được, cần nhập tay';
+    return `<div class="callout warn flag-banner" data-flagbanner><b>${esc(title)}</b>
       ${chk.length ? `<div><span class="flag-key check"></span>Cần kiểm tra: ${chk.map(esc).join(', ')}</div>` : ''}
-      ${miss.length ? `<div><span class="flag-key missing"></span>Không đọc được, cần nhập tay: ${miss.map(esc).join(', ')}</div>` : ''}
+      ${miss.length ? `<div><span class="flag-key missing"></span>${missText}: ${miss.map(esc).join(', ')}</div>` : ''}
       <div class="row-actions"><button class="btn small" data-act="flagsDone">Đã kiểm tra hết — bỏ tô nền</button></div></div>`;
   }
 
@@ -492,7 +508,82 @@
   }
 
   // ---------------------------------------------------------------- pages
+  // ---------------------------------------------------------------- trình khởi tạo BBTN (trang general, 4 bước)
+  const SETUP_STEPS = [['device', 'Thiết bị'], ['specs', 'Thông số kỹ thuật'], ['test', 'Lần thí nghiệm'], ['config', 'Mẫu & cấu hình']];
+  const TEST_KEYS = ['meta.reason', 'meta.date', 'meta.ambT', 'meta.hum'];
+  let setupStep = 'device';
+  function setupGo(step) { if (SETUP_STEPS.some(([k]) => k === step)) setupStep = step; current = 'general'; renderNav(); renderMain(); window.scrollTo(0, 0); }
+  function setupStepsHTML() {
+    const i = SETUP_STEPS.findIndex(([k]) => k === setupStep);
+    return `<nav class="wf-steps setup-steps" aria-label="Các bước khởi tạo biên bản">${SETUP_STEPS.map(([k, t], j) => `<button type="button" class="wf-step ${k === setupStep ? 'on' : ''}${j < i ? ' done' : ''}" `
+      + `data-act="setupStep" data-step="${k}" ${k === setupStep ? 'aria-current="step"' : ''}><span class="wf-n">${j + 1}</span><span>${t}</span></button>`).join('')}</nav>`;
+  }
+  function setupFootHTML() {
+    const i = SETUP_STEPS.findIndex(([k]) => k === setupStep);
+    const prev = i > 0 ? `<button class="btn" data-act="setupStep" data-step="${SETUP_STEPS[i - 1][0]}">‹ ${SETUP_STEPS[i - 1][1]}</button>` : '<span></span>';
+    const next = i < SETUP_STEPS.length - 1 ? `<button class="btn primary" data-act="setupStep" data-step="${SETUP_STEPS[i + 1][0]}">${SETUP_STEPS[i + 1][1]} ›</button>`
+      : '<button class="btn primary" data-act="setupDone">Bắt đầu nhập số liệu →</button>';
+    return `<div class="setup-foot">${prev}${next}</div>`;
+  }
+  // Đổi template (mẫu theo pha A/B/C, mẫu chung 3 pha, 110–220 kV) như ô "Mẫu BBTN", lấy mặc định của template mới cho ô trống
+  async function applyTemplate(key) {
+    if (!key || !EMB.templates[key] || state.cfg.template === 'custom' || state.cfg.template === key) return false;
+    const before = schema.layout;
+    state.cfg.template = key;
+    const layout = Schema.layoutOf(state.cfg);
+    state.cfg.topology = layout === Schema.LAYOUT_3P ? 'bank1p' : layout === Schema.LAYOUT_110 ? 'threePhase' : 'single1p';
+    if (state.cfg.topology !== 'bank1p') state.cfg.reportScope = 'combined';
+    applyFactoryDefaults(state.cfg);
+    schema = T().buildSchema(state.cfg);
+    if (schema.layout !== before) { await fillTemplateDefaults(); rememberTemplateHead(); }
+    return true;
+  }
+  // giá trị mặc định của template ở các ô đầu biên bản (tự điền thông số được ghi đè các ô này)
+  function rememberTemplateHead() {
+    state.att = state.att || {};
+    state.att.tplHead = Object.fromEntries(schema.head.map(f => [f.k, state.v[f.k] ?? '']));
+  }
+  // Tự điền thông số đầu biên bản (EquipmentSpecs.headFrom): ô trống, ô còn mặc định template, ô tự điền lần trước chưa sửa tay
+  function applyHeadFills(fills) {
+    state.att = state.att || {};
+    const ocr = state.att.ocr = state.att.ocr || {};
+    const tpl = state.att.tplHead || {};
+    const auto = Object.fromEntries(Object.entries(ocr).filter(([, x]) => x.src).map(([k]) => [k, state.v[k]]));
+    // ô tự điền lần trước (thiết bị khác) mà nguồn mới không có → trả về mặc định template
+    Object.keys(auto).forEach(k => { if (!fills[k]) { state.v[k] = tpl[k] ?? ''; delete ocr[k]; } });
+    const plan = EquipmentSpecs.fillPlan(state.v, fills, Object.assign({}, tpl, auto));
+    const label = k => ((schema.head.find(f => f.k === k) || {}).label || k);
+    Object.entries(plan).forEach(([k, f]) => { state.v[k] = f.value; ocr[k] = { status: 'check', label: label(k), src: f.src }; });
+    // ô không có trong CSDL / test report mà còn giá trị mẫu của template → để trống, tô đỏ "nhập tay"
+    EquipmentSpecs.staleKeys(state.v, fills, tpl).forEach(k => { state.v[k] = ''; ocr[k] = { status: 'missing', label: label(k), src: 'CSDL / test report' }; });
+    return plan;
+  }
+
   function renderGeneral() {
+    const U = TU();
+    let h = headHTML('0', 'Thông tin chung & cấu hình', 'Khởi tạo biên bản');
+    h += setupStepsHTML();
+    if (setupStep === 'device') {
+      const topology = state.cfg.topology || 'single1p';
+      h += SetupUI.deviceHTML(App);
+      h += U.generalTopology ? U.generalTopology(App) : '';
+      if (topology !== 'bank1p') h += `<h3>Số chế tạo</h3><div class="fields">${schema.head.filter(f => f.k === 'meta.serial').map(f => fieldHTML(f)).join('')}</div>`;
+      h += U.unitSerialFields ? U.unitSerialFields(App) : '';
+    } else if (setupStep === 'specs') {
+      h += `<h3>Thông số kỹ thuật (điền vào đầu biên bản)</h3>${U.headTools ? U.headTools(App) : ''}`
+        + '<div class="row-actions"><button class="btn" data-act="suFill" title="Theo số chế tạo đang nhập: CSDL trước, thiếu thì test report; ô đã nhập tay được giữ">Điền lại từ CSDL / test report</button></div>'
+        + `${flagBannerHTML()}<div class="fields">${schema.head.filter(f => f.k !== 'meta.serial' && !TEST_KEYS.includes(f.k)).map(f => fieldHTML(f)).join('')}</div>`;
+    } else if (setupStep === 'test') {
+      h += `<h3>Lần thí nghiệm</h3><div class="fields">${schema.head.filter(f => TEST_KEYS.includes(f.k)).map(f => fieldHTML(f)).join('')}</div>`;
+      h += baselineResetHTML();
+      h += itemsChecklistHTML();
+    } else {
+      h += renderConfigStep();
+    }
+    return `<section class="panel setup-panel">${h}${setupFootHTML()}</section>`;
+  }
+
+  function renderConfigStep() {
     const D = FX && FX.data, U = TU();
     const topology = state.cfg.topology || 'single1p';
     const topologyOfTemplate = key => key === '3P' ? 'bank1p' : key === '110' ? 'threePhase' : 'single1p';
@@ -500,13 +591,7 @@
     const custom = lsGet(LS_TPL) ? JSON.parse(lsGet(LS_TPL)) : null;
     if (custom && topologyOfTemplate(state.cfg.layout) === topology) templates.push('custom');
     const templateOptions = templates.map(k => [k, k === 'custom' ? `Tùy chỉnh: ${custom.name}` : EMB.templates[k].name]);
-    let h = headHTML('0', 'Thông tin chung & cấu hình', 'General & settings');
-    h += U.generalTopology ? U.generalTopology(App) : '';
-    h += `<h3>Thông tin thiết bị (điền vào đầu biên bản)</h3>${U.headTools ? U.headTools(App) : ''}${flagBannerHTML()}<div class="fields">${schema.head.filter(f => !(topology === 'bank1p' && f.k === 'meta.serial')).map(f => fieldHTML(f)).join('')}</div>`;
-    h += U.unitSerialFields ? U.unitSerialFields(App) : '';
-    h += baselineResetHTML();
-    h += itemsChecklistHTML();
-    h += '<h3>Template & số liệu xuất xưởng</h3><div class="fields">';
+    let h = '<h3>Template & số liệu xuất xưởng</h3><div class="fields">';
     h += cfgField('template', 'Mẫu BBTN theo cấu hình', { options: templateOptions.length ? templateOptions : [[state.cfg.template, topology === 'bank1p' ? 'Mẫu chung 3 MBA một pha' : topology === 'threePhase' ? 'Mẫu MBA ba pha' : 'Mẫu MBA một pha']] });
     h += `<div class="field"><label>Nạp template khác (.docx cùng cấu trúc)</label><button class="btn" data-act="loadDocx">Chọn file template…</button></div>`;
     // nhiều file (vd AT1, AT2): chọn file đang dùng; app tự chọn theo số chế tạo máy chính khi nhập hoặc mở biên bản
@@ -518,8 +603,9 @@
     h += U.reportScopeFields ? U.reportScopeFields(App) : '';
     if (D && D.warnings.length) h += `<div class="callout warn"><b>${esc(D.fileName)}:</b><br>${D.warnings.map(esc).join('<br>')}</div>`;
     h += U.generalConfig ? U.generalConfig(App) : '';
-    h += U.factoryUnits ? U.factoryUnits(App) : '';
-    return `<section class="panel">${h}</section>`;
+    // "Các máy trong file xuất xưởng": xem ở mục XX (khối File .xlsx trên máy này)
+    if (D) h += '<div class="hint-text">Các máy trong file xuất xưởng (Job No., P0, nhiệt độ đo, độ ẩm DFR): xem ở <button class="btn small" data-nav="factory">XX Số liệu xuất xưởng</button>.</div>';
+    return h;
   }
 
   // Hạng mục thí nghiệm theo 4 bước; khung Tài liệu tham khảo bên phải
@@ -606,6 +692,7 @@
         + `<td>${esc(d.order.map(sn => `${sn} – ${d.units[sn].phase || '?'}`).join(', '))}</td><td>${d.warnings.length ? `<span title="${esc(d.warnings.join('\n'))}">${d.warnings.length}</span>` : '—'}</td>`
         + `<td class="row-actions">${x.api === FX ? '' : `<button class="btn small" data-act="useFx" data-name="${esc(x.name)}">Dùng file này</button>`}${x.emb ? '' : `<button class="btn small danger" data-act="delFx" data-name="${esc(x.name)}">Bỏ</button>`}</td></tr>`; }).join('')
       + '</tbody></table></div>';
+    h += TU().factoryUnits ? TU().factoryUnits(App) : '';
     h += `<h4>Xem sheet của file đang dùng: ${esc(FX.data.fileName)}</h4>`;
     h += '<div class="tabs">' + sh.map((s, i) => `<button data-ftab="${i}" class="${i === factoryTab ? 'on' : ''}">${esc(s.name)}</button>`).join('') + '</div>';
     const rows = (sh[factoryTab] || sh[0]).rows;
@@ -658,6 +745,7 @@
     if (current === 'db' || current === 'trend') DbUI.afterRender(current);
     if (current === 'model3d') MbaModel3DUI.init(main);
     if (current === 'catalog') Catalog.afterRender();
+    if (current === 'general' && setupStep === 'device') SetupUI.afterRender(App);
     if (current === 'factory') FactoryUI.afterRender(App);
     if (current === 'kconf') KConf.afterRender();
     if (current === 'appendix') AppendixUI.afterRender(App);
@@ -943,6 +1031,7 @@
     if (!b) return;
     if (b.dataset.m3dgo) { App.go(b.dataset.m3dgo); if (b.dataset.m3danchor) document.getElementById(b.dataset.m3danchor)?.scrollIntoView({ block: 'start' }); return; }
     if (b.dataset.nav === 'help') { HelpUI.open(App); return; }
+    if (b.dataset.setup) setupStep = b.dataset.setup;
     if (b.dataset.nav) { current = b.dataset.nav; renderNav(); renderMain(); $('#main').scrollTop = 0; window.scrollTo(0, 0); return; }
     if (b.dataset.filter) { filters[b.dataset.fsec] = b.dataset.filter; updateComputed(); return; }
     if (b.dataset.ftab !== undefined) { factoryTab = +b.dataset.ftab; renderMain(); return; }
@@ -955,6 +1044,9 @@
       if (act === 'new') openTypeDialog();
       else if (act === 'closePdfReview') closePdfReview();
       else if (act === 'refsToggle') toggleRefs();
+      else if (act === 'setupStep') setupGo(b.dataset.step);
+      else if (act === 'setupDone') { const first = schema.sections.find(s => !(res.sec[s.id] && res.sec[s.id].skipped)) || schema.sections[0]; App.go(first.id); }
+      else if (act && act.startsWith('su')) await track(b.textContent.trim() || act, () => SetupUI.action(act, b));
       else if (act === 'help') HelpUI.open(App);
       else if (act === 'save') await saveJson();
       else if (act === 'open') $('#fileJson').click();
@@ -1006,7 +1098,7 @@
     $('#typeDialog').close();
     try {
       await newRecord(code === EquipmentTypes.codeOf(state), code);
-      current = 'general'; recompute(); renderNav(); renderMain(); persist();
+      current = 'general'; setupStep = 'device'; recompute(); renderNav(); renderMain(); persist();
       toast(`Đã tạo biên bản ${T().label} mới từ template`);
     } catch (err) { console.error(err); toast('Lỗi: ' + err.message, true); }
   }
@@ -1207,6 +1299,8 @@
     }
     if (!restored) { state = null; await newRecord(false, EquipmentTypes.DEFAULT); }
     recompute();
+    // biên bản đang nhập dở có số chế tạo: mở thẳng hạng mục đầu; biên bản mới: trình khởi tạo bước ①
+    if (restored && String(state.v['meta.serial'] || (state.cfg.ps && state.cfg.ps.A) || '').trim()) { current = schema.sections[0].id; setupStep = 'test'; }
     renderNav();
     renderMain();
     loadInlineTrend(); // lịch sử đo (bản lưu tạm khi mất mạng; tải lại khi đã đăng nhập)
@@ -1280,6 +1374,7 @@
   const App = window.App = {
     get state() { return state; }, get res() { return res; }, get schema() { return schema; }, get FX() { return FX; }, get type() { return T(); }, EMB,
     get factories() { return FXS; }, addFactoryFile, factoryFileB64, localFactoryHTML,
+    applyTemplate, applyHeadFills, setupGo, pickFactory: quiet => pickFactory(quiet),
     useFactory(name) { const e = FXS.find(x => x.name === name); if (e) { setFactory(e); recompute(); renderNav(); renderMain(); persist(); } return e; },
     exportDocx, exportXlsx, toast, esc, download, safeName, persist, recompute, renderMain, fieldHTML, cfgField, readFile, lsGet, lsSet, abToB64, track,
     rebuild(schemaChanged) { if (schemaChanged) schema = T().buildSchema(state.cfg); recompute(); renderNav(); renderMain(); persist(); },

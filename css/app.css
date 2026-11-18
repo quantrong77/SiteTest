@@ -601,3 +601,16 @@ table.grid.fx-table td.fx-act { padding: 3px 6px; width: 1%; white-space: nowrap
   .fx-layout { grid-template-columns: minmax(0, 1fr); }
   .fx-tree { position: static; max-height: 320px; }
 }
+
+/* ===================================================================== Trình khởi tạo BBTN (trang Thông tin chung & cấu hình) */
+.setup-steps { margin: 4px 0 18px; }
+.setup-steps .wf-step.done .wf-n { background: var(--pass); border-color: var(--pass); color: #fff; }
+.setup-foot { display: flex; justify-content: space-between; gap: 10px; margin-top: 24px; padding-top: 14px; border-top: 1px solid var(--line); }
+.su-picker { align-items: end; }
+.su-applied { margin-top: 10px; }
+/* thanh thông tin BBTN bấm được → mở lại trình khởi tạo */
+.record-edit { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 6px; max-width: 100%; padding: 3px 6px; margin: -3px -6px;
+  border: 1px solid transparent; border-radius: 10px; background: transparent; font: inherit; color: inherit; text-align: left; cursor: pointer; }
+.record-edit:hover, .record-edit.on { border-color: #d5e4ee; background: #f3f8fb; }
+.record-edit:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.record-edit-icon { color: var(--muted); font-size: 13px; }
