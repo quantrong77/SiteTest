@@ -452,9 +452,81 @@
       // nấc đánh số 1…19 (mẫu theo pha: 9a/9b/9c); người dùng đã đặt danh sách nấc riêng thì giữ
       const custom = cfg.taps && cfg.taps.length === 19 && cfg.taps.join() !== DEFAULT_TAPS.join();
       const s = build1P(Object.assign({}, cfg, { taps: custom ? cfg.taps : TAPS_19 }));
-      return Object.assign(remapTables(s, MAP_110), { layout: LAYOUT_110, tables: 71 });
+      const s110 = withOltcField(Object.assign(remapTables(s, MAP_110), { layout: LAYOUT_110, tables: 71 }));
+      return cfg.oltcWinding === 'MV' ? oltcOnMV(s110, cfg) : s110;
     }
     return build1P(cfg);
+  }
+
+  // ---------------------------------------------------------------- OLTC đặt ở cuộn nào (chỉ mẫu 110–220 kV)
+  // MBA 220 kV kiểu Liên Xô cũ đặt OLTC ở cuộn trung áp 110 kV: R một chiều cuộn trung áp và tỷ số MV:LV theo nấc,
+  // cuộn cao áp và tỷ số HV:LV một giá trị. Dùng lại bảng nấc / bảng một hàng sẵn có của template: đổi bảng giữa hai
+  // lưới, ghi lại hàng tiêu đề cột (docLabel) và đổi nhãn đề mục khi xuất (schema.docSwaps, MbaReport.fill).
+  const OLTC_WINDINGS = [['HV', 'Cuộn cao áp (mặc định)'], ['MV', 'Cuộn trung áp 110 kV (MBA 220 kV kiểu Liên Xô cũ)']];
+  const findIn = (sec, id) => sec.groups.find(g => g.id === id);
+  function withOltcField(schema) {
+    const sections = schema.sections.map(s => (s.id !== 'dcr' ? s : Object.assign({}, s, {
+      groups: s.groups.map((g, i) => (i ? g : Object.assign({}, g, {
+        fields: [{ k: 'cfg.oltcWinding', cfg: 'oltcWinding', label: 'Bộ điều áp dưới tải (OLTC) đặt ở cuộn', options: OLTC_WINDINGS }].concat(g.fields || []),
+      }))),
+    })));
+    return Object.assign({}, schema, { sections });
+  }
+  // Lưới mới dùng bảng / hàng của lưới khác; cột dời chỉ số cột Word (bảng nấc có cột "Nấc" ở đầu) và ghi tiêu đề cột
+  // theo docLabels (người dùng đã sửa tiêu đề — editHdr — thì giữ chữ của người dùng)
+  function moveGrid(g, onto, rows, shift, docLabels, extra) {
+    const cols = g.cols.map((c, i) => Object.assign({}, c, {
+      doc: c.doc === undefined ? undefined : c.doc + shift,
+      docLabel: c.defLabel && c.label !== c.defLabel ? c.label : docLabels[i],
+    }));
+    return Object.assign({}, g, { tables: onto.tables, rows, cols }, extra || {});
+  }
+  function oltcOnMV(schema, cfg) {
+    const ser = cfg.hvMeas === 'SER';
+    const hvDoc = PH3.map(ph => (ser ? `${ph}${ph}m` : `${ph}N`));
+    const hvApp = PH3.map(ph => (ser ? `${ph}-${ph}m` : `${ph}-N`));
+    const one = [{ k: 'r', label: 'Giá trị', doc: 1 }];
+    const swaps = [];
+    const sections = schema.sections.map(s => {
+      if (s.id === 'dcr') {
+        const hv = findIn(s, 'hv'), mv = findIn(s, 'mv'), lv = findIn(s, 'lv');
+        const hvG = hv.grids[0], mvG = mv.grids[0];
+        swaps.push({ kind: 'winding', a: hvG.tables[0], b: mvG.tables[0] });
+        // nhiệt độ đo ghi vào đoạn đề mục đứng trước bảng mới của lưới
+        const field = (f, before) => (f.doc ? Object.assign({}, f, { doc: Object.assign({}, f.doc, { before }) }) : f);
+        const mvGrid = moveGrid(mvG, hvG, hvG.rows, 1,
+          ['AmN', 'ΔRAmN(%)', 'BmN', '∆RBmN(%)', 'CmN', '∆RCmN(%)', '∆R(A,B,C)(%)'], { title: 'Theo nấc', corner: 'Nấc' });
+        const hvGrid = moveGrid(hvG, mvG, one, -1,
+          [hvDoc[0], `ΔR${hvDoc[0]}(%)`, hvDoc[1], `∆R${hvDoc[1]}(%)`, hvDoc[2], `∆R${hvDoc[2]}(%)`, '∆R(A,B,C)(%)'], { title: '' });
+        delete hvGrid.corner;
+        const n = s.no;
+        return Object.assign({}, s, { groups: [
+          Object.assign({}, mv, { title: `${n}.1 Cuộn trung áp — theo nấc OLTC — Am-N / Bm-N / Cm-N (mΩ)`,
+            fields: hv.fields.filter(f => f.cfg === 'oltcWinding').concat((mv.fields || []).map(f => field(f, hvG.tables[0]))), grids: [mvGrid] }),
+          Object.assign({}, hv, { title: `${n}.2 Cuộn cao áp — đo ${hvApp.join(' / ')} (mΩ)`,
+            fields: hv.fields.filter(f => f.cfg !== 'oltcWinding').map(f => field(f, mvG.tables[0])), grids: [hvGrid] }),
+          Object.assign({}, lv, { title: lv.title.replace(/^\d+\.\d+/, `${n}.3`) }),
+        ] });
+      }
+      if (s.id === 'ratio') {
+        const hm = findIn(s, 'hm'), hl = findIn(s, 'hl'), ml = findIn(s, 'ml');
+        const hlG = hl.grids[0], mlG = ml.grids[0];
+        swaps.push({ kind: 'ratio', a: hlG.tables[0], b: mlG.tables[0] });
+        const mlGrid = moveGrid(mlG, hlG, hlG.rows, 1,
+          ['UAmBm/Uab', '∆KAmBm/ab(%)', 'UBmCm/Ubc', '∆KBmCm/bc(%)', 'UCmAm/Uca', '∆KCmAm/ca(%)', '∆K(A,B,C)(%)'], { title: 'Theo nấc', corner: 'Nấc' });
+        const hlGrid = moveGrid(hlG, mlG, one, -1,
+          ['UAB/Uab', '∆KAB/ab(%)', 'UBC/Ubc', '∆KBC/bc(%)', 'UCA/Uca', '∆KCA/ca(%)', '∆K(A,B,C)(%)'], { title: '' });
+        delete hlGrid.corner;
+        const n = s.no;
+        return Object.assign({}, s, { groups: [
+          hm,
+          Object.assign({}, ml, { title: `${n}.2 Cuộn MV : LV — theo nấc OLTC`, grids: [mlGrid] }),
+          Object.assign({}, hl, { title: `${n}.3 Cuộn HV : LV`, grids: [hlGrid] }),
+        ] });
+      }
+      return s;
+    });
+    return Object.assign({}, schema, { sections, oltcWinding: 'MV', docSwaps: swaps });
   }
   function build1P(cfg) {
     const taps = (cfg.taps && cfg.taps.length === 19) ? cfg.taps : DEFAULT_TAPS;
@@ -709,5 +781,5 @@
   // Duyệt biểu mẫu: hàm chung ở js/domain/common.js (trường đầu/cuối biên bản lấy từ schema.head/tail)
   const { eachGrid, eachField } = Common;
 
-  window.Schema = { HV_MEAS, LAYOUT_3P, LAYOUT_110, MAP_110, TAPS_19, layoutOf, TAPS_17, build, eachGrid, eachField, META, CLOSING, SUMMARY_ROWS, DEFAULT_TAPS, BCT_SIDES, BCT_TABLES };
+  window.Schema = { HV_MEAS, OLTC_WINDINGS, LAYOUT_3P, LAYOUT_110, MAP_110, TAPS_19, layoutOf, TAPS_17, build, eachGrid, eachField, META, CLOSING, SUMMARY_ROWS, DEFAULT_TAPS, BCT_SIDES, BCT_TABLES };
 })();

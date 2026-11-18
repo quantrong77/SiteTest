@@ -647,6 +647,7 @@
           recompute(); renderMain(); persist(); return;
         }
         onSerialChange();
+        oltcFromDb();
       }
       scheduleEval();
     } else if ((el.dataset.hk || el.dataset.lbl) && e.type === 'change') {
@@ -695,7 +696,13 @@
           state.v['meta.serial'] = state.cfg.ps.A;
         }
       }
-      if (/^(taps|bctCores|hvMeas|template|topology|reportScope|ps\.)/.test(el.dataset.cfg)) {
+      if (el.dataset.cfg === 'oltcWinding') {
+        // đổi cuộn đặt OLTC: số liệu đã nhập theo cấu hình cũ vẫn giữ trong biên bản (khóa ô khác nhau), chỉ ẩn khỏi biểu mẫu
+        toast(state.cfg.oltcWinding === 'MV'
+          ? 'OLTC ở cuộn trung áp: R một chiều cuộn trung áp và tỷ số MV:LV nhập theo nấc. Số liệu theo nấc cuộn cao áp đã nhập vẫn được giữ.'
+          : 'OLTC ở cuộn cao áp: R một chiều cuộn cao áp và tỷ số HV:LV nhập theo nấc. Số liệu theo nấc cuộn trung áp đã nhập vẫn được giữ.');
+      }
+      if (/^(taps|bctCores|hvMeas|oltcWinding|template|topology|reportScope|ps\.)/.test(el.dataset.cfg)) {
         if (el.dataset.cfg === 'taps' && state.cfg.taps.length !== 19) toast(`Cần đúng 19 nhãn nấc (đang có ${state.cfg.taps.length}) — tạm dùng mặc định`, true);
         schema = T().buildSchema(state.cfg);
         // đổi giữa mẫu theo pha và mẫu chung 3 pha: biểu mẫu đổi bố cục, lấy giá trị mặc định của template mới cho ô còn trống
@@ -707,7 +714,7 @@
         }
       }
       recompute();
-      if (/^(template|topology|reportScope|ps\.|bctCores|taps|oltcCharts|hvMeas)/.test(el.dataset.cfg)) renderMain(); else updateComputed();
+      if (/^(template|topology|reportScope|ps\.|bctCores|taps|oltcCharts|hvMeas|oltcWinding)/.test(el.dataset.cfg)) renderMain(); else updateComputed();
       persist();
     } else if (el.dataset.exportPhase && e.type === 'change') {
       const phase = el.dataset.exportPhase, selected = new Set(state.cfg.reportPhases || []);
@@ -732,6 +739,20 @@
       state.cfg.template = key;
       toast(`Đã chọn template ${EMB.templates[key].name} theo pha ${key}`);
     }
+  }
+
+  // Mẫu 110–220 kV: máy đã lưu trong CSDL với cuộn đặt OLTC (equipment.rated.oltc_winding) → chọn sẵn theo CSDL
+  async function oltcFromDb() {
+    if (schema.layout !== Schema.LAYOUT_110 || !window.DB || !DB.user || !DB.equipmentRated) return;
+    const sn = String(state.v['meta.serial'] || '').trim();
+    if (!sn) return;
+    let rated = null;
+    try { rated = await DB.equipmentRated('MBA', sn); } catch (_) { return; } // mất mạng: giữ cấu hình hiện tại
+    const w = rated && rated.oltc_winding;
+    if (!['HV', 'MV'].includes(w) || w === state.cfg.oltcWinding || String(state.v['meta.serial'] || '').trim() !== sn) return;
+    state.cfg.oltcWinding = w;
+    schema = T().buildSchema(state.cfg); recompute(); renderMain(); persist();
+    toast(`Máy ${sn} trong CSDL có bộ điều áp ở cuộn ${w === 'MV' ? 'trung áp' : 'cao áp'} — đã chọn theo CSDL (đổi ở mục 0 nếu cần)`);
   }
 
   function onPaste(e) {

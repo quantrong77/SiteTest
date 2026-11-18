@@ -402,9 +402,12 @@
       unit: s => F.units[s] || null,
       shortCircuitFor,
       ratioTap: tap => matchTap(F.ratio.taps, tap),
-      dcr(winding, tap, s) {
+      // opts.byTap: cuộn có bộ điều áp không phải cuộn nối tiếp (OLTC ở cuộn trung áp) — chỉ trả giá trị khi file XX có
+      // số liệu theo nấc của cuộn đó (không so mọi nấc với một giá trị)
+      dcr(winding, tap, s, opts) {
         const rows = F.dcr.rows.filter(r => r.winding === winding);
-        const r = winding === 'SER' ? matchTap(rows, tap) : rows[0];
+        const r = opts && opts.byTap ? (rows.length > 1 ? matchTap(rows, tap) : null)
+          : winding === 'SER' ? matchTap(rows, tap) : rows[0];
         if (!r || r.r75[s] == null) return null;
         return { r75: r.r75[s], meas: r.meas[s], tap: r.tap, refT: F.dcr.refT, measT: (F.conditions[s] || {}).dcr };
       },

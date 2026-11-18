@@ -32,7 +32,9 @@
     const mainRef = addRef('MBA', main, {
       name: str(v['meta.site']) || undefined, manufacturer: str(v['meta.manuf']) || undefined, model: str(v['meta.type']) || undefined,
       year_made: toNum(v['meta.year']) || undefined,
-      rated: { power_mva: str(v['meta.power']), voltage: str(v['meta.voltage']), current_a: str(v['meta.current']), vector_group: str(v['meta.vector']) },
+      rated: { power_mva: str(v['meta.power']), voltage: str(v['meta.voltage']), current_a: str(v['meta.current']), vector_group: str(v['meta.vector']),
+        // mẫu 110–220 kV: cuộn đặt OLTC (HV / MV) — thuộc tính của máy, lần thí nghiệm sau dùng lại
+        oltc_winding: schema.layout === Schema.LAYOUT_110 ? (schema.oltcWinding === 'MV' ? 'MV' : 'HV') : undefined },
     });
     const unitRef = ph => {
       const p = String(ph || '').toUpperCase();

@@ -273,6 +273,14 @@ nhận là mẫu này). Cùng biểu mẫu PTC3/BM.01 với mẫu theo pha nên 
 nấc đánh số 1…19, chỉ số bảng theo chỗ ngắt trang của mẫu 110-220 (`Schema.MAP_110`), không đổi template theo pha máy chính và
 không lấy số chế tạo theo pha từ file xuất xưởng tổ máy 1 pha.
 
+**OLTC đặt ở cuộn nào** (chỉ mẫu 110–220 kV; mục 0 *Thông số tính toán* hoặc đầu mục Điện trở một chiều): *Cuộn cao áp*
+(mặc định, như trước) hoặc *Cuộn trung áp 110 kV* cho MBA 220 kV kiểu Liên Xô cũ. Chọn trung áp: R một chiều cuộn trung áp
+và tỷ số MV:LV nhập theo 19 nấc, cuộn cao áp và tỷ số HV:LV một giá trị; khi xuất BBTN, bảng nấc của mẫu ghi cuộn trung áp,
+bảng một hàng ghi cuộn cao áp (đổi nhãn đề mục "Cuộn dây trung áp / cao thế", cấp điện áp, "Cuộn MV:LV / HV:LV"). CSDL: dòng đo
+ghi `config='MV'` kèm `tap`, thiết bị lưu `rated.oltc_winding`; nhập số chế tạo của máy đã có trong CSDL thì app tự chọn theo
+thuộc tính này. Nhập BBTN .docx cũ: đề mục trước bảng nấc ghi "trung áp (M.V Winding)" → nhận là OLTC trung áp. Số liệu trung
+áp nhập trước đây (một giá trị, `tap` rỗng) là chuỗi xu hướng riêng với số liệu theo nấc.
+
 ### Nhập BBTN cũ vào CSDL (chuỗi xu hướng)
 
 Trang **Nhập BBTN cũ** (nhóm Cơ sở dữ liệu): chọn một/nhiều file hoặc cả thư mục `.docx` và `.pdf`.
