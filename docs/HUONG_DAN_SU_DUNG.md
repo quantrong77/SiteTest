@@ -165,8 +165,10 @@ Hãy dùng đúng nhãn hiển thị trên phiên bản đang chạy.
 4. Ô **Tìm** lọc ngay theo trạm, ngăn, tên thiết bị, số chế tạo (kể cả số chế tạo sứ), số report — không cần gõ dấu.
 5. **Chuột phải** vào một dòng (hoặc nút **⋯**, hoặc phím Menu / Shift+F10):
    - **Xem số liệu** — bảng giá trị xuất xưởng theo hạng mục, lọc theo thiết bị / hạng mục;
-   - **Sửa số liệu** (quyền ghi) — sửa từng giá trị, ngày thí nghiệm, số report → **Lưu thay đổi** → kiểm tra danh sách thay đổi → **Xác nhận lưu**.
+   - **Sửa giá trị đo (N giá trị)** (quyền ghi) — sửa từng giá trị, ngày thí nghiệm, số report → **Lưu thay đổi** → kiểm tra danh sách thay đổi → **Xác nhận lưu**.
      Nhiệt độ đo chỉ đọc; giá trị quy đổi tính lại theo tỷ lệ; mỗi giá trị sửa được ghi chú ngày và người sửa;
+   - **Sửa số chế tạo, tên thiết bị…** (quyền ghi) — sửa thông tin của máy hoặc sứ đang chọn; chỉ sửa số chế tạo khi nhập sai (xu hướng tra theo số chế tạo);
+   - **Gán trạm / ngăn…** / **Đổi trạm / ngăn…** (quyền ghi, máy chính) — chọn trạm, ngăn trong danh mục; thiết bị ở nhóm **Chưa gắn trạm / ngăn** chuyển vào đúng ngăn, các sứ đi theo máy chính;
    - **Dùng cho biên bản đang lập** — tải file test report gốc từ CSDL và dùng làm file xuất xưởng của biên bản;
    - **Tải file test report**;
    - với máy **Chưa lưu CSDL**: xem sheet gốc, dùng file, **Lưu lên CSDL**.
