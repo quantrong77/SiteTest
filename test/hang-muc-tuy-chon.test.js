@@ -78,7 +78,7 @@ test('xuất BBTN: thêm hàng "12. Thí nghiệm ngắn mạch" sau hàng BCT �
   const { schema, state, res } = scState(ctx, 'A');
   const tpl = fakeTpl();
   const SUM = schema.summary;
-  assert.equal(ctx.MbaReport.shortCircuitToBody(tpl, state, schema, res, { shortCircuitRows: [] }, x => x, SUM), true);
+  assert.equal(ctx.MbaReport.shortCircuitToBody(tpl, state, schema, res, { shortCircuitRows: [] }, x => x, SUM), 'body');
   same(tpl.log.rows, [{ t: 0, after: SUM.rows.bct, label: '12. Thí nghiệm ngắn mạch máy biến áp (Short-circuit impedance and load loss)', mark: true }]);
   assert.ok(tpl.log.blocks && tpl.log.blocks.p.p === 'thiet-bi');
   assert.match(tpl.log.blocks.blocks[0].text, /^12\. Thí nghiệm ngắn mạch/);
@@ -91,6 +91,18 @@ test('xuất BBTN: thêm hàng "12. Thí nghiệm ngắn mạch" sau hàng BCT �
   assert.match(tpl3.log.rows[0].label, /^14\. /);
   // ngắn mạch không còn là phụ lục
   assert.ok(!ctx.Appendix.list(state, {}).some(a => a.kind === 'shortCircuit'));
+});
+
+test('xuất BBTN: template không có "THIẾT BỊ THÍ NGHIỆM" → vẫn xuất ngắn mạch thành phụ lục (không mất số liệu)', () => {
+  const ctx = load(CORE);
+  const { schema, state, res } = scState(ctx, 'A');
+  const tpl = Object.assign(fakeTpl(), { bodyPara: () => null });
+  assert.equal(ctx.MbaReport.shortCircuitToBody(tpl, state, schema, res, {}, x => x, schema.summary), 'fallback');
+  assert.equal(tpl.log.blocks, null);
+  assert.equal(tpl.log.rows.length, 1, 'hàng ở bảng trang 1 vẫn thêm');
+  assert.ok(ctx.Appendix.list(state, { shortCircuit: true }).some(a => a.kind === 'shortCircuit'));
+  // không có số liệu ngắn mạch thì không có phụ lục
+  assert.ok(!ctx.Appendix.list({ att: {} }, { shortCircuit: true }).some(a => a.kind === 'shortCircuit'));
 });
 
 test('xuất BBTN: hạng mục ngắn mạch bỏ tích → không thêm hàng, không thêm mục', () => {
@@ -116,6 +128,8 @@ test('loại thí nghiệm: 8 lựa chọn, mã CSDL, "1 năm sau lắp đặt" 
   // chữ đọc từ BBTN cũ → đúng lựa chọn
   assert.equal(C.optionOf('1 năm  sau lắp đặt', ctx.Schema.REASONS), '1 năm sau lắp đặt');
   assert.equal(C.optionOf('Sau sửa chữa / đại tu', ctx.Schema.REASONS), 'Sau sửa chữa/đại tu');
+  assert.equal(C.optionOf('Sau sửa chữa – đại tu', ctx.Schema.REASONS), 'Sau sửa chữa/đại tu');
+  assert.equal(C.optionOf('sau sửa chữa-đại tu', ctx.Schema.REASONS), 'Sau sửa chữa/đại tu');
   assert.equal(C.optionOf('Kiểm tra lạ', ctx.Schema.REASONS), 'Kiểm tra lạ');
   // ngưỡng cách điện lõi từ: máy mới (sau lắp đặt, sau sửa chữa/đại tu) / đã vận hành (1 năm sau lắp đặt)
   const coreLimit = reason => {

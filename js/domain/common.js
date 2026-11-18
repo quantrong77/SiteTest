@@ -69,7 +69,8 @@
   const KIND_LABEL = { FAT: 'Xuất xưởng (FAT)', SAT: 'Sau lắp đặt', PERIODIC: 'Định kỳ', AFTER_REPAIR: 'Sau sửa chữa', ABNORMAL: 'Bất thường', SPARE: 'Dự phòng', OTHER: 'Khác' };
   // Chữ đọc từ BBTN cũ khớp một lựa chọn (không phân biệt hoa thường, khoảng trắng, dạng Unicode) → đúng chữ của lựa chọn
   const optionOf = (text, options) => {
-    const n = x => String(x || '').normalize('NFC').toLocaleLowerCase('vi').replace(/\s+/g, ' ').replace(/\s*\/\s*/g, '/').trim();
+    // gạch chéo / gạch ngang (OCR hay đọc "Sau sửa chữa – đại tu") coi như nhau
+    const n = x => String(x || '').normalize('NFC').toLocaleLowerCase('vi').replace(/\s+/g, ' ').replace(/\s*[\/\-\u2010-\u2015]\s*/g, '/').trim();
     const t = n(text);
     return (t && (options || []).find(o => n(o) === t)) || text;
   };

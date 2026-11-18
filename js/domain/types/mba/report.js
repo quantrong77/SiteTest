@@ -192,8 +192,10 @@
       if (bctToBody(tpl, state, schema, res, out)) bctAppx = false;
       else miss.push('Mục 13 – biến dòng chân sứ (không thấy đề mục trong template, đã xuất thành phụ lục)');
     }
-    shortCircuitToBody(tpl, state, schema, res, A, out, SUM);
-    if (tpl.appendSection) Appendix.list(state, { fra: !!A.fraDoc, oil: Object.fromEntries(Object.keys(A.oilDocs || {}).map(id => [id, true])), bct: bctAppx }).forEach(a => {
+    // template thiếu đoạn "THIẾT BỊ THÍ NGHIỆM" → vẫn xuất kết quả ngắn mạch thành phụ lục (không mất số liệu)
+    const sc = shortCircuitToBody(tpl, state, schema, res, A, out, SUM);
+    if (sc === 'fallback') miss.push('Thí nghiệm ngắn mạch: không thấy đoạn "THIẾT BỊ THÍ NGHIỆM" trong template — đã xuất thành phụ lục');
+    if (tpl.appendSection) Appendix.list(state, { shortCircuit: sc === 'fallback', fra: !!A.fraDoc, oil: Object.fromEntries(Object.keys(A.oilDocs || {}).map(id => [id, true])), bct: bctAppx }).forEach(a => {
       if (a.kind === 'oltc') tpl.appendSection(oltcAppendix(state, state.att.oltc, A, out, a.label));
       if (a.kind === 'fra') { tpl.appendSection(Appendix.fraHeader(a.label, state.att.fra)); tpl.importBody(A.fraDoc); }
       if (a.kind === 'oil') { const item = state.att.oil.items.find(x => x.id === a.id); tpl.appendSection(Appendix.oilHeader(a.label, item)); tpl.importBody(A.oilDocs[a.id]); }
@@ -309,12 +311,12 @@
       tpl.setCellText(tpl.cellAt(tr, SUM.tick), tick ? '✓' : '');
       tpl.setCellText(tpl.cellAt(tr, SUM.ev), ev === '—' ? '' : (ev || (tick ? S.text : '')));
     }
-    if (!Appendix.shortCircuitHasData(state.att && state.att.shortCircuit) || !tpl.bodyPara || !tpl.insertBlocksBefore) return true;
-    const p = tpl.bodyPara(TESTING_INSTRUMENTS);
-    if (!p) return true;
+    if (!Appendix.shortCircuitHasData(state.att && state.att.shortCircuit)) return true;
+    const p = tpl.bodyPara && tpl.insertBlocksBefore ? tpl.bodyPara(TESTING_INSTRUMENTS) : null;
+    if (!p) return 'fallback';
     tpl.insertBlocksBefore(p, [{ type: 'p', text: `${label}:`, bold: true, size: 12, keepNext: true }]
       .concat(Appendix.shortCircuitBlocks(A.shortCircuitRows || [], out, n => `${sec.no}.${n}`)));
-    return true;
+    return 'body';
   }
 
   // Nội dung BCT dùng chung cho phụ lục và mục 13: thông tin chung + bảng theo phía; num(n) đánh số nhóm (1. / 13.1)
