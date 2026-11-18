@@ -116,7 +116,8 @@
    "ratio": {"status":null,"counts":{"pass":0,"warn":0,"fail":0,"missing":0,"info":0},"text":""},
    "oltc": {"status":null,"counts":{"pass":0,"warn":0,"fail":0,"missing":0,"info":0},"text":""},
    "moisture": {"status":null,"counts":{"pass":0,"warn":0,"fail":0,"missing":0,"info":0},"text":""},
-   "bct": {"status":null,"counts":{"pass":0,"warn":0,"fail":0,"missing":0,"info":0},"text":""}
+   "bct": {"status":null,"counts":{"pass":0,"warn":0,"fail":0,"missing":0,"info":0},"text":""},
+   "shortCircuit": {"status":null,"counts":{"pass":0,"warn":0,"fail":0,"missing":0,"info":0},"text":""}
   },
   "notes": {
    "b.hv.btype": " RIP",
@@ -994,7 +995,8 @@
    "ratio": {"status":"fail","counts":{"pass":0,"warn":0,"fail":39,"missing":117,"info":0},"text":"Không đạt"},
    "oltc": {"status":"pass","counts":{"pass":1,"warn":0,"fail":0,"missing":0,"info":1},"text":"Đạt"},
    "moisture": {"status":"pass","counts":{"pass":1,"warn":0,"fail":0,"missing":0,"info":0},"text":"Đạt"},
-   "bct": {"status":"pass","counts":{"pass":41,"warn":0,"fail":0,"missing":0,"info":261},"text":"Đạt"}
+   "bct": {"status":"pass","counts":{"pass":41,"warn":0,"fail":0,"missing":0,"info":261},"text":"Đạt"},
+   "shortCircuit": {"status":null,"counts":{"pass":0,"warn":0,"fail":0,"missing":0,"info":0},"text":""}
   },
   "notes": {
    "ir.k1": " 1,620 (Bảng 4 QĐ 1901, ∆t = 12 °C; K(10)×K(2); R20 = R × K1)",
@@ -2184,7 +2186,8 @@
    "ratio": {"status":"fail","counts":{"pass":9,"warn":0,"fail":147,"missing":0,"info":0},"text":"Không đạt"},
    "oltc": {"status":"pass","counts":{"pass":2,"warn":0,"fail":0,"missing":0,"info":0},"text":"Đạt"},
    "moisture": {"status":"pass","counts":{"pass":1,"warn":0,"fail":0,"missing":0,"info":0},"text":"Đạt"},
-   "bct": {"status":"fail","counts":{"pass":47,"warn":0,"fail":124,"missing":0,"info":131},"text":"Không đạt"}
+   "bct": {"status":"fail","counts":{"pass":47,"warn":0,"fail":124,"missing":0,"info":131},"text":"Không đạt"},
+   "shortCircuit": {"status":null,"counts":{"pass":0,"warn":0,"fail":0,"missing":0,"info":0},"text":""}
   },
   "notes": {
    "ir.k1": " 1,620 (Bảng 4 QĐ 1901, ∆t = 12 °C; K(10)×K(2); R20 = R × K1)",
@@ -3374,7 +3377,8 @@
    "ratio": {"status":"fail","counts":{"pass":9,"warn":0,"fail":147,"missing":0,"info":0},"text":"Không đạt"},
    "oltc": {"status":"pass","counts":{"pass":2,"warn":0,"fail":0,"missing":0,"info":0},"text":"Đạt"},
    "moisture": {"status":"pass","counts":{"pass":1,"warn":0,"fail":0,"missing":0,"info":0},"text":"Đạt"},
-   "bct": {"status":"fail","counts":{"pass":47,"warn":0,"fail":124,"missing":0,"info":131},"text":"Không đạt"}
+   "bct": {"status":"fail","counts":{"pass":47,"warn":0,"fail":124,"missing":0,"info":131},"text":"Không đạt"},
+   "shortCircuit": {"status":null,"counts":{"pass":0,"warn":0,"fail":0,"missing":0,"info":0},"text":""}
   },
   "notes": {
    "ir.k1": " 1,620 (Bảng 4 QĐ 1901, ∆t = 12 °C; K(10)×K(2); R20 = R × K1)",

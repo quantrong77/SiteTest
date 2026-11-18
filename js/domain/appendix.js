@@ -222,7 +222,8 @@
     // thí nghiệm ngắn mạch: mục cuối thân biên bản (MbaReport.fill), không còn là phụ lục
     // mẫu chung 3 pha: biến dòng chân sứ không có bảng trong thân BBTN → phụ lục dựng từ số liệu mục BCT
     if (has.bct) out.push({ kind: 'bct' });
-    out.push({ kind: 'standards' });
+    // phụ lục bảng tra cứu tiêu chuẩn: chỉ khi chọn kèm (cfg.stdAppendix = 'on'); mặc định BBTN như mẫu giấy
+    if (state.cfg && state.cfg.stdAppendix === 'on') out.push({ kind: 'standards' });
     out.forEach((a, i) => { a.label = out.length > 1 ? `PHỤ LỤC ${i + 1}` : 'PHỤ LỤC'; });
     return out;
   }

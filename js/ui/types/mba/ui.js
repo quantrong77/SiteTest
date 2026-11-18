@@ -217,6 +217,9 @@
   function generalConfig(A) {
     const { cfgField } = A;
     let h = '';
+    h += '<h3>Phụ lục BBTN</h3><div class="fields">'
+      + cfgField('stdAppendix', 'Phụ lục bảng tra cứu tiêu chuẩn thí nghiệm (QĐ EVNNPT, IEC, IEEE)', { options: [['off', 'Không kèm (như mẫu BBTN)'], ['on', 'Kèm phụ lục cuối BBTN']] })
+      + '</div>';
     h += '<h3>Thông số tính toán & quy ước so sánh</h3><div class="fields">';
     h += cfgField('taps', 'Nhãn 19 nấc (thứ tự hàng 1..19 của template)', { wide: true, note: 'Ngăn cách bằng dấu phẩy. Nhãn 9a/9b/9c được so với nấc 9A của xuất xưởng.' });
     h += cfgField('hvMeas', 'Phép đo R một chiều cuộn cao áp (mục 7.1)', { options: Schema.HV_MEAS });
@@ -253,8 +256,15 @@
   }
 
   function unitSerialFields(A) {
-    if (A.state.cfg.topology !== 'bank1p') return '';
     const { cfgField } = A;
+    // mẫu theo pha: bảng R một chiều / tỷ số biến có cột pha B, C — số liệu của máy B, C trong tổ (so xuất xưởng, ghi CSDL theo máy đó)
+    if (A.state.cfg.topology === 'single1p') {
+      return '<h3>Số chế tạo máy pha B, C trong tổ</h3><div class="fields serial-fields">'
+        + ['B', 'C'].map(ph => cfgField(`ps.${ph}`, `Số chế tạo máy pha ${ph}`, { list: true,
+          note: ph === 'B' ? 'Cột pha B, C của bảng R một chiều, tỷ số biến được so với xuất xưởng và ghi CSDL theo máy này. Máy độc lập: để trống.' : '' })).join('')
+        + '</div>';
+    }
+    if (A.state.cfg.topology !== 'bank1p') return '';
     return '<h3>Số chế tạo từng máy trong tổ</h3><div class="fields serial-fields">'
       + A.fieldHTML({ k: 'meta.serial', label: 'Số chế tạo máy pha A', serial: true })
       + ['B', 'C'].map(ph => cfgField(`ps.${ph}`, `Số chế tạo máy pha ${ph}`, { list: true })).join('')
