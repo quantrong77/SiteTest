@@ -67,6 +67,7 @@
     const schema = T.buildSchema(cfg);
     const v = Report.readValues(tpl, schema, { all: true });
     if (v['meta.date']) v['meta.date'] = normDate(v['meta.date']) || v['meta.date'];
+    if (v['meta.reason']) v['meta.reason'] = Common.optionOf(v['meta.reason'], Schema.REASONS);
     // mẫu 3 pha: ô "Số chế tạo" ghi số chế tạo cả 3 máy "S1; S2; S3" → máy chính là số đầu, cột pha theo thứ tự A, B, C
     if (layout === Schema.LAYOUT_3P && /;/.test(v['meta.serial'] || '')) {
       const sn = v['meta.serial'].split(';').map(x => x.trim()).filter(Boolean);

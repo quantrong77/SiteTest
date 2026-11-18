@@ -108,6 +108,7 @@
   }
 
   function fill(tpl, { state, res, schema, assets }) {
+    state = Report.performed(state, schema, Schema.ATT_SECTIONS); // hạng mục không thực hiện: không ghi số liệu vào BBTN
     const miss = [];
     const out = Report.decimal(state.cfg.decSep);
     const write = (f, value) => {
@@ -191,6 +192,7 @@
       if (bctToBody(tpl, state, schema, res, out)) bctAppx = false;
       else miss.push('Mục 13 – biến dòng chân sứ (không thấy đề mục trong template, đã xuất thành phụ lục)');
     }
+    shortCircuitToBody(tpl, state, schema, res, A, out, SUM);
     if (tpl.appendSection) Appendix.list(state, { fra: !!A.fraDoc, oil: Object.fromEntries(Object.keys(A.oilDocs || {}).map(id => [id, true])), bct: bctAppx }).forEach(a => {
       if (a.kind === 'oltc') tpl.appendSection(oltcAppendix(state, state.att.oltc, A, out, a.label));
       if (a.kind === 'fra') { tpl.appendSection(Appendix.fraHeader(a.label, state.att.fra)); tpl.importBody(A.fraDoc); }
@@ -289,6 +291,32 @@
     return true;
   }
 
+  // Thí nghiệm ngắn mạch: mục cuối biên bản (template Word không có) — thêm hàng "N. Thí nghiệm ngắn mạch…" vào bảng hạng
+  // mục trang 1 (sau hạng mục cuối, gắn dấu hàng do app thêm) và, khi có số liệu, đề mục + bảng kết quả ngay trước
+  // "THIẾT BỊ THÍ NGHIỆM". Làm sau khi đã ghi mọi ô của bảng 0 (chèn hàng làm dời chỉ số các hàng sau).
+  const TESTING_INSTRUMENTS = /THI[ẾE]T\s+B[ỊI]\s+TH[ÍI]\s+NGHI[ỆE]M|Testing\s+instruments/i;
+  function shortCircuitToBody(tpl, state, schema, res, A, out, SUM) {
+    const sec = schema.sections.find(s => s.id === 'shortCircuit');
+    const S = sec && res.sec[sec.id];
+    if (!sec || !S || S.skipped || Report.isSkipped(state, sec.id)) return false;
+    const label = `${sec.no}. ${sec.title} (Short-circuit impedance and load loss)`;
+    const last = Math.max(...Object.values(SUM.rows || {}).flatMap(x => [].concat(x)));
+    const tr = tpl.insertRowAfter && Number.isFinite(last) ? tpl.insertRowAfter(0, last, label, { mark: true }) : null;
+    if (tr && tr.nodeType && tpl.cellAt) {
+      // hàng mới không thuộc template (bộ đọc hàng bỏ qua) → ghi thẳng vào ô của hàng vừa chèn
+      const tick = (state.sum && state.sum.tick && state.sum.tick[sec.id]) ?? !!S.status;
+      const ev = state.sum && state.sum.ev && state.sum.ev[sec.id];
+      tpl.setCellText(tpl.cellAt(tr, SUM.tick), tick ? '✓' : '');
+      tpl.setCellText(tpl.cellAt(tr, SUM.ev), ev === '—' ? '' : (ev || (tick ? S.text : '')));
+    }
+    if (!Appendix.shortCircuitHasData(state.att && state.att.shortCircuit) || !tpl.bodyPara || !tpl.insertBlocksBefore) return true;
+    const p = tpl.bodyPara(TESTING_INSTRUMENTS);
+    if (!p) return true;
+    tpl.insertBlocksBefore(p, [{ type: 'p', text: `${label}:`, bold: true, size: 12, keepNext: true }]
+      .concat(Appendix.shortCircuitBlocks(A.shortCircuitRows || [], out, n => `${sec.no}.${n}`)));
+    return true;
+  }
+
   // Nội dung BCT dùng chung cho phụ lục và mục 13: thông tin chung + bảng theo phía; num(n) đánh số nhóm (1. / 13.1)
   function bctBlocks(state, schema, res, out, num) {
     const v = state.v, blocks = [];
@@ -327,5 +355,5 @@
   }
 
   // Template chuẩn MBA 500 kV có 73 bảng; ít hơn 72 thì vị trí điền có thể lệch (mẫu chung 3 pha: 28 bảng, schema.tables)
-  window.MbaReport = { fill, swapHeadings, phaseState, oltcAppendix, bctAppendix, bctBlocks, bctToBody, hasBct, minTables: 72, stdTables: 73 };
+  window.MbaReport = { fill, shortCircuitToBody, swapHeadings, phaseState, oltcAppendix, bctAppendix, bctBlocks, bctToBody, hasBct, minTables: 72, stdTables: 73 };
 })();

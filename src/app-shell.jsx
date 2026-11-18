@@ -29,7 +29,7 @@ function SidebarNavigation() {
       {navigation.items.map(item => (
         <Fragment key={item.id}>
           {item.group && <div className="nav-group">{item.group}</div>}
-          <button className={`nav-item${item.current ? ' active' : ''}`} data-nav={item.id} type="button" aria-current={item.current ? 'page' : undefined}>
+          <button className={`nav-item${item.current ? ' active' : ''}${item.workflow === 'skip' ? ' skipped' : ''}`} data-nav={item.id} type="button" aria-current={item.current ? 'page' : undefined}>
             <span className={`brk${item.status ? ` st-${item.status}` : ''}${item.flip ? ' flip' : ''}`} title={item.tip || undefined} aria-hidden="true" />
             <span className="nav-no">{item.no}</span>
             <span className="nav-t">
