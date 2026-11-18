@@ -199,13 +199,28 @@
   }
 
   // ---------------------------------------------------------------- nav
+  // Nhóm điều hướng: Biên bản (dữ liệu đầu vào của biên bản đang lập) · Hạng mục · Kết quả · CSDL · Tiêu chuẩn & tra cứu · Trợ giúp.
+  // collapsible: nhóm đóng / mở được trên sidebar (vỏ React, src/app-shell.jsx)
+  const NAV_GROUPS = {
+    record: { label: 'Biên bản' },
+    items: { label: 'Hạng mục thí nghiệm' },
+    result: { label: 'Kết quả' },
+    db: { label: 'Cơ sở dữ liệu', collapsible: true },
+    std: { label: 'Tiêu chuẩn & tra cứu', collapsible: true },
+    help: { label: 'Trợ giúp' },
+  };
   function navItems() {
-    return [{ id: 'general', no: '0', title: 'Thông tin chung & cấu hình' }, { id: 'model3d', no: '3D', title: 'Mô hình 3D MBA' }]
-      .concat(schema.sections.map(s => ({ id: s.id, no: String(s.no), title: s.title })))
-      .concat([{ id: 'summary', no: 'Σ', title: 'Tổng hợp & kết luận' }, { id: 'appendix', no: 'PL', title: 'Phụ lục BBTN' }, { id: 'factory', no: 'XX', title: 'Số liệu xuất xưởng' },
-        { id: 'db', no: 'DB', title: 'CSDL – biên bản đã lưu' }, { id: 'catalog', no: '≡', title: 'Trạm – Ngăn – Thiết bị' }, { id: 'trend', no: '↗', title: 'Xu hướng' },
-        { id: 'kconf', no: 'K', title: 'Hệ số quy đổi sứ' }, { id: 'criteria', no: 'TC', title: 'Bộ tiêu chí đánh giá' }, { id: 'standards', no: 'TV', title: 'Thư viện tài liệu' },
-        { id: 'importReport', no: 'NB', title: 'Nhập BBTN cũ' }, { id: 'help', no: '?', title: 'Hướng dẫn sử dụng' }]);
+    const g = groupId => it => Object.assign(it, { groupId });
+    return [
+      { id: 'general', no: '0', title: 'Thông tin chung & cấu hình' }, { id: 'factory', no: 'XX', title: 'Số liệu xuất xưởng' },
+      { id: 'importReport', no: 'NB', title: 'Nhập BBTN cũ' },
+    ].map(g('record'))
+      .concat([{ id: 'model3d', no: '3D', title: 'Mô hình 3D MBA' }].concat(schema.sections.map(s => ({ id: s.id, no: String(s.no), title: s.title }))).map(g('items')))
+      .concat([{ id: 'summary', no: 'Σ', title: 'Tổng hợp & kết luận' }, { id: 'trend', no: '↗', title: 'Xu hướng' }, { id: 'appendix', no: 'PL', title: 'Phụ lục BBTN' }].map(g('result')))
+      .concat([{ id: 'db', no: 'DB', title: 'Biên bản đã lưu' }, { id: 'catalog', no: '≡', title: 'Trạm – Ngăn – Thiết bị' }].map(g('db')))
+      .concat([{ id: 'criteria', no: 'TC', title: 'Bộ tiêu chí đánh giá' }, { id: 'kconf', no: 'K', title: 'Hệ số quy đổi sứ' },
+        { id: 'standards', no: 'TV', title: 'Thư viện tài liệu' }].map(g('std')))
+      .concat([{ id: 'help', no: '?', title: 'Hướng dẫn sử dụng' }].map(g('help')));
   }
   // Thanh điều hướng vẽ như sơ đồ một sợi: mỗi hạng mục là một ngăn lộ, trạng thái là ký hiệu máy cắt
   const BRK_LABEL = { pass: 'Đạt — máy cắt đóng', warn: 'Cần xem xét', fail: 'Không đạt — máy cắt cắt', missing: 'Thiếu dữ liệu', info: 'Tham khảo' };
@@ -215,12 +230,8 @@
     const items = navItems();
     const first = !navPrev;
     navPrev = navPrev || {};
-    const renderedItems = items.map((it, i) => {
-      let group = '';
-      if (i === 1) group = 'Hạng mục thí nghiệm';
-      if (it.id === 'help') group = 'Trợ giúp';
-      if (it.id === 'summary') group = 'Kết quả';
-      if (it.id === 'db') group = 'Cơ sở dữ liệu';
+    const renderedItems = items.map(it => {
+      const G = NAV_GROUPS[it.groupId] || {};
       const S = res && res.sec[it.id];
       const status = S && S.status ? S.status : '';
       if (!first && navPrev[it.id] !== status) navChangedAt[it.id] = Date.now();
@@ -232,7 +243,9 @@
         id: it.id,
         no: it.no,
         title: it.title,
-        group,
+        groupId: it.groupId,
+        group: G.label || '',
+        collapsible: !!G.collapsible,
         status,
         flip: !!flip,
         tip,
@@ -401,6 +414,56 @@
   }
   // Cảnh báo xu hướng tại hiện trường (vd R60@20 giảm >30% so với giá trị khởi đầu / lần trước — QĐ 1901 Điều 29 mục 3):
   // hiện ngay đầu hạng mục khi vừa nhập số, kèm hướng xử lý của từng kết luận
+  // ---------------------------------------------------------------- khung tài liệu tham khảo: độ rộng kéo được, ẩn / hiện (nhớ theo máy)
+  const LS_REFS = 'bbtn-ui.refs', REFS_MIN = 200, REFS_MAX = 560, REFS_DEFAULT = 280;
+  const clampRefs = w => Math.min(REFS_MAX, Math.max(REFS_MIN, Math.round(w)));
+  const refsUi = (() => {
+    try { const o = JSON.parse(localStorage.getItem(LS_REFS) || '{}') || {}; return { w: clampRefs(+o.w || REFS_DEFAULT), hidden: !!o.hidden }; }
+    catch (e) { return { w: REFS_DEFAULT, hidden: false }; }
+  })();
+  const saveRefs = () => { try { localStorage.setItem(LS_REFS, JSON.stringify(refsUi)); } catch (e) { /* trình duyệt chặn lưu trữ */ } };
+  const refsLayoutClass = () => `wf-layout${refsUi.hidden ? ' refs-hidden' : ''}`;
+  function applyRefs() {
+    $$('.wf-layout').forEach(el => { el.className = refsLayoutClass(); el.style.setProperty('--refs-w', refsUi.w + 'px'); });
+    $$('.wf-split').forEach(el => el.setAttribute('aria-valuenow', refsUi.w));
+    $$('.wf-refs-toggle').forEach(el => el.setAttribute('aria-pressed', refsUi.hidden ? 'false' : 'true'));
+  }
+  function toggleRefs() {
+    refsUi.hidden = !refsUi.hidden; saveRefs(); applyRefs();
+    if (!refsUi.hidden) { const r = $('#wfRefs'); if (r) r.scrollIntoView({ block: 'nearest' }); }
+  }
+  // kéo thanh chia giữa vùng nhập và khung tham khảo (chuột / cảm ứng / bàn phím)
+  let refsDrag = null;
+  function onRefsPointerDown(e) {
+    const sp = e.target.closest && e.target.closest('.wf-split');
+    if (!sp) return;
+    e.preventDefault();
+    // độ lệch giữa điểm nắm và mép khung: không nhảy độ rộng khi bắt đầu kéo
+    const layout = sp.parentElement;
+    refsDrag = { layout, id: e.pointerId, off: layout.getBoundingClientRect().right - e.clientX - refsUi.w };
+    sp.setPointerCapture(e.pointerId);
+    document.body.classList.add('is-resizing');
+  }
+  function onRefsPointerMove(e) {
+    if (!refsDrag || e.pointerId !== refsDrag.id) return;
+    refsUi.w = clampRefs(refsDrag.layout.getBoundingClientRect().right - e.clientX - refsDrag.off);
+    applyRefs();
+  }
+  function onRefsPointerUp(e) {
+    if (!refsDrag || e.pointerId !== refsDrag.id) return;
+    refsDrag = null; document.body.classList.remove('is-resizing'); saveRefs();
+  }
+  function onRefsKey(e) {
+    if (!e.target.classList || !e.target.classList.contains('wf-split')) return;
+    const step = e.shiftKey ? 48 : 16;
+    // thanh chia ở bên trái khung: ← mở rộng khung, → thu hẹp
+    if (e.key === 'ArrowLeft') refsUi.w = clampRefs(refsUi.w + step);
+    else if (e.key === 'ArrowRight') refsUi.w = clampRefs(refsUi.w - step);
+    else if (e.key === 'Home') refsUi.w = REFS_DEFAULT;
+    else return;
+    e.preventDefault(); applyRefs(); saveRefs();
+  }
+
   function trendAlertHTML(secId) {
     const hits = (res.findings || []).filter(f => f.sec === secId && f.trendFail);
     if (!hits.length) return '';
@@ -408,7 +471,8 @@
     const actions = [...new Map(hits.map(f => [f.basis, (f.note || '').replace(/^.*?(Hướng xử lý:)/, '$1')])).entries()];
     return `<div class="callout bad" role="alert"><b>Cảnh báo xu hướng so với số liệu quá khứ (QĐ 1901):</b><ul>${hits.map(f =>
       `<li><b>${esc(f.item)}</b>${f.loc ? ` – ${esc(f.loc)}` : ''}: ${esc(f.meas)}, ${esc(f.dev)} — ${f.status === 'warn' ? 'cần xem xét' : 'không đạt'} (${esc(f.limit)}; ${esc(f.ref)})</li>`).join('')}</ul>`
-      + actions.map(([basis, a]) => `<div><b>${esc(basis)}:</b> ${esc(a)}</div>`).join('') + '</div>';
+      + actions.map(([basis, a]) => `<div><b>${esc(basis)}:</b> ${esc(a)}</div>`).join('')
+      + '<div class="callout-foot"><button type="button" class="btn small" data-nav="trend">Xem biểu đồ xu hướng →</button></div></div>';
   }
   // Mục 0: chọn các hạng mục thực hiện trong lần thí nghiệm này
   // Sau sửa chữa / đại tu: chọn lấy số liệu lần này làm giá trị khởi đầu cho các lần thí nghiệm sau
@@ -482,8 +546,12 @@
       return `<section class="panel" data-sec="${s.id}">${headHTML(String(s.no), s.title, s.en, s.id)}`
         + '<div class="callout">Hạng mục <b>không thực hiện</b> trong lần thí nghiệm này. Tích ô <b>Thực hiện</b> ở trên để nhập số liệu (số liệu đã nhập trước đó vẫn được giữ).</div></section>';
     }
-    const h = headHTML(String(s.no), s.title, s.en, s.id) + `<div class="wf-bar">${Workflow.stepsHTML(s.id, S)}${editToolsHTML(s.id)}</div>`
-      + `<div class="wf-layout"><div class="wf-main" data-step="${step}">${body}</div>${Workflow.referencesHTML(T(), s.id, esc, StandardsUI.docs || [], EquipmentTypes.codeOf(state), (id, path) => DB.libraryFileUrl(path))}</div>`;
+    const refsBtn = `<button type="button" class="btn small wf-refs-toggle" data-act="refsToggle" aria-controls="wfRefs" aria-pressed="${refsUi.hidden ? 'false' : 'true'}" `
+      + `title="Ẩn / hiện khung tài liệu tham khảo">Tài liệu tham khảo</button>`;
+    const split = `<div class="wf-split" role="separator" tabindex="0" aria-orientation="vertical" aria-controls="wfRefs" `
+      + `aria-label="Đổi độ rộng khung tài liệu tham khảo (mũi tên trái / phải, nhấp đúp: mặc định)" aria-valuemin="${REFS_MIN}" aria-valuemax="${REFS_MAX}" aria-valuenow="${refsUi.w}"></div>`;
+    const h = headHTML(String(s.no), s.title, s.en, s.id) + `<div class="wf-bar">${Workflow.stepsHTML(s.id, S)}<div class="wf-bar-tools">${refsBtn}${editToolsHTML(s.id)}</div></div>`
+      + `<div class="${refsLayoutClass()}" style="--refs-w:${refsUi.w}px"><div class="wf-main" data-step="${step}">${body}</div>${split}${Workflow.referencesHTML(T(), s.id, esc, StandardsUI.docs || [], EquipmentTypes.codeOf(state), (id, path) => DB.libraryFileUrl(path))}</div>`;
     return `<section class="panel" data-sec="${s.id}">${h}</section>`;
   }
   // Tóm tắt kết quả cuối bước Nhập số liệu (chi tiết ở bước Đánh giá)
@@ -860,6 +928,7 @@
     try {
       if (act === 'new') openTypeDialog();
       else if (act === 'closePdfReview') closePdfReview();
+      else if (act === 'refsToggle') toggleRefs();
       else if (act === 'help') HelpUI.open(App);
       else if (act === 'save') await saveJson();
       else if (act === 'open') $('#fileJson').click();
@@ -1132,6 +1201,12 @@
     AuthUI.init().catch(e => console.warn(e));
 
     document.addEventListener('click', onClick);
+    $('#main').addEventListener('pointerdown', onRefsPointerDown);
+    $('#main').addEventListener('pointermove', onRefsPointerMove);
+    $('#main').addEventListener('pointerup', onRefsPointerUp);
+    $('#main').addEventListener('pointercancel', onRefsPointerUp);
+    $('#main').addEventListener('keydown', onRefsKey);
+    $('#main').addEventListener('dblclick', e => { if (e.target.classList && e.target.classList.contains('wf-split')) { refsUi.w = REFS_DEFAULT; applyRefs(); saveRefs(); } });
     $('#main').addEventListener('input', onInput);
     $('#main').addEventListener('change', onInput);
     $('#main').addEventListener('paste', onPaste);

@@ -76,6 +76,14 @@ if (!rootElement) throw new Error('Không tìm thấy vùng gắn ứng dụng #
 
 flushSync(() => createRoot(rootElement).render(<AppShell />));
 
+// Chiều cao thanh trên cùng (đổi khi xuống dòng ở màn hình hẹp) → --shell-header-h cho thanh bước / khung tham khảo dính
+const shellHeader = document.querySelector('.shell-header');
+if (shellHeader && 'ResizeObserver' in window) {
+  new ResizeObserver(([entry]) => {
+    document.documentElement.style.setProperty('--shell-header-h', `${Math.round(entry.target.getBoundingClientRect().height)}px`);
+  }).observe(shellHeader);
+}
+
 const nav = document.getElementById('nav');
 const toggle = document.getElementById('navToggle');
 const backdrop = document.getElementById('navBackdrop');
