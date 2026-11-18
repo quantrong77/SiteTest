@@ -411,6 +411,15 @@
       + actions.map(([basis, a]) => `<div><b>${esc(basis)}:</b> ${esc(a)}</div>`).join('') + '</div>';
   }
   // Mục 0: chọn các hạng mục thực hiện trong lần thí nghiệm này
+  // Sau sửa chữa / đại tu: chọn lấy số liệu lần này làm giá trị khởi đầu cho các lần thí nghiệm sau
+  function baselineResetHTML() {
+    if (!Schema.BASELINE_RESETS || Common.kindOf(state.v['meta.reason']) !== 'AFTER_REPAIR') return '';
+    return '<h3>Giá trị khởi đầu sau sửa chữa</h3><div class="fields">'
+      + cfgField('baselineReset', 'Lấy số liệu lần này làm giá trị khởi đầu cho các lần sau', { options: Schema.BASELINE_RESETS, wide: true,
+        note: 'Lần thí nghiệm sau so xu hướng với lần này thay cho giá trị xuất xưởng. Lần này vẫn được so với giá trị khởi đầu cũ.' })
+      + '</div>';
+  }
+
   function itemsChecklistHTML() {
     const skip = state.cfg.skip || {};
     return '<h3>Hạng mục thực hiện trong lần thí nghiệm này</h3><div class="hint-text">Bỏ tích hạng mục không thực hiện: vùng nhập liệu được ẩn, '
@@ -431,6 +440,7 @@
     h += U.generalTopology ? U.generalTopology(App) : '';
     h += `<h3>Thông tin thiết bị (điền vào đầu biên bản)</h3>${U.headTools ? U.headTools(App) : ''}${flagBannerHTML()}<div class="fields">${schema.head.filter(f => !(topology === 'bank1p' && f.k === 'meta.serial')).map(f => fieldHTML(f)).join('')}</div>`;
     h += U.unitSerialFields ? U.unitSerialFields(App) : '';
+    h += baselineResetHTML();
     h += itemsChecklistHTML();
     h += '<h3>Template & số liệu xuất xưởng</h3><div class="fields">';
     h += cfgField('template', 'Mẫu BBTN theo cấu hình', { options: templateOptions.length ? templateOptions : [[state.cfg.template, topology === 'bank1p' ? 'Mẫu chung 3 MBA một pha' : topology === 'threePhase' ? 'Mẫu MBA ba pha' : 'Mẫu MBA một pha']] });

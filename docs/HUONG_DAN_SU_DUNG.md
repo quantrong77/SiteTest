@@ -248,6 +248,12 @@ Hãy dùng đúng nhãn hiển thị trên phiên bản đang chạy.
 
     Đại lượng vượt tiêu chí hiện khung cảnh báo đỏ đầu mục kèm hướng xử lý; kết luận tự động liệt kê. Không có lịch sử thì app đánh giá như trước.
 
+    **Sau sửa chữa / đại tu:** chọn lý do "Sau sửa chữa/đại tu" thì trang Thông tin chung hiện ô *Lấy số liệu lần này làm giá trị khởi đầu cho các lần sau*:
+    - *Có lọc dầu, sấy chân không* — số liệu cách điện cuộn dây lần này (R cách điện, tgδ, điện dung cuộn dây) là giá trị khởi đầu mới; sứ, tổn hao không tải vẫn so xuất xưởng.
+    - *Thay cuộn dây / thay đổi kết cấu cách điện* — mọi số liệu lần này là giá trị khởi đầu mới (QĐ 1901 Điều 2).
+
+    Lần sửa chữa này vẫn được so với giá trị khởi đầu cũ; các lần thí nghiệm sau so với lần này (dòng xu hướng ghi "giá trị khởi đầu sau sửa chữa dd/mm/yyyy"). Cần chạy migration `20261118000100_baseline_reset.sql` trên CSDL.
+
 ## 8. Mục 4: Kiểm tra tổ đấu dây
 
 1. Đo tổ đấu dây bằng thiết bị/phương pháp được đơn vị phê duyệt.

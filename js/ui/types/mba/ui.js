@@ -159,7 +159,8 @@
     return rip ? `<div class="field"><label>${A.esc(label)}</label><div class="calcval" data-n="${f.k}"></div></div>` : null;
   }
   // Đổi cách quy đổi sứ / trạng thái lắp → vẽ lại hạng mục (ô K đổi giữa ô nhập và giá trị tính)
-  const rerenderOn = /\.(kmode|mount)$/;
+  // đổi lý do thí nghiệm: hiện / ẩn ô "lấy làm giá trị khởi đầu" (sau sửa chữa)
+  const rerenderOn = /\.(kmode|mount)$|^meta\.reason$/;
 
   // Lưới đặc tính từ hóa: nút tải XML cho đúng phía/pha; nhãn hàng theo đầu cuộn thực đo
   const gridTools = g => (g.ex ? `<button class="btn small" data-act="cpcSlot" data-grid="${g.id}">Tải XML CPC 100…</button>` : '');

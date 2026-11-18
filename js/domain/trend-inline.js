@@ -4,6 +4,11 @@
 (function () {
   'use strict';
   const KEY = ['item', 'param', 'config', 'phase', 'tap'];
+  // Lần thí nghiệm sau sửa chữa được lấy làm giá trị khởi đầu mới (test_sessions.baseline_reset):
+  //  'INSULATION' — có lọc dầu, sấy chân không: số liệu cách điện cuộn dây (R cách điện, tgδ / điện dung cuộn dây) — quy định đơn vị;
+  //  'ALL' — thay cuộn dây / thay đổi kết cấu cách điện: mọi số liệu (QĐ 1901 Điều 2, định nghĩa giá trị khởi đầu).
+  const RESET_ITEMS = { INSULATION: ['IR', 'WTGD'] };
+  const resetCovers = (r, item) => r.baseline_reset === 'ALL' || (RESET_ITEMS[r.baseline_reset] || []).includes(item);
   const same = (a, b) => KEY.every(k => String(a[k] ?? '') === String(b[k] ?? ''));
   const num = x => (x === null || x === undefined || x === '' ? NaN : Number(x));
   const pct = (value, base) => (Number.isFinite(value) && Number.isFinite(base) && base !== 0
@@ -24,7 +29,9 @@
     old = old.filter(r => (r.cmp_basis || 'raw') === basis)
       .sort((a, b) => String(a.test_date || '').localeCompare(String(b.test_date || '')));
     if (!old.length) return null;
-    const base = old.find(r => r.kind === 'FAT') || old[0];
+    // mốc khởi đầu: lần sau sửa chữa gần nhất được lấy làm khởi đầu mới; không có thì xuất xưởng; không có thì lần sớm nhất
+    const resets = old.filter(r => resetCovers(r, target.item));
+    const base = resets[resets.length - 1] || old.find(r => r.kind === 'FAT') || old[0];
     const previous = old[old.length - 1];
     const points = old.map(r => num(r.value_cmp));
     if (Number.isFinite(cur)) points.push(cur);
@@ -52,5 +59,5 @@
     return r[1] === 'rise' ? fromBase > lim : Math.abs(fromBase) > lim;
   }
 
-  window.TrendInline = { series, warn, pct, KEY };
+  window.TrendInline = { series, warn, pct, KEY, RESET_ITEMS, resetCovers };
 })();

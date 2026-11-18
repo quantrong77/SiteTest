@@ -252,6 +252,8 @@
       // BBTN cũ nhập từ file .docx/.pdf: nguồn 'manual', ghi tên file gốc
       source: state.imported ? 'manual' : 'field_app', ...(state.imported ? { source_file: state.imported.file || null } : {}), template_code: cfg.template, conclusion: str(v['meta.conclusion']) || Evaluate.autoConclusion(res, schema, state) || null,
       remark: str(v['meta.remark']) || null,
+      // sau sửa chữa: lần này là giá trị khởi đầu mới (chỉ ghi khi có — CSDL cần migration 20261118000100)
+      ...(kindOf(v['meta.reason']) === 'AFTER_REPAIR' && ['INSULATION', 'ALL'].includes(cfg.baselineReset) ? { baseline_reset: cfg.baselineReset } : {}),
       summary: Object.fromEntries(Object.entries(res.sec).map(([k, s]) => [k, { status: s.status, text: s.text, counts: s.counts }])),
     };
     const findings = res.findings.map(f => ({

@@ -107,3 +107,35 @@ test('tiêu chí quy về 20 °C: thiếu nhiệt độ → không so số thô 
   const raw = Object.assign({}, h, { cmp_basis: 'raw' });
   assert.equal(s.trendOf(s.run([raw]), k), undefined);
 });
+
+test('sau sửa chữa có lọc dầu, sấy chân không: lần đó là giá trị khởi đầu mới cho cách điện cuộn dây, không cho sứ', () => {
+  const s = setup({ reason: 'Định kỳ 3 năm' });
+  const ki = 'ir.meas.r0.r60', kc = 'b.hv.meas.c1.A';
+  // xuất xưởng cao gấp 3 lần hiện tại → giảm 67% (không đạt); lần sau sửa chữa (sấy) gần bằng hiện tại → mốc mới
+  const hist = [s.hist(ki, 3, '2015-01-01', 'FAT'), s.hist(ki, 1.05, '2021-06-01', 'AFTER_REPAIR', { baseline_reset: 'INSULATION' }),
+    s.hist(ki, 1.1, '2023-06-01', 'PERIODIC')];
+  const f = s.trendOf(s.run(hist), ki);
+  assert.equal(f.status, 'pass');
+  assert.match(f.ref, /^giá trị khởi đầu sau sửa chữa 01\/06\/2021/);
+  // không có cờ → vẫn so với xuất xưởng
+  const plain = hist.map(h => Object.assign({}, h, { baseline_reset: null }));
+  assert.equal(s.trendOf(s.run(plain), ki).status, 'fail');
+  // INSULATION không áp cho sứ; ALL (thay cuộn dây / kết cấu cách điện, QĐ 1901 Điều 2) áp cho mọi số liệu
+  const sh = b => [s.hist(kc, 1.2, '2015-01-01', 'FAT'), s.hist(kc, 1.01, '2021-06-01', 'AFTER_REPAIR', { baseline_reset: b })];
+  assert.equal(s.trendOf(s.run(sh('INSULATION')), kc).status, 'fail');
+  assert.equal(s.trendOf(s.run(sh('ALL')), kc).status, 'pass');
+});
+
+test('cấu hình baselineReset: chỉ ghi vào lần thí nghiệm sau sửa chữa', () => {
+  const ctx = load(CORE);
+  const T = ctx.EquipmentTypes.get('MBA');
+  assert.equal(T.normalizeCfg({ baselineReset: 'xyz' }).baselineReset, '');
+  assert.equal(T.normalizeCfg({ baselineReset: 'INSULATION' }).baselineReset, 'INSULATION');
+  const sessionOf = reason => {
+    const { state, schema } = F.fullState(ctx.Schema, { reason });
+    state.cfg.baselineReset = 'INSULATION';
+    return ctx.MbaRows.fieldRows(state, ctx.Evaluate.evaluate(state, null, schema), schema).session;
+  };
+  assert.equal(sessionOf('Sau sửa chữa/đại tu').baseline_reset, 'INSULATION');
+  assert.equal('baseline_reset' in sessionOf('Định kỳ 3 năm'), false);
+});

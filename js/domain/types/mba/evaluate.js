@@ -729,7 +729,8 @@
         const j = rule.judge({ fromBase: s.fromBase, fromPrevious: s.fromPrevious, base: s.base, cur, L, isNew, layout: schema.layout, c1Lim });
         if (!j) return;
         const pc = d => `${sgn(d, 1)} %`, val = x => `${fmt(+x, rule.digits)} ${rule.unit}`;
-        const refs = [`${s.base.kind === 'FAT' ? 'xuất xưởng' : 'giá trị khởi đầu'} ${isoToVn(s.base.test_date)}: ${val(s.base.value_cmp)} (${pc(s.fromBase)})`]
+        const baseName = TrendInline.resetCovers(s.base, row.item) ? 'giá trị khởi đầu sau sửa chữa' : s.base.kind === 'FAT' ? 'xuất xưởng' : 'giá trị khởi đầu';
+        const refs = [`${baseName} ${isoToVn(s.base.test_date)}: ${val(s.base.value_cmp)} (${pc(s.fromBase)})`]
           .concat(s.fromPrevious !== null ? [`lần trước ${isoToVn(s.previous.test_date)}: ${val(s.previous.value_cmp)} (${pc(s.fromPrevious)})`] : []);
         const devs = (rule.both ? [s.fromBase, s.fromPrevious] : [s.fromBase]).filter(fin);
         const worst = devs.reduce((a, b) => (Math.abs(b) > Math.abs(a) ? b : a), devs[0]);
