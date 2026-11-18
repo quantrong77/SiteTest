@@ -11,12 +11,13 @@
   const num = x => (x === null || x === undefined || x === '' || !Number.isFinite(Number(x)) ? '' : String(+Number(x).toPrecision(10)).replace('.', ','));
   const vnDate = d => { const m = String(d || '').match(/^(\d{4})-(\d{2})-(\d{2})/); return m ? `${m[3]}/${m[2]}/${m[1]}` : String(d || ''); };
 
-  const data = { equipment: null, sessions: null, loading: false, error: '', forUser: null };
-  const ui = { query: '', selected: '', open: new Set(), detail: null, menu: null };
+  const data = { equipment: null, sessions: null, subs: null, bays: null, loading: false, error: '', forUser: null };
+  const ui = { query: '', selected: '', open: new Set(), detail: null, menu: null, form: null };
 
   const signedIn = () => !!(window.DB && DB.client && DB.user);
   const localFiles = () => (A.factories || []).map(f => ({ name: f.name, units: f.api.data.order.map(s => ({ serial: s, phase: (f.api.data.units[s] || {}).phase || '' })) }));
-  const fullTree = () => FactoryTree.build(signedIn() ? data.equipment || [] : [], signedIn() ? data.sessions || [] : [], localFiles());
+  const fullTree = () => FactoryTree.build(signedIn() ? data.equipment || [] : [], signedIn() ? data.sessions || [] : [], localFiles(),
+    signedIn() ? { substations: data.subs || [], bays: data.bays || [] } : {});
   const findNode = (nodes, id) => { for (const n of nodes) { if (n.id === id) return n; const c = findNode(n.children || [], id); if (c) return c; } return null; };
   const parentsOf = (nodes, id, path = []) => {
     for (const n of nodes) { if (n.id === id) return path; const p = parentsOf(n.children || [], id, path.concat(n.id)); if (p) return p; }
@@ -29,13 +30,13 @@
     if (data.loading || (!force && data.sessions && data.forUser === DB.user.id)) return;
     data.loading = true; data.error = '';
     try {
-      const [equipment, sessions] = await Promise.all([DB.listEquipment(), DB.listFactorySessions()]);
-      data.equipment = equipment; data.sessions = sessions; data.forUser = DB.user.id;
+      const [equipment, sessions, subs, bays] = await Promise.all([DB.listEquipment(), DB.listFactorySessions(), DB.listSubstations(), DB.listBays()]);
+      Object.assign(data, { equipment, sessions, subs, bays, forUser: DB.user.id });
     } catch (err) { data.error = err.message; }
     data.loading = false;
     if (A.currentSection() === 'factory') A.renderMain();
   }
-  function reset() { data.equipment = data.sessions = null; data.forUser = null; ui.detail = null; }
+  function reset() { data.equipment = data.sessions = data.subs = data.bays = null; data.forUser = null; ui.detail = null; }
 
   // ---------------------------------------------------------------- vẽ
   function render(App) {
@@ -69,7 +70,8 @@
     const node = (n, level) => {
       const kids = n.children || [];
       const exp = kids.length ? isOpen(n) : null;
-      const ctx = n.type === 'serial' ? `session:${n.sessionId}|${n.equipmentId}` : n.type === 'localunit' ? `local:${n.file}|${n.serial}` : n.type === 'equipment' ? `session:${n.sessionId}|` : '';
+      const ctx = (n.type === 'serial' || n.type === 'equipment') && n.noFat ? `nofat:${n.equipmentId}`
+        : n.type === 'serial' ? `session:${n.sessionId}|${n.equipmentId}` : n.type === 'localunit' ? `local:${n.file}|${n.serial}` : n.type === 'equipment' ? `session:${n.sessionId}|` : '';
       return `<li role="none"><div class="fx-row${ui.selected === n.id ? ' on' : ''}" style="--lvl:${level}">`
         + (kids.length ? `<button type="button" class="fx-caret" data-act="fxTog" data-node="${esc(n.id)}" tabindex="-1" aria-hidden="true">${exp ? '▾' : '▸'}</button>` : '<span class="fx-caret" aria-hidden="true"></span>')
         + `<button type="button" class="fx-node t-${n.type}" role="treeitem" data-act="fxSel" data-node="${esc(n.id)}" aria-level="${level}" `
@@ -95,9 +97,11 @@
       if (eqOk && !eqOk.has(s.equipment_id)) return;
       const e = eqById.get(s.equipment_id) || {};
       const kids = (data.equipment || []).filter(c => c.parent_id === s.equipment_id).map(c => c.serial_no).join(' ');
-      const text = [s.serial_no, e.name || s.equipment_name, s.substation_name, s.bay_code, e.bay_name, s.report_no, kids].join(' ');
+      const text = [e.serial_no || s.serial_no, e.name || s.equipment_name, e.substation_name || s.substation_name, e.bay_code || s.bay_code, e.bay_name, s.report_no, kids].join(' ');
       if (!match(text)) return;
-      rows.push({ ctx: `session:${s.id}|`, serial: s.serial_no, name: e.name || s.equipment_name || e.class_name || '', where: [s.substation_name, s.bay_code].filter(Boolean).join(' · ') || FactoryTree.UNASSIGNED,
+      // số chế tạo / tên / vị trí theo bản ghi thiết bị (đã sửa ở menu ngữ cảnh), thiếu thì theo lần thí nghiệm
+      rows.push({ ctx: `session:${s.id}|`, serial: e.serial_no || s.serial_no, name: e.name || s.equipment_name || e.class_name || '',
+        where: [e.substation_name || s.substation_name, e.bay_code || s.bay_code].filter(Boolean).join(' · ') || FactoryTree.UNASSIGNED,
         date: vnDate(s.test_date), report: s.report_no || '', n: s.n_values, src: s.source === 'factory_import' ? 'Test report' : 'Nhập tay', sessionId: s.id });
     });
     localFiles().forEach(f => {
@@ -118,6 +122,10 @@
     const sel = ui.selected && findNode(fullTree(), ui.selected);
     const head = `<div class="fx-list-head"><h3>Số liệu xuất xưởng${sel ? ` — ${esc(sel.label)}` : ''}</h3><span class="muted">${rows.length} dòng</span>`
       + (sel ? '<button class="btn small" data-act="fxSel" data-node="">Bỏ lọc</button>' : '') + '</div>';
+    if (!rows.length && sel && sel.noFat) {
+      return head + '<div class="callout">Thiết bị này <b>chưa có số liệu xuất xưởng</b> trong CSDL. Nạp file test report (.xlsx), sau đó chuột phải máy ở nhóm '
+        + '<b>Chưa lưu CSDL</b> → <b>Lưu lên CSDL</b>.<div class="row-actions"><button class="btn" data-act="loadXlsx">Thêm file test report (.xlsx)…</button></div></div>';
+    }
     if (!rows.length) return head + '<div class="empty">Không có số liệu xuất xưởng phù hợp.</div>';
     return head + '<div class="grid-wrap"><table class="grid fx-table"><thead><tr><th>Số chế tạo</th><th>Thiết bị</th><th>Trạm · Ngăn</th><th>Ngày TN</th>'
       + '<th>Số report</th><th>Số giá trị</th><th>Nguồn</th><th><span class="sr-only">Thao tác</span></th></tr></thead><tbody>'
@@ -129,7 +137,66 @@
   }
 
   // ---------------------------------------------------------------- chi tiết: xem / sửa
+  // ---------------------------------------------------------------- sửa thông tin thiết bị / gán trạm, ngăn (bảng equipment)
+  const eqById = id => (data.equipment || []).find(e => e.id === id) || null;
+  function formHTML() {
+    const f = ui.form, e = eqById(f.eqId) || {};
+    const head = `<div class="fx-detail-head"><h3>${f.kind === 'eq' ? 'Sửa thông tin thiết bị' : (e.bay_id ? 'Đổi trạm / ngăn' : 'Gán trạm / ngăn')} — ${esc(e.serial_no || '')}</h3><span class="spacer"></span>`
+      + '<button class="btn primary" data-act="fxFormSave">Lưu</button><button class="btn" data-act="fxFormCancel">Hủy</button></div>';
+    let body = '';
+    if (f.kind === 'eq') {
+      body = '<div class="fields">'
+        + `<div class="field"><label for="fxEqSerial">Số chế tạo</label><input id="fxEqSerial" data-fxform="serial_no" value="${esc(f.values.serial_no)}"></div>`
+        + `<div class="field"><label for="fxEqName">Tên thiết bị</label><input id="fxEqName" data-fxform="name" value="${esc(f.values.name)}" placeholder="vd AT1 pha A"></div></div>`
+        + '<div class="hint-text">Số chế tạo dùng để tra xu hướng và chọn file xuất xưởng — chỉ sửa khi nhập sai. Mọi lần thí nghiệm của thiết bị đi theo số mới.</div>';
+    } else {
+      const subs = data.subs || [], bays = (data.bays || []).filter(b => b.substation_id === f.values.sub);
+      const opt = (v, t, s) => `<option value="${esc(v)}" ${s ? 'selected' : ''}>${esc(t)}</option>`;
+      body = '<div class="fields">'
+        + `<div class="field"><label for="fxEqSub">Trạm</label><select id="fxEqSub" data-fxform="sub">${opt('', '— Chọn trạm —', !f.values.sub)}${subs.map(s => opt(s.id, s.name, s.id === f.values.sub)).join('')}</select></div>`
+        + `<div class="field"><label for="fxEqBay">Ngăn</label><select id="fxEqBay" data-fxform="bay_id" ${f.values.sub ? '' : 'disabled'}>${opt('', f.values.sub && !bays.length ? 'Trạm chưa có ngăn' : '— Chọn ngăn —', !f.values.bay_id)}`
+        + `${bays.map(b => opt(b.id, `${b.code}${b.name ? ` — ${b.name}` : ''}`, b.id === f.values.bay_id)).join('')}</select></div></div>`
+        + `<div class="hint-text">Các thành phần (sứ, TI chân sứ) tự đi theo ngăn của máy chính. Chưa có trạm / ngăn: thêm ở <button class="btn small" data-nav="catalog">Trạm – Ngăn – Thiết bị</button>.`
+        + `${e.bay_id ? ' Bỏ gán: chọn “— Chọn ngăn —” rồi Lưu.' : ''}</div>`;
+    }
+    return `<div class="fx-detail fx-form" id="fxDetailBox">${head}${body}</div>`;
+  }
+  function openForm(kind, eqId) {
+    const e = eqById(eqId);
+    if (!e) throw new Error('Không tìm thấy thiết bị trong danh mục (tải lại trang)');
+    const bay = (data.bays || []).find(b => b.id === e.bay_id);
+    ui.form = { kind, eqId, values: kind === 'eq' ? { serial_no: e.serial_no || '', name: e.name || '' } : { sub: bay ? bay.substation_id : '', bay_id: e.bay_id || '' } };
+    ui.detail = null;
+    refresh('detail');
+    const box = $('#fxDetailBox'); if (box) { box.scrollIntoView({ block: 'nearest' }); const first = box.querySelector('input, select'); if (first) first.focus(); }
+  }
+  async function saveForm() {
+    const f = ui.form, e = eqById(f.eqId);
+    if (!e) throw new Error('Không tìm thấy thiết bị');
+    let payload, msg;
+    if (f.kind === 'eq') {
+      const serial = String(f.values.serial_no || '').trim();
+      if (!serial) throw new Error('Số chế tạo không được để trống');
+      payload = {};
+      if (serial !== (e.serial_no || '')) payload.serial_no = serial;
+      if (String(f.values.name || '').trim() !== (e.name || '')) payload.name = String(f.values.name || '').trim() || null;
+      msg = `Đã sửa thiết bị ${serial}`;
+    } else {
+      payload = f.values.bay_id ? { bay_id: f.values.bay_id } : { bay_id: null, substation_id: null };
+      if ((payload.bay_id || null) === (e.bay_id || null)) payload = {};
+      const b = (data.bays || []).find(x => x.id === f.values.bay_id);
+      msg = b ? `Đã gán ${e.serial_no} vào ngăn ${b.code}` : `Đã bỏ gán trạm / ngăn của ${e.serial_no}`;
+    }
+    if (!Object.keys(payload).length) { ui.form = null; refresh('detail'); A.toast('Không có thay đổi'); return; }
+    await A.track('Lưu thiết bị', () => DB.crud('update', 'equipment', payload, e.id));
+    A.toast(msg);
+    ui.form = null;
+    if (window.Catalog) Catalog.reset();
+    data.sessions = null; await load(true);
+  }
+
   function detailHTML() {
+    if (ui.form) return formHTML();
     const d = ui.detail;
     if (!d) return '';
     if (d.loading) return '<div class="fx-detail"><div class="empty">Đang tải số liệu…</div></div>';
@@ -182,13 +249,34 @@
   }
 
   // ---------------------------------------------------------------- menu ngữ cảnh
+  // thiết bị gắn với ngữ cảnh: phiên FAT → máy (hoặc thành phần chọn trên cây); nofat → thiết bị
+  function eqIdOf(ctx) {
+    const p = ctxParts(ctx);
+    if (p.kind === 'nofat') return p.a;
+    if (p.kind === 'session') { if (p.b) return p.b; const s = (data.sessions || []).find(x => x.id === p.a); return s ? s.equipment_id : ''; }
+    return '';
+  }
+  function equipmentItems(ctx, can) {
+    const e = eqById(eqIdOf(ctx));
+    if (!e) return [];
+    const why = can ? '' : 'Tài khoản chỉ xem';
+    const items = [['fxEqEdit', 'Sửa số chế tạo, tên thiết bị…', why]];
+    // thành phần (sứ…) đi theo ngăn của máy chính
+    if (!e.parent_id) items.push(['fxEqBay', e.bay_id ? 'Đổi trạm / ngăn…' : 'Gán trạm / ngăn…', why]);
+    return items;
+  }
   function menuItems(ctx) {
     const kind = ctx.slice(0, ctx.indexOf(':'));
     const can = window.DB && DB.canEdit();
-    if (kind === 'session') return [
-      ['fxView', 'Xem số liệu', ''], ['fxEdit', 'Sửa số liệu', can ? '' : 'Tài khoản chỉ xem'],
-      ['fxUse', 'Dùng cho biên bản đang lập', 'Tải file test report gốc từ CSDL'], ['fxDownload', 'Tải file test report', ''],
-    ];
+    if (kind === 'session') {
+      const s = (data.sessions || []).find(x => x.id === ctxParts(ctx).a);
+      return [
+        ['fxView', 'Xem số liệu', ''], ['fxEdit', `Sửa giá trị đo${s && s.n_values ? ` (${s.n_values} giá trị)` : ''}…`, can ? '' : 'Tài khoản chỉ xem'],
+      ].concat(equipmentItems(ctx, can)).concat([
+        ['fxUse', 'Dùng cho biên bản đang lập', 'Tải file test report gốc từ CSDL'], ['fxDownload', 'Tải file test report', ''],
+      ]);
+    }
+    if (kind === 'nofat') return [['loadXlsx', 'Thêm file test report (.xlsx)…', 'Nạp xong: chuột phải máy ở nhóm “Chưa lưu CSDL” → Lưu lên CSDL']].concat(equipmentItems(ctx, can));
     if (kind === 'local') return [
       ['fxLocalView', 'Xem sheet gốc', ''], ['fxLocalUse', 'Dùng file này cho biên bản', ''],
       ['fxLocalSave', 'Lưu lên CSDL', signedIn() ? (can ? '' : 'Tài khoản chỉ xem') : 'Cần đăng nhập'],
@@ -201,8 +289,10 @@
     if (!items.length) return;
     const m = document.createElement('div');
     m.className = 'ctx-menu'; m.setAttribute('role', 'menu'); m.id = 'fxCtxMenu';
+    // mục cần quyền ghi: "why" là lý do bị khóa; các mục khác: "why" là dòng gợi ý
+    const gated = act => ['fxEdit', 'fxLocalSave', 'fxEqEdit', 'fxEqBay'].includes(act);
     m.innerHTML = items.map(([act, text, why]) => `<button type="button" role="menuitem" class="ctx-item" data-act="${act}" data-ctx="${esc(ctx)}"`
-      + `${act === 'fxEdit' || act === 'fxLocalSave' ? (why ? ` disabled title="${esc(why)}"` : '') : ''}>${esc(text)}${why && act !== 'fxEdit' && act !== 'fxLocalSave' ? `<span class="ctx-hint">${esc(why)}</span>` : ''}</button>`).join('');
+      + `${gated(act) ? (why ? ` disabled title="${esc(why)}"` : '') : ''}>${esc(text)}${why && !gated(act) ? `<span class="ctx-hint">${esc(why)}</span>` : ''}</button>`).join('');
     document.body.appendChild(m);
     const r = m.getBoundingClientRect();
     m.style.left = `${Math.max(4, Math.min(x, window.innerWidth - r.width - 4))}px`;
@@ -266,7 +356,14 @@
       return;
     }
     if (act === 'fxRefresh') { reset(); A.renderMain(); await load(true); return; }
+    if (act === 'fxEqEdit' || act === 'fxEqBay') {
+      if (!DB.canEdit()) throw new Error('Tài khoản chỉ xem — không sửa được thiết bị');
+      openForm(act === 'fxEqEdit' ? 'eq' : 'bay', eqIdOf(ctx)); return;
+    }
+    if (act === 'fxFormSave') { await saveForm(); return; }
+    if (act === 'fxFormCancel') { ui.form = null; refresh('detail'); return; }
     if (act === 'fxView' || act === 'fxEdit') {
+      ui.form = null;
       if (act === 'fxEdit' && !DB.canEdit()) throw new Error('Tài khoản chỉ xem — không sửa được số liệu');
       if (ui.detail && ui.detail.sessionId === p.a && !ui.detail.loading) { ui.detail.mode = act === 'fxEdit' ? 'edit' : 'view'; ui.detail.eq = p.b || ui.detail.eq; ui.detail.confirm = null; refresh('detail'); return; }
       await openDetail(p.a, p.b, act === 'fxEdit' ? 'edit' : 'view'); return;
@@ -331,10 +428,15 @@
       return;
     }
     if (t.dataset && t.dataset.fxmeta && ui.detail) { ui.detail.meta[t.dataset.fxmeta] = t.value; ui.detail.confirm = null; }
+    if (t.dataset && t.dataset.fxform && ui.form && t.tagName === 'INPUT') ui.form.values[t.dataset.fxform] = t.value;
   });
   document.addEventListener('change', e => {
     const t = e.target;
     if (t.dataset && t.dataset.fxfilter && ui.detail) { ui.detail[t.dataset.fxfilter] = t.value; refresh('detail'); const s = $(`[data-fxfilter="${t.dataset.fxfilter}"]`); if (s) s.focus(); }
+    if (t.dataset && t.dataset.fxform && ui.form && t.tagName === 'SELECT') {
+      ui.form.values[t.dataset.fxform] = t.value;
+      if (t.dataset.fxform === 'sub') { ui.form.values.bay_id = ''; refresh('detail'); const s = $('#fxEqSub'); if (s) s.focus(); }
+    }
   });
   document.addEventListener('contextmenu', e => {
     const host = e.target.closest && e.target.closest('[data-fxctx]');
@@ -375,6 +477,8 @@
     }
   });
   document.addEventListener('pointerdown', e => { if (ui.menu && !ui.menu.el.contains(e.target)) closeMenu(); }, true);
+  // mục menu không thuộc FactoryUI (vd loadXlsx do app.js xử lý): đóng menu sau khi bấm
+  document.addEventListener('click', e => { if (ui.menu && e.target.closest && e.target.closest('.ctx-item')) setTimeout(() => closeMenu(), 0); });
   window.addEventListener('scroll', () => closeMenu(), true);
   window.addEventListener('resize', () => closeMenu());
   document.addEventListener('auth:changed', () => { reset(); if (A && A.currentSection() === 'factory') { A.renderMain(); load(true); } });

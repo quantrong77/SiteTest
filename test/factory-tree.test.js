@@ -29,7 +29,11 @@ test('cây Trạm → Ngăn → Thiết bị → Số chế tạo; nhóm chưa g
   const st = tree[0];
   assert.deepEqual(st.children.map(b => b.label), ['AT1', 'AT2']);
   const at1 = st.children[0];
-  assert.equal(at1.children.length, 1, 'máy không có FAT không hiện');
+  assert.deepEqual(at1.children.map(c => c.label), ['MBA AT1 pha A', 'MBA không có FAT'], 'thiết bị chưa có FAT vẫn hiện');
+  const noFat = at1.children[1];
+  assert.equal(noFat.noFat, true);
+  assert.equal(noFat.sessionId, '');
+  assert.match(noFat.sub, /chưa có test report/);
   const eq = at1.children[0];
   assert.equal(eq.label, 'MBA AT1 pha A');
   assert.equal(eq.sessionId, 's1', 'lấy lần FAT mới nhất');
@@ -38,6 +42,15 @@ test('cây Trạm → Ngăn → Thiết bị → Số chế tạo; nhóm chưa g
   assert.equal(tree[1].children[0].label, 'MBA chưa gắn', 'chưa gắn ngăn: thiết bị nằm thẳng dưới nhóm');
   assert.deepEqual(tree[2].children[0].children.map(u => u.label), ['SN-C']);
   assert.deepEqual(FT.leaves(eq).map(l => l.label), ['SN-A', 'BU-11']);
+});
+
+test('khung danh mục: trạm, ngăn chưa có thiết bị vẫn hiện', () => {
+  const cat = { substations: [{ id: 'S1', name: 'Trạm Thử Nghiệm' }, { id: 'S2', name: 'Trạm Trống' }],
+    bays: [{ id: 'B9', substation_id: 'S1', code: 'AT9', name: 'Ngăn dự phòng' }, { id: 'B8', substation_id: 'S2', code: '171' }] };
+  const tree = J(FT.build(equipment, sessions, [], cat));
+  assert.deepEqual(tree.map(n => n.label), ['Trạm Thử Nghiệm', 'Trạm Trống', 'Chưa gắn trạm / ngăn']);
+  assert.deepEqual(tree[0].children.map(b => [b.label, b.sub, b.children.length]), [['AT1', 'Ngăn MBA AT1', 2], ['AT2', '', 1], ['AT9', 'Ngăn dự phòng', 0]]);
+  assert.deepEqual(tree[1].children.map(b => b.label), ['171']);
 });
 
 test('tìm nhanh không phân biệt hoa thường / dấu, mở nhánh cha', () => {

@@ -57,9 +57,23 @@ Khi xuất Word, cuối BBTN có phụ lục bảng tra theo từng hạng mục
 5. Nếu chọn lại cùng loại đang mở, cấu hình của loại có thể được giữ lại.
 6. Nếu đổi loại, app dùng cấu hình mặc định của loại mới.
 7. Biên bản mới thay state hiện hành; hãy lưu hồ sơ cần giữ trước đó.
-8. App đưa người dùng về mục **0. Thông tin chung & cấu hình**.
+8. App mở **trình khởi tạo biên bản** (Thông tin chung & cấu hình) gồm 4 bước, bấm tên bước để chuyển, nút **Tiếp ›** / **‹ Quay lại** ở cuối trang:
+   1. **Thiết bị** — đã đăng nhập: chọn **Trạm → Ngăn (vị trí lắp đặt) → Thiết bị** từ danh mục; ngăn có tổ 3 máy 1 pha rời thì chọn thêm **Pha**
+      (BBTN riêng máy pha A / B / C, hoặc **Cả tổ A+B+C** — mẫu chung 3 pha); thiết bị chưa có trong danh mục chọn **＋ Thiết bị mới trong ngăn này** rồi nhập số chế tạo.
+      Bấm **Chọn thiết bị này →**: app gắn ngăn (lưu CSDL ghi thiết bị vào ngăn), chọn mẫu BBTN theo pha / cấu hình, điền số chế tạo các máy của tổ.
+      Chưa đăng nhập: chọn cấu hình và nhập số chế tạo như trước.
+   2. **Thông số kỹ thuật** — app tự điền tên trạm, vị trí lắp đặt, hãng, kiểu, năm sản xuất, công suất, điện áp, dòng, tổ đấu dây theo thứ tự:
+      thông số đã lưu của thiết bị trong **CSDL** → **test report** (file .xlsx trên máy có số chế tạo này, hoặc file test report gốc lưu trong CSDL — tự tải về) → **nhập tay**.
+      Ô tự điền tô vàng "Tự điền từ … — kiểm tra lại"; ô chưa có nguồn nào tô đỏ "nhập tay" (giá trị mẫu của template được xóa để khỏi ghi nhầm).
+      Sửa ô là bỏ tô nền; ô đã nhập tay không bị ghi đè. Nút **Điền lại từ CSDL / test report** chạy lại theo số chế tạo đang nhập; vẫn dùng được **Nhập ảnh nameplate…**.
+   3. **Lần thí nghiệm** — lý do, ngày, nhiệt độ, độ ẩm; giá trị khởi đầu sau sửa chữa; hạng mục thực hiện.
+   4. **Mẫu & cấu hình** — template, file xuất xưởng đang dùng, phạm vi xuất BBTN, phụ lục, thông số tính toán. Bấm **Bắt đầu nhập số liệu →** sang hạng mục đầu.
+9. Trang này không còn trên thanh điều hướng. Muốn sửa lại thông tin chung, bấm **thanh thông tin biên bản** (Máy biến áp · S/N · ngày · lý do ✎) ở đầu trang.
+10. Bảng **Các máy trong file xuất xưởng** (Job No., P0, nhiệt độ đo, độ ẩm DFR) chuyển sang mục **XX** (khối File .xlsx trên máy này).
 
 ## 2. Mục 0: Thông tin chung và cấu hình
+
+Mở bằng nút **Mới** (trình khởi tạo 4 bước, xem mục 1) hoặc bấm thanh thông tin biên bản ở đầu trang. Các phần dưới đây nằm trong các bước tương ứng.
 
 Tên một số nút trong khu vực có thể thay đổi theo nhánh/tính năng.
 Hãy dùng đúng nhãn hiển thị trên phiên bản đang chạy.
@@ -145,14 +159,16 @@ Hãy dùng đúng nhãn hiển thị trên phiên bản đang chạy.
 ### Tra cứu và sửa số liệu xuất xưởng (mục XX)
 
 1. Mở **XX Số liệu xuất xưởng** (nhóm Biên bản). Đăng nhập để xem số liệu đã lưu CSDL; chưa đăng nhập chỉ thấy file .xlsx trên máy.
-2. Cây bên trái: **Trạm → Ngăn → Thiết bị → Số chế tạo** (máy chính và các sứ). Thiết bị chưa gắn trạm / ngăn nằm ở nhóm **Chưa gắn trạm / ngăn**;
+2. Cây bên trái: **Trạm → Ngăn → Thiết bị → Số chế tạo** (máy chính và các sứ) theo **toàn bộ danh mục** — ngăn chưa có thiết bị, thiết bị **chưa có test report** vẫn hiện (chuột phải → **Thêm file test report (.xlsx)…**, nạp xong lưu lên CSDL ở nhóm Chưa lưu CSDL). Thiết bị chưa gắn trạm / ngăn nằm ở nhóm **Chưa gắn trạm / ngăn**;
    máy trong file .xlsx trên máy mà CSDL chưa có nằm ở nhóm **Chưa lưu CSDL**. Bàn phím: ↑ ↓ di chuyển, → mở nhánh, ← đóng nhánh.
 3. Bấm một nút trên cây để lọc danh sách bên phải; bấm lại hoặc **Bỏ lọc** để xem tất cả.
 4. Ô **Tìm** lọc ngay theo trạm, ngăn, tên thiết bị, số chế tạo (kể cả số chế tạo sứ), số report — không cần gõ dấu.
 5. **Chuột phải** vào một dòng (hoặc nút **⋯**, hoặc phím Menu / Shift+F10):
    - **Xem số liệu** — bảng giá trị xuất xưởng theo hạng mục, lọc theo thiết bị / hạng mục;
-   - **Sửa số liệu** (quyền ghi) — sửa từng giá trị, ngày thí nghiệm, số report → **Lưu thay đổi** → kiểm tra danh sách thay đổi → **Xác nhận lưu**.
+   - **Sửa giá trị đo (N giá trị)** (quyền ghi) — sửa từng giá trị, ngày thí nghiệm, số report → **Lưu thay đổi** → kiểm tra danh sách thay đổi → **Xác nhận lưu**.
      Nhiệt độ đo chỉ đọc; giá trị quy đổi tính lại theo tỷ lệ; mỗi giá trị sửa được ghi chú ngày và người sửa;
+   - **Sửa số chế tạo, tên thiết bị…** (quyền ghi) — sửa thông tin của máy hoặc sứ đang chọn; chỉ sửa số chế tạo khi nhập sai (xu hướng tra theo số chế tạo);
+   - **Gán trạm / ngăn…** / **Đổi trạm / ngăn…** (quyền ghi, máy chính) — chọn trạm, ngăn trong danh mục; thiết bị ở nhóm **Chưa gắn trạm / ngăn** chuyển vào đúng ngăn, các sứ đi theo máy chính;
    - **Dùng cho biên bản đang lập** — tải file test report gốc từ CSDL và dùng làm file xuất xưởng của biên bản;
    - **Tải file test report**;
    - với máy **Chưa lưu CSDL**: xem sheet gốc, dùng file, **Lưu lên CSDL**.
