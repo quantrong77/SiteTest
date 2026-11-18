@@ -219,7 +219,8 @@
     if (att.dfr && Array.isArray(att.dfr.items) && att.dfr.items.some(x => x.use)) out.push({ kind: 'dfr' });
     const oilHas = id => has.oil === undefined || (typeof has.oil.has === 'function' ? has.oil.has(id) : !!has.oil[id]);
     (att.oil && att.oil.items || []).filter(x => x.use !== false && oilHas(x.id)).forEach(x => out.push({ kind: 'oil', id: x.id }));
-    // thí nghiệm ngắn mạch: mục cuối thân biên bản (MbaReport.fill), không còn là phụ lục
+    // thí nghiệm ngắn mạch: mục cuối thân biên bản (MbaReport.fill); chỉ thành phụ lục khi template không có chỗ chèn
+    if (has.shortCircuit && shortCircuitHasData(att.shortCircuit)) out.push({ kind: 'shortCircuit' });
     // mẫu chung 3 pha: biến dòng chân sứ không có bảng trong thân BBTN → phụ lục dựng từ số liệu mục BCT
     if (has.bct) out.push({ kind: 'bct' });
     out.push({ kind: 'standards' });

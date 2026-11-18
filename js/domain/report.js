@@ -80,7 +80,7 @@
     const v = {};
     Object.keys(state.v || {}).forEach(k => { if (!off.has(secOf(k))) v[k] = state.v[k]; });
     const att = Object.assign({}, state.att || {});
-    Object.entries(Object.assign({ shortCircuit: 'shortCircuit' }, attSections || {})).forEach(([key, sec]) => { if (off.has(sec)) delete att[key]; });
+    Object.entries(attSections || {}).forEach(([key, sec]) => { if (off.has(sec)) delete att[key]; });
     const pick = o => Object.fromEntries(Object.entries(o || {}).filter(([id]) => !off.has(id)));
     const sum = state.sum ? Object.assign({}, state.sum, { tick: pick(state.sum.tick), ev: pick(state.sum.ev) }) : state.sum;
     return Object.assign({}, state, { v, att, sum });
