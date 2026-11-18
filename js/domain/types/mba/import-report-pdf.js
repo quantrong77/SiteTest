@@ -330,16 +330,36 @@
     });
   }
 
-  function parseWindingTgd(linesByPage, v) {
-    let active = false, corrected = false, centers = null;
+  function parseWindingTgd(linesByPage, v, schema) {
+    let active = false, corrected = false, centers = null, headerY = null, headerPage = -1;
+    const grid = Common.findGrid(schema, 'wtgd.meas');
+    if (!grid) return;
     const fallback = fallbackCenters(595, [0.505, 0.630, 0.755, 0.880]);
+    const aliases = [['tgdelta', 'tg'], ['cpf', 'capacitance'], ['testvoltage', 'kv'], ['diagram']];
+    const anchors = [];
+    const headerCenter = (source, from, to, keys) => {
+      const options = Array.isArray(keys) ? keys : [keys];
+      for (let n = Math.max(0, from); n < Math.min(source.length, to); n++) {
+        for (const group of headerGroups(source[n])) {
+          const value = compact(group.text);
+          if (options.some(key => value === key || value.startsWith(key))) return centerX(group.item);
+        }
+      }
+      return null;
+    };
+    const rowForLabel = label => {
+      const code = terminalRow(label);
+      return code ? grid.rows.find(row => terminalRow(row.label) === code) || null : null;
+    };
     linesByPage.forEach((lines, pageIndex) => {
       const page = linesByPage.pages[pageIndex];
       lines.forEach((line, i) => {
         const f = fold(line.text), c = compact(line.text);
-        if (c.includes('trisotgdelta') && c.includes('cuonday')) { active = true; corrected = false; centers = null; }
+        if (c.includes('trisotgdelta') && c.includes('cuonday')) {
+          active = true; corrected = false; centers = null; headerY = null; headerPage = -1; anchors.length = 0;
+        }
         if (!active) return;
-        if (c.includes('quydoive20') || c.includes('correctedto20')) corrected = true;
+        if (c.includes('quydoive20') || c.includes('correctedto20')) { corrected = true; centers = null; return; }
         if (c.includes('dienromotchieu') || c.includes('windingresistance')) { active = false; return; }
         if (f.includes('do o nhiet do') || f.includes('measure at temperature')) {
           const t = parseTemperature(line.text);
@@ -349,17 +369,31 @@
           const m = line.text.match(/k2\s*=\s*([+-]?\d+(?:[.,]\d+)?)/i);
           if (m) putNumber(v, 'wtgd.k2', m[1]);
         }
-        if (headerMatch(lines, i, Math.min(lines.length, i + 3), ['tgdelta', 'tg']) != null
-          && headerMatch(lines, i, Math.min(lines.length, i + 3), ['c']) != null) {
-          centers = headerCenters(lines, [['tgdelta', 'tg'], 'c', 'kv', 'diagram'], i, Math.min(lines.length, i + 9), fallback);
+        if (!centers) {
+          const cHeader = headerCenter(lines, i, i + 1, aliases[1]);
+          const start = Math.max(0, i - 2), end = Math.min(lines.length, i + 10);
+          const found = cHeader == null ? [] : aliases.map(keys => headerCenter(lines, start, end, keys));
+          if (cHeader != null && found.length === aliases.length && found.every(x => x != null)) {
+            centers = found;
+            const inHeader = lines.slice(i, Math.min(lines.length, i + 10)).filter(candidate =>
+              aliases.some(keys => headerCenter([candidate], 0, 1, keys) != null));
+            headerY = inHeader.length ? Math.min(...inHeader.map(x => x.y)) : line.y;
+            headerPage = pageIndex;
+          }
         }
-        if (corrected || !centers) return;
-        const row = terminalRow(nearbyText(lines, line.y, centers, 12));
-        if (!row) return;
-        putNumber(v, 'wtgd.meas.' + row + '.tgd', nearestCellNumber(page, line.y, centers, 0, 16));
-        putNumber(v, 'wtgd.meas.' + row + '.c', nearestCellNumber(page, line.y, centers, 1, 16));
-        putNumber(v, 'wtgd.meas.' + row + '.u', nearestCellNumber(page, line.y, centers, 2, 16));
-        putText(v, 'wtgd.meas.' + row + '.d', cellText(page, line.y, centers, 3));
+        if (corrected || !centers || (pageIndex === headerPage && line.y >= headerY - 2)) return;
+
+        const labelRow = rowForLabel(leftText(line, centers));
+        if (labelRow) anchors.push({ key: labelRow.k, y: line.y, pageIndex });
+        const values = centers.slice(0, 3).map((_, index) => nearestCellNumber(page, line.y, centers, index, 12));
+        if (!values.some(value => value && Number.isFinite(Number(value)))) return;
+        const anchor = anchors.filter(item => item.pageIndex <= pageIndex && pageIndex - item.pageIndex <= 1
+          && item.y >= line.y - 2 && item.y - line.y <= 40)
+          .sort((a, b) => (a.y - line.y) - (b.y - line.y))[0];
+        if (!anchor) return;
+        const prefix = grid.id + '.' + anchor.key + '.';
+        ['tgd', 'c', 'u'].forEach((col, index) => putNumber(v, prefix + col, values[index]));
+        putText(v, prefix + 'd', cellText(page, line.y, centers, 3, 12));
       });
     });
   }
@@ -746,7 +780,7 @@
     parseTextFields(positioned, v);
     parseIR(positioned, v, opts);
     parseBushings(positioned, v, opts);
-    parseWindingTgd(positioned, v);
+    parseWindingTgd(positioned, v, schema);
     parseNoLoad(positioned, v);
     parseDcr(positioned, v, parserWarnings, schema, winding);
     parseRatio(positioned, v, schema);

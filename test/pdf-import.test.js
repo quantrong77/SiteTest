@@ -68,6 +68,48 @@ test('đọc dữ liệu PDF BM.01 có tiêu đề tách dòng và bỏ trị s�
   assert.ok(result.warnings.includes('R một chiều trong PDF ghi ở 75 °C — kiểm tra đây là giá trị đo hay đã quy đổi'));
 });
 
+test('đọc tgδ cuộn dây theo lưới schema và bỏ bảng quy đổi về 20 °C', () => {
+  const fixture = JSON.parse(fs.readFileSync(path.join(ROOT, 'test/fixtures/pdf-import-basic.json'), 'utf8'));
+  fixture.pages.push([
+    { str: '6. Trị số tgδ các cuộn dây (Tgδ of windings)', x: 40, y: 750, w: 360 },
+    { str: 'Đo ở nhiệt độ: 30 °C', x: 70, y: 730, w: 180 },
+    { str: 'Điện áp đo', x: 420, y: 700, w: 75 },
+    { str: 'Đối tượng đo', x: 80, y: 680, w: 150 },
+    { str: 'Tgδ (%)', x: 280, y: 680, w: 55 }, { str: 'C (pF)', x: 350, y: 680, w: 55 },
+    { str: 'Sơ đồ đo', x: 490, y: 680, w: 65 }, { str: '(kV)', x: 430, y: 665, w: 35 },
+    { str: '(Tested terminals)', x: 75, y: 650, w: 150 }, { str: '(%DF)', x: 285, y: 650, w: 50 },
+    { str: '(Capacitance)', x: 340, y: 650, w: 75 }, { str: '(Diagram)', x: 485, y: 650, w: 70 },
+    { str: '(Test voltage)', x: 415, y: 635, w: 80 },
+    { str: 'Cao, Trung ~ Hạ, Vỏ (HV,MV~LV,E)', x: 65, y: 600, w: 200 },
+    { str: '0.321', x: 290, y: 600, w: 35 }, { str: '15432.1', x: 355, y: 600, w: 50 },
+    { str: '10', x: 435, y: 600, w: 20 }, { str: 'GND', x: 500, y: 600, w: 35 },
+    { str: 'Hạ ~ Cao, Trung, Vỏ (LV~HV,MV,E)', x: 65, y: 570, w: 200 },
+    { str: 'Hạ ~ Cao, Trung, Vỏ (LV~HV,MV,E)', x: 65, y: 550, w: 200 },
+    { str: '0.298', x: 290, y: 550, w: 35 }, { str: '14321.2', x: 355, y: 550, w: 50 },
+    { str: '10', x: 435, y: 550, w: 20 }, { str: 'GND', x: 500, y: 550, w: 35 },
+    { str: 'Cao, Trung ~ Vỏ (HV,MV~E)', x: 65, y: 530, w: 190 },
+    { str: 'Hạ ~ Vỏ (LV~E)', x: 65, y: 510, w: 120 }, { str: '/', x: 290, y: 510, w: 8 },
+    { str: 'Trị số tgδ các cuộn dây quy đổi về 20 °C (corrected to 20 °C)', x: 40, y: 480, w: 420 },
+    { str: 'Hạ ~ Cao, Trung, Vỏ (LV~HV,MV,E)', x: 65, y: 450, w: 200 },
+    { str: '0.111', x: 290, y: 450, w: 35 }, { str: '14321.2', x: 355, y: 450, w: 50 },
+    { str: '10', x: 435, y: 450, w: 20 }, { str: 'GND', x: 500, y: 450, w: 35 },
+  ]);
+  const ctx = load(DOMAIN);
+  const result = ctx.MbaPdfImportReport.read(fixture.pages, fixture.file);
+  const v = result.state.v;
+  assert.equal(v['wtgd.t'], '30');
+  assert.equal(v['wtgd.meas.r0.tgd'], '0.321');
+  assert.equal(v['wtgd.meas.r0.c'], '15432.1');
+  assert.equal(v['wtgd.meas.r0.u'], '10');
+  assert.equal(v['wtgd.meas.r0.d'], 'GND');
+  assert.equal(v['wtgd.meas.r1.tgd'], '0.298');
+  assert.equal(v['wtgd.meas.r1.c'], '14321.2');
+  assert.equal(v['wtgd.meas.r1.u'], '10');
+  assert.equal(v['wtgd.meas.r1.d'], 'GND');
+  assert.equal(v['wtgd.meas.r4.tgd'], undefined);
+  assert.equal(v['wtgd.meas.r5.tgd'], undefined);
+});
+
 test('nhận diện bảng nấc cao áp và giữ khóa theo schema OLTC cao áp', () => {
   const fixture = JSON.parse(fs.readFileSync(path.join(ROOT, 'test/fixtures/pdf-import-basic.json'), 'utf8'));
   const dcrPage = fixture.pages.find(page => page.some(item => item.str.startsWith('7.1 Cuộn dây Trung thế')));
