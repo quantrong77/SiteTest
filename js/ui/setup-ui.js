@@ -101,6 +101,8 @@
       h += `<div class="callout warn"><b>Test report của ${esc(unsaved.join(', '))} chưa lưu CSDL.</b> Lưu để làm <b>giá trị khởi đầu</b> (thiết bị mới, chưa vận hành): `
         + 'lần sau khởi tạo BBTN (sau lắp đặt, định kỳ) chọn thiết bị ở bước ① là tự lấy thông số và so sánh.'
         + `${bay ? ` Thiết bị mới được gắn vào ngăn <b>${esc(bay.code)}</b>.` : ' Biên bản chưa gắn ngăn — thiết bị mới nằm ở nhóm “Chưa gắn trạm / ngăn”.'}`
+        + (FX.data.reportDate ? '' : '<div class="fields"><div class="field flag-missing"><label for="suFatDate">Ngày thí nghiệm xuất xưởng (nhập tay — file không ghi / không đọc được)</label>'
+          + '<input id="suFatDate" type="date" required></div></div><div class="hint-text">Mục khác không đọc được thì bỏ trống; sửa sau ở <b>XX</b> → chuột phải → <b>Sửa giá trị đo</b>.</div>')
         + `<div class="row-actions"><button class="btn primary" data-act="suSaveReport" ${can ? '' : 'disabled title="Tài khoản chỉ xem"'}>Lưu test report lên CSDL</button></div></div>`;
     }
     return h;
@@ -129,7 +131,9 @@
     if (!FX || !file) throw new Error('Chưa nạp test report');
     const sns = recordSerials().filter(sn => FX.has(sn));
     if (!sns.length) throw new Error('File test report đang dùng không có số chế tạo của biên bản');
-    const out = await Records.importFactory(A.state, FX, A.factoryBlob(file.name), A.state.cfg.bayId || null, sns);
+    const dateIn = $('#suFatDate'), date = dateIn ? dateIn.value : '';
+    if (!FX.data.reportDate && !date) { if (dateIn) dateIn.focus(); throw new Error('Nhập ngày thí nghiệm xuất xưởng (file không ghi hoặc không đọc được)'); }
+    const out = await Records.importFactory(A.state, FX, A.factoryBlob(file.name), A.state.cfg.bayId || null, sns, { test_date: date });
     if (window.Catalog) Catalog.reset();
     if (window.FactoryUI) FactoryUI.reset();
     await loadFat(true);

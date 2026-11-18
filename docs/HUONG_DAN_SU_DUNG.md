@@ -184,6 +184,8 @@ Hãy dùng đúng nhãn hiển thị trên phiên bản đang chạy.
      mặc định chọn máy chưa có FAT và máy của thiết bị đang chuột phải; bỏ tích máy thuộc ngăn khác;
    - **Trạm / Ngăn** cho thiết bị mới hoặc chưa gắn — mặc định ngăn của thiết bị đang chuột phải, hoặc ngăn của máy đã có trong file; thiết bị đã gắn ngăn giữ nguyên;
    - **Lưu N máy** — mỗi máy một lần FAT kèm file gốc; dùng làm giá trị khởi đầu cho các BBTN sau.
+   - **Ngày thí nghiệm**, **Số test report** — lấy từ file; file không ghi / không đọc được ngày thì ô ngày tô đỏ, **nhập tay** để lưu
+     (cũng có ở nút **Lưu test report lên CSDL** của trình khởi tạo). Các mục khác không đọc được thì bỏ trống; sửa sau bằng chuột phải → **Sửa giá trị đo**.
    Nhập theo ngữ cảnh mà file không có số chế tạo của thiết bị: app cảnh báo.
 7. Đánh giá "so xuất xưởng" trong biên bản dùng file .xlsx đang dùng; số liệu sửa trong CSDL dùng cho **xu hướng** các lần thí nghiệm sau.
 

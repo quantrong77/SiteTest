@@ -179,6 +179,11 @@
         + `<td>${r.eqId ? `${esc(r.name || 'Đã có')}${r.where ? ` · ${esc(r.where)}` : ' · <span class="muted">chưa gắn ngăn</span>'}` : '<span class="badge st-warn">Thiết bị mới</span>'}</td>`
         + `<td>${r.hasFat ? `<span class="badge st-warn" title="Lưu lại sẽ ghi đè lần FAT này, kể cả giá trị đã sửa tay">Đã có FAT ${esc(vnDate(r.fatDate))} — ghi đè</span>` : 'Chưa có'}</td></tr>`).join('')
       + '</tbody></table></div>';
+    const noDate = !f.fileDate;
+    h += '<h4>Lần thí nghiệm xuất xưởng</h4>'
+      + (noDate ? '<div class="callout warn" role="alert">Không đọc được <b>ngày thí nghiệm</b> trong file — nhập tay để lưu. Các mục khác không đọc được thì bỏ trống; sửa sau bằng chuột phải → <b>Sửa giá trị đo</b>.</div>' : '')
+      + `<div class="fields"><div class="field${noDate ? ' flag-missing' : ''}"><label for="fxImpDate">Ngày thí nghiệm${noDate ? ' (nhập tay)' : ''}</label><input id="fxImpDate" type="date" data-fxform="test_date" value="${esc(f.values.test_date)}"${noDate ? ' required' : ''}></div>`
+      + `<div class="field"><label for="fxImpNo">Số test report</label><input id="fxImpNo" data-fxform="report_no" value="${esc(f.values.report_no)}" placeholder="không bắt buộc"></div></div>`;
     h += `<h4>Trạm / ngăn (vị trí lắp đặt) cho thiết bị mới hoặc chưa gắn</h4><div class="fields">${bayFields(f.values)}</div>`
       + '<div class="hint-text">Thiết bị đã gắn ngăn giữ nguyên ngăn. Để trống: thiết bị nằm ở nhóm “Chưa gắn trạm / ngăn”, gán sau bằng menu chuột phải. '
       + 'Thiết bị chưa vận hành: số liệu lưu làm <b>giá trị khởi đầu</b> — khi khởi tạo BBTN (sau lắp đặt, định kỳ), chọn thiết bị ở bước ① để tự lấy thông số và so sánh.</div>';
@@ -192,8 +197,8 @@
     const tgt = ctx && ctx.eqId ? eqById(ctx.eqId) : null;
     const plan = FactoryTree.importPlan(units, data.equipment || [], data.sessions || [], { bayId: tgt ? tgt.bay_id || '' : '', target: tgt ? tgt.serial_no : '' });
     const bay = (data.bays || []).find(b => b.id === plan.bayId);
-    ui.form = { kind: 'import', file: fileName, target: tgt ? tgt.serial_no : '', plan,
-      values: { sub: bay ? bay.substation_id : '', bay_id: plan.bayId, pick: Object.fromEntries(plan.rows.map(r => [r.serial, r.pick])) } };
+    ui.form = { kind: 'import', file: fileName, target: tgt ? tgt.serial_no : '', plan, fileDate: D.reportDate || '',
+      values: { sub: bay ? bay.substation_id : '', bay_id: plan.bayId, test_date: D.reportDate || '', report_no: '', pick: Object.fromEntries(plan.rows.map(r => [r.serial, r.pick])) } };
     ui.detail = null;
     refresh('detail');
     const box = $('#fxDetailBox'); if (box) { box.scrollIntoView({ block: 'nearest' }); const b = box.querySelector('[data-act="fxImportSave"]:not([disabled]), select'); if (b) b.focus(); }
@@ -205,8 +210,10 @@
     if (!entry) throw new Error('Không còn file này trên máy');
     const serials = f.plan.rows.filter(r => f.values.pick[r.serial]).map(r => r.serial);
     if (!serials.length) throw new Error('Chọn ít nhất một máy để lưu');
+    if (!f.values.test_date) { const d = $('#fxImpDate'); if (d) d.focus(); throw new Error('Nhập ngày thí nghiệm xuất xưởng (file không ghi hoặc không đọc được)'); }
     await A.track('Lưu test report lên CSDL', async () => {
-      const out = await Records.importFactory(A.state, entry.api, A.factoryBlob(f.file), f.values.bay_id || null, serials);
+      const meta = { test_date: f.values.test_date !== f.fileDate ? f.values.test_date : '', report_no: f.values.report_no };
+      const out = await Records.importFactory(A.state, entry.api, A.factoryBlob(f.file), f.values.bay_id || null, serials, meta);
       A.toast(`Đã lưu lên CSDL: ${out.map(o => `${o.serial} (${o.n} giá trị)`).join(', ')}`);
     });
     ui.form = null;
