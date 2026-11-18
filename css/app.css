@@ -201,7 +201,9 @@ h4 { font-size: 13px; margin: 14px 0 6px; color: var(--muted); font-weight: 600;
 .grid-block { margin: 8px 0 18px; }
 .grid-title { display: flex; align-items: center; gap: 10px; margin: 6px 0; font-size: 13px; font-weight: 600; color: var(--muted); }
 .grid-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: var(--radius); }
-table.grid { border-collapse: collapse; min-width: 100%; font-size: 13px; }
+/* display: table bắt buộc: Tailwind (vỏ React) sinh tiện ích .grid { display: grid } trùng tên lớp này → thead / tbody
+   thành khối riêng, tiêu đề cột lệch với ô số liệu. CSS của app không thuộc layer nên luôn thắng tiện ích Tailwind. */
+table.grid { display: table; border-collapse: collapse; min-width: 100%; font-size: 13px; }
 table.grid th, table.grid td { border-bottom: 1px solid var(--line-soft); border-right: 1px solid var(--line-soft); padding: 0; }
 table.grid thead th[data-ph="A"] { box-shadow: inset 0 3px 0 var(--ph-a); }
 table.grid thead th[data-ph="B"] { box-shadow: inset 0 3px 0 var(--ph-b); }
