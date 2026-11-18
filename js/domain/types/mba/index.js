@@ -8,6 +8,8 @@
     return {
       template: 'A', topology: 'single1p', reportScope: 'combined', reportPhases: ['A', 'B', 'C'],
       ps: { A: '', B: '', C: '' }, taps: Schema.DEFAULT_TAPS.slice(), hvMeas: 'SER+COM', lvMode: 'unit',
+      // mẫu 110–220 kV: bộ điều áp dưới tải đặt ở cuộn cao áp ('HV', mặc định) hay trung áp ('MV', MBA 220 kV kiểu Liên Xô cũ)
+      oltcWinding: 'HV',
       iLV: '', sLV: '', sR: '', i0Ref: '', bC1Dev: '', bTgdMax: '', bctCores: { hv: 4, mv: 4, lv: 4 },
       ctNo: { hv: '1,2,3,4,5,6', mv: '4,5,6,7,8', n: '8,9,10', lv: '11,12,13,14' }, bctErrLimit: '', decSep: ',',
       hdr: {}, wtgdLabels: {}, wtgdRows: [], oltcCharts: 'all',
@@ -24,6 +26,7 @@
     cfg.topology = layout === Schema.LAYOUT_3P ? 'bank1p' : layout === Schema.LAYOUT_110 ? 'threePhase' : 'single1p';
     cfg.reportScope = ['combined', 'separate'].includes(cfg.reportScope) ? cfg.reportScope : 'combined';
     if (cfg.topology !== 'bank1p') cfg.reportScope = 'combined';
+    cfg.oltcWinding = cfg.oltcWinding === 'MV' ? 'MV' : 'HV';
     cfg.reportPhases = Array.isArray(cfg.reportPhases)
       ? ['A', 'B', 'C'].filter(ph => cfg.reportPhases.includes(ph)) : ['A', 'B', 'C'];
     cfg.ps = Object.assign(defaultCfg().ps, saved.ps || {});

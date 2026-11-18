@@ -97,6 +97,7 @@ Hãy dùng đúng nhãn hiển thị trên phiên bản đang chạy.
 7. A-N gồm đấu nối tiếp và chung theo cách mô tả giao diện.
 8. A-Am chỉ đo cuộn nối tiếp theo cách mô tả giao diện.
 9. Tên cột và mapping xuất DOCX đổi theo lựa chọn.
+10. Mẫu 110–220 kV: chọn **Bộ điều áp dưới tải (OLTC) đặt ở cuộn**. Máy 220 kV kiểu Liên Xô cũ có OLTC ở phía 110 kV thì chọn *Cuộn trung áp*: R một chiều cuộn trung áp và tỷ số MV:LV nhập theo nấc, cuộn cao áp và tỷ số HV:LV một giá trị.
 
 ### Cấu hình biến dòng chân sứ
 
@@ -293,6 +294,7 @@ Hãy dùng đúng nhãn hiển thị trên phiên bản đang chạy.
 11. Ngưỡng lệch trong mã là 2% theo Điều 9 mục 7.
 12. Haefely 2293 có thể nạp số liệu điện trở từ CSV.
 13. CPC 100 không phải bộ đọc mặc định cho phép đo này.
+14. Mẫu 110–220 kV có OLTC ở cuộn trung áp: mục 8.1 là cuộn trung áp theo nấc, 8.2 cuộn cao áp một giá trị; BBTN xuất ra ghi bảng nấc cho cuộn trung áp. Đổi lựa chọn giữa chừng không mất số liệu đã nhập (chỉ ẩn khỏi biểu mẫu), đổi lại để xem.
 
 ### Nhập Haefely 2293
 

@@ -424,9 +424,19 @@
     else wtgdBlock('wtgd', sectionOf('wtgd').grids[0].rows, main);
 
     // ================= 7. Điện trở một chiều =================
+    // mẫu 110–220 kV, OLTC ở cuộn trung áp: cuộn trung áp so XX theo nấc (khi file XX có), cuộn cao áp một giá trị
+    const oltcMV = schema.oltcWinding === 'MV';
+    // OLTC ở cuộn trung áp: U cao áp không đổi theo nấc → tỷ số HV:LV (một hàng) lấy theo một nấc bất kỳ của bảng tỷ số XX,
+    // chỉ khi mọi nấc cùng U cao áp (file XX đúng loại máy); không thì không có định mức
+    const fixedHvTap = () => {
+      const taps = F && F.data.ratio && F.data.ratio.taps || [];
+      if (!oltcMV || !taps.length) return null;
+      const hv = taps.map(x => x.hvKV).filter(ok);
+      return hv.length === taps.length && hv.every(x => Math.abs(x - hv[0]) < 1e-6) ? taps[0] : null;
+    };
     const dcrGroups = [
       { g: 'dcr.hv', t: 'dcr.hv.t', winding: cfg.hvMeas === 'SER' ? ['SER'] : ['SER', 'COM'], label: 'Cuộn cao áp' },
-      { g: 'dcr.mv', t: 'dcr.mv.t', winding: ['COM'], label: 'Cuộn trung áp (chung)' },
+      { g: 'dcr.mv', t: 'dcr.mv.t', winding: ['COM'], label: oltcMV ? 'Cuộn trung áp (OLTC)' : 'Cuộn trung áp (chung)', byTap: oltcMV },
       { g: 'dcr.lv', t: 'dcr.lv.t', winding: ['LV'], label: 'Cuộn hạ áp', delta: cfg.lvMode === 'delta' },
     ];
     dcrGroups.forEach(G => {
@@ -441,7 +451,7 @@
           vals.push(m);
           if (!ok(m)) return;
           const s = serialOf(ph);
-          const parts = F ? G.winding.map(w => F.dcr(w, row.tap, s)) : [];
+          const parts = F ? G.winding.map(w => F.dcr(w, row.tap, s, G.byTap ? { byTap: true } : undefined)) : [];
           const okRef = parts.length && parts.every(Boolean);
           let ref = okRef ? parts.reduce((a, b) => a + b.r75, 0) * 1000 : NaN; // Ω → mΩ
           if (okRef && G.delta) ref *= 2 / 3;
@@ -470,9 +480,15 @@
     const ratioGroups = [
       { g: 'ratio.hm', label: 'HV:MV', nominal: tap => { const r = F && F.ratioTap(tap); return r ? (r.nominal || r.hvKV / r.mvKV) : NaN; },
         ferr: (tap, s) => { const r = F && F.ratioTap(tap); return r ? toNum(r.err[s]) : NaN; } },
-      { g: 'ratio.hl', label: 'HV:LV', nominal: tap => { const r = F && F.ratioTap(tap), lv = F && F.data.ratio.mvlv ? F.data.ratio.mvlv.lvKV : NaN; return r && ok(lv) ? r.hvKV / Math.sqrt(3) / lv * (bank ? Math.sqrt(3) : 1) : NaN; },
+      { g: 'ratio.hl', label: 'HV:LV', nominal: tap => { const r = F && (tap ? F.ratioTap(tap) : fixedHvTap()), lv = F && F.data.ratio.mvlv ? F.data.ratio.mvlv.lvKV : NaN; return r && ok(lv) ? r.hvKV / Math.sqrt(3) / lv * (bank ? Math.sqrt(3) : 1) : NaN; },
         ferr: () => NaN },
-      { g: 'ratio.ml', label: 'MV:LV', nominal: () => { const m = F && F.data.ratio.mvlv; return m ? m.nominal * (bank ? Math.sqrt(3) : 1) : NaN; },
+      { g: 'ratio.ml', label: 'MV:LV', nominal: tap => {
+          const m = F && F.data.ratio.mvlv;
+          if (!m) return NaN;
+          // OLTC ở cuộn trung áp: tỷ số MV:LV theo nấc = tỷ số định mức × U trung áp của nấc / U trung áp định mức (theo file XX)
+          if (oltcMV && tap) { const r = F.ratioTap(tap); return r && ok(r.mvKV) && ok(m.mvKV) ? m.nominal * r.mvKV / m.mvKV * (bank ? Math.sqrt(3) : 1) : NaN; }
+          return m.nominal * (bank ? Math.sqrt(3) : 1);
+        },
         ferr: (tap, s) => { const m = F && F.data.ratio.mvlv; return m ? toNum(m.err[s]) : NaN; } },
     ];
     ratioGroups.forEach(G => {

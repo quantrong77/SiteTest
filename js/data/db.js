@@ -217,6 +217,11 @@
   async function trend(equipmentIds) {
     return chk(await need().from('v_trend_delta').select('*').in('equipment_id', equipmentIds).order('test_date').limit(20000));
   }
+  // Thông số định mức đã lưu của một thiết bị (vd MBA: cuộn đặt OLTC) theo loại + số chế tạo; chưa có thì null
+  async function equipmentRated(classCode, serial) {
+    const r = chk(await need().from('equipment').select('rated').eq('class_code', classCode).eq('serial_no', String(serial || '').trim()).maybeSingle());
+    return r ? (r.rated || {}) : null;
+  }
   // Lịch sử đo theo số chế tạo (xu hướng tại ô: biên bản có máy chính, máy từng pha, sứ)
   async function trendForSerials(serials) {
     const ids = [...new Set((serials || []).map(x => String(x || '').trim()).filter(Boolean))];
@@ -226,7 +231,7 @@
 
   window.DB = {
     connect, cfgGet, checkConfig, siteCfg, refreshUser, signIn, signUp, signOut, signInWithGoogle, resetPassword, updatePassword, onAuthChange, authInit, saveField, importFactory, uploadDoc, downloadDoc,
-    listSessions, loadSession, deleteSession, listDocs, listEquipment, trend, trendForSerials, listSubstations, listBays, listClasses, listKTables, listCriteria, saveCriteria, deleteCriteria, listLibrary, saveLibraryDoc, deleteLibraryDoc, uploadLibraryFile, libraryFileUrl, crud,
+    listSessions, loadSession, deleteSession, listDocs, listEquipment, equipmentRated, trend, trendForSerials, listSubstations, listBays, listClasses, listKTables, listCriteria, saveCriteria, deleteCriteria, listLibrary, saveLibraryDoc, deleteLibraryDoc, uploadLibraryFile, libraryFileUrl, crud,
     get client() { return client; }, get user() { return user; }, get role() { return role; }, get profile() { return profile; },
     get busy() { return inflight; },
     canEdit: () => role === 'editor' || role === 'admin',

@@ -117,6 +117,7 @@
     const v = state.v;
     const is3P = schema.layout === Schema.LAYOUT_3P;
     Report.prepare(tpl, schema); // chèn hàng template thiếu (vd nhiệt độ từng sứ ở mẫu 3 pha) trước khi ghi
+    if (schema.docSwaps) swapHeadings(tpl, schema.docSwaps); // OLTC ở cuộn trung áp: đổi nhãn đề mục trước khi ghi nhiệt độ
     eachField(schema, f => {
       if (!f.doc) return;
       let val = v[f.k];
@@ -200,6 +201,26 @@
       if (a.kind === 'standards') tpl.appendSection(Appendix.standardsAppendix(a.label));
     });
     return { cells, miss };
+  }
+
+  // Mẫu 110–220 kV, OLTC ở cuộn trung áp: bảng nấc của template dùng cho cuộn trung áp / tỷ số MV:LV, bảng một hàng cho
+  // cuộn cao áp / HV:LV → đổi chỗ nhãn đề mục đứng trước hai bảng (tên cuộn dây, cấp điện áp; "Cuộn HV:LV" ↔ "Cuộn MV:LV").
+  // Đoạn không tìm thấy (template đã sửa tay) thì bỏ qua, không đoán.
+  const SWAP_RE = {
+    // nhãn gồm cả dấu chấm cuối câu (nếu có) để setSlot không chèn khoảng trắng trước dấu chấm
+    winding: [/(?<v>Cuộn dây\s+(?:cao|trung)\s+(?:thế|áp)\s*,\s*\(\s*[HM]\.?\s*V\.?\s+Winding\s*\)\s*\.?)/i, /Cuộn dây\s*(?<v>\d+(?:[.,]\d+)?\s*kV)/i],
+    ratio: [/Cuộn\s+(?<v>[HM]V\s*:\s*LV\s*\.?)/i],
+  };
+  function swapHeadings(tpl, swaps) {
+    if (!tpl.paraBefore || !tpl.getSlot || !tpl.setSlot) return;
+    swaps.forEach(sw => (SWAP_RE[sw.kind] || []).forEach(re => {
+      const pa = tpl.paraBefore(sw.a, re), pb = tpl.paraBefore(sw.b, re);
+      if (!pa || !pb || pa === pb) return;
+      const va = tpl.getSlot(pa, re), vb = tpl.getSlot(pb, re);
+      if (va === null || vb === null) return;
+      tpl.setSlot(pa, re, vb);
+      tpl.setSlot(pb, re, va);
+    }));
   }
 
   // Cột bảng số liệu giống bảng máy đo (và mẫu phụ lục của đơn vị); độ rộng theo khổ chữ của template A4 (16 cm)
@@ -306,5 +327,5 @@
   }
 
   // Template chuẩn MBA 500 kV có 73 bảng; ít hơn 72 thì vị trí điền có thể lệch (mẫu chung 3 pha: 28 bảng, schema.tables)
-  window.MbaReport = { fill, phaseState, oltcAppendix, bctAppendix, bctBlocks, bctToBody, hasBct, minTables: 72, stdTables: 73 };
+  window.MbaReport = { fill, swapHeadings, phaseState, oltcAppendix, bctAppendix, bctBlocks, bctToBody, hasBct, minTables: 72, stdTables: 73 };
 })();
