@@ -97,3 +97,13 @@ test('cảnh báo chung: cờ trendFail, kết luận tự động liệt kê đ
   assert.deepEqual(JSON.parse(JSON.stringify(s.run([]).findings)), JSON.parse(JSON.stringify(plain.findings)));
   assert.ok(!plain.findings.some(f => f.trend));
 });
+
+test('tiêu chí quy về 20 °C: thiếu nhiệt độ → không so số thô với lịch sử', () => {
+  const s = setup({ reason: 'Định kỳ 3 năm' });
+  const k = 'ir.meas.r0.r60';
+  const h = s.hist(k, 3, '2020-01-01', 'SAT');
+  assert.equal(s.trendOf(s.run([h]), k).status, 'fail');
+  s.state.v['ir.t'] = '';
+  const raw = Object.assign({}, h, { cmp_basis: 'raw' });
+  assert.equal(s.trendOf(s.run([raw]), k), undefined);
+});

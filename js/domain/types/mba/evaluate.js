@@ -22,15 +22,17 @@
 
   // Tiêu chí xu hướng QĐ 1901 (so với giá trị khởi đầu / lần trước, theo lịch sử CSDL) — khóa "ITEM:PARAM" của dòng CSDL.
   // judge(ctx) → { status, limit, actions } hoặc null (không áp dụng). ctx: { fromBase, fromPrevious, base, cur, L, isNew, layout, c1Lim }
+  // norm: chỉ so giá trị quy về 20 °C (lịch sử cmp_basis = norm). Mốc "khởi đầu" = xuất xưởng, không có thì lần đo sớm nhất
+  // (QĐ 1901 Điều 2 — định nghĩa; TrendInline.series).
   const fin = d => d !== null && d !== undefined && Number.isFinite(d);
   const TREND_RULES = {
     'IR:R60': {
-      name: 'R60@20', unit: 'MΩ', digits: 0, rowLabel: true, basis: IR_DROP_BASIS, both: true,
+      name: 'R60@20', unit: 'MΩ', digits: 0, rowLabel: true, basis: IR_DROP_BASIS, both: true, norm: true,
       judge: c => ({ status: [c.fromBase, c.fromPrevious].some(d => fin(d) && d < -c.L.IR_DROP) ? 'fail' : 'pass',
         limit: `giảm ≤ ${c.L.IR_DROP}% so với giá trị khởi đầu và lần trước`, actions: IR_DROP_ACTIONS }),
     },
     'WTGD:TGD': {
-      name: 'tgδ cuộn dây (20 °C)', unit: '%', digits: 3, rowLabel: true, basis: 'QĐ 1901 Điều 30 mục 3 (Điều 9 mục 5)',
+      name: 'tgδ cuộn dây (20 °C)', unit: '%', digits: 3, rowLabel: true, basis: 'QĐ 1901 Điều 30 mục 3 (Điều 9 mục 5)', norm: true,
       // tgδ20 < 1% coi là tốt, không cần so với giá trị khởi đầu (Điều 30 mục 3)
       judge: c => (c.cur < c.L.WINDING_TGD_OK || !fin(c.fromBase) ? null : {
         status: c.fromBase > c.L.WINDING_TGD_RISE ? 'fail' : 'pass',
@@ -51,7 +53,7 @@
         actions: 'Hướng xử lý: (1) Đánh giá theo quy định của nhà sản xuất nếu có (Điều 38 mục 3c). (2) Gợi ý: vệ sinh sứ, kiểm tra sơ đồ đo (đầu đo test tap), đo lại. (3) ' + REPORT_UP }),
     },
     'BUSHING:TGD1': {
-      name: 'tgδ C1 sứ (20 °C)', unit: '%', digits: 3, basis: 'QĐ 1901 Điều 38 mục 3a',
+      name: 'tgδ C1 sứ (20 °C)', unit: '%', digits: 3, basis: 'QĐ 1901 Điều 38 mục 3a', norm: true,
       // chỉ áp dụng trong vận hành (không áp dụng cho lần sau lắp đặt / sửa chữa)
       judge: c => (c.isNew || !fin(c.fromBase) ? null : {
         status: c.fromBase > c.L.BUSHING_TGD_RISE_FAIL ? 'fail' : c.fromBase >= c.L.BUSHING_TGD_RISE_WARN ? 'warn' : 'pass',
@@ -715,6 +717,8 @@
         const rule = TREND_RULES[`${row.item}:${row.param}`];
         if (!rule || !row.key) return;
         const norm = Number.isFinite(row.value_norm) ? row.value_norm : null;
+        // tiêu chí quy về 20 °C: thiếu nhiệt độ / hệ số quy đổi → không so số thô ở nhiệt độ khác nhau
+        if (rule.norm && norm === null) return;
         const cur = norm !== null ? norm : row.value;
         if (!ok(cur)) return;
         const group = byKey.get(keyOf(row));
