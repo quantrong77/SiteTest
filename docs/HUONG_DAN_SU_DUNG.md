@@ -142,6 +142,22 @@ Hãy dùng đúng nhãn hiển thị trên phiên bản đang chạy.
 9. Nguồn tham chiếu của từng pha cần khớp số chế tạo trong cột pha.
 10. File lớn có thể chỉ được giữ trong phiên nếu không lưu được vào local storage.
 
+### Tra cứu và sửa số liệu xuất xưởng (mục XX)
+
+1. Mở **XX Số liệu xuất xưởng** (nhóm Biên bản). Đăng nhập để xem số liệu đã lưu CSDL; chưa đăng nhập chỉ thấy file .xlsx trên máy.
+2. Cây bên trái: **Trạm → Ngăn → Thiết bị → Số chế tạo** (máy chính và các sứ). Thiết bị chưa gắn trạm / ngăn nằm ở nhóm **Chưa gắn trạm / ngăn**;
+   máy trong file .xlsx trên máy mà CSDL chưa có nằm ở nhóm **Chưa lưu CSDL**. Bàn phím: ↑ ↓ di chuyển, → mở nhánh, ← đóng nhánh.
+3. Bấm một nút trên cây để lọc danh sách bên phải; bấm lại hoặc **Bỏ lọc** để xem tất cả.
+4. Ô **Tìm** lọc ngay theo trạm, ngăn, tên thiết bị, số chế tạo (kể cả số chế tạo sứ), số report — không cần gõ dấu.
+5. **Chuột phải** vào một dòng (hoặc nút **⋯**, hoặc phím Menu / Shift+F10):
+   - **Xem số liệu** — bảng giá trị xuất xưởng theo hạng mục, lọc theo thiết bị / hạng mục;
+   - **Sửa số liệu** (quyền ghi) — sửa từng giá trị, ngày thí nghiệm, số report → **Lưu thay đổi** → kiểm tra danh sách thay đổi → **Xác nhận lưu**.
+     Nhiệt độ đo chỉ đọc; giá trị quy đổi tính lại theo tỷ lệ; mỗi giá trị sửa được ghi chú ngày và người sửa;
+   - **Dùng cho biên bản đang lập** — tải file test report gốc từ CSDL và dùng làm file xuất xưởng của biên bản;
+   - **Tải file test report**;
+   - với máy **Chưa lưu CSDL**: xem sheet gốc, dùng file, **Lưu lên CSDL**.
+6. Đánh giá "so xuất xưởng" trong biên bản dùng file .xlsx đang dùng; số liệu sửa trong CSDL dùng cho **xu hướng** các lần thí nghiệm sau.
+
 ### Test report sứ Hitachi
 
 1. Dùng nút nạp XLSX xuất xưởng/test report sứ đang có trong mục 0.

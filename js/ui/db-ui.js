@@ -327,5 +327,5 @@
   });
 
   function reset() { sessions = null; docs = {}; T.equipment = null; T.data = null; T.loadedFor = ''; T.eqId = ''; }
-  window.DbUI = { renderDb, renderTrend, afterRender, action, reset };
+  window.DbUI = { renderDb, renderTrend, afterRender, action, reset, ITEM };
 })();

@@ -195,6 +195,23 @@
   async function downloadDoc(path) { return chk(await need().storage.from(BUCKET).download(path)); }
 
   const listSessions = async () => chk(await need().from('v_session_list').select('*').order('test_date', { ascending: false }).limit(500));
+  // Số liệu xuất xưởng: các lần thí nghiệm FAT; số liệu đo của một lần (kèm số chế tạo / loại / vị trí của thiết bị)
+  const listFactorySessions = async () => chk(await need().from('v_session_list').select('*').eq('kind', 'FAT').order('test_date', { ascending: false }).limit(2000));
+  const factoryMeasurements = async sessionId => chk(await need().from('v_trend')
+    .select('id, equipment_id, serial_no, class_code, equipment_name, position, item, param, config, phase, tap, value, value_text, unit, temp_c, value_norm, norm_temp_c, note')
+    .eq('session_id', sessionId).order('item').order('param').order('config').order('phase').order('tap').limit(20000));
+  // Sửa tay số liệu xuất xưởng: thông tin lần thí nghiệm + từng dòng đo theo id (RLS: editor / admin)
+  async function updateFactory(sessionId, meta, rows) {
+    if (meta && Object.keys(meta).length) chk(await need().from('test_sessions').update(meta).eq('id', sessionId).select('id'));
+    let n = 0;
+    for (const r of rows || []) {
+      const out = chk(await need().from('measurements').update({ value: r.value, value_text: r.value_text, value_norm: r.value_norm, note: r.note })
+        .eq('id', r.id).eq('session_id', sessionId).select('id'));
+      if (!out.length) throw new Error(`Không cập nhật được dòng ${r.id} (không có quyền hoặc đã bị xóa)`);
+      n += out.length;
+    }
+    return n;
+  }
   const loadSession = async id => chk(await need().from('test_sessions').select('*').eq('id', id).single());
   const deleteSession = async id => chk(await need().from('test_sessions').delete().eq('id', id).select('id'));
   const listDocs = async sessionId => chk(await need().from('documents').select('*').eq('session_id', sessionId).order('created_at'));
@@ -242,7 +259,7 @@
 
   window.DB = {
     connect, cfgGet, checkConfig, siteCfg, refreshUser, signIn, signUp, signOut, signInWithGoogle, resetPassword, updatePassword, onAuthChange, authInit, saveField, importFactory, uploadDoc, downloadDoc,
-    listSessions, loadSession, deleteSession, listDocs, listEquipment, equipmentRated, trend, trendForSerials, listSubstations, listBays, listClasses, listKTables, listCriteria, saveCriteria, deleteCriteria, listLibrary, saveLibraryDoc, deleteLibraryDoc, uploadLibraryFile, libraryFileUrl, crud,
+    listSessions, listFactorySessions, factoryMeasurements, updateFactory, loadSession, deleteSession, listDocs, listEquipment, equipmentRated, trend, trendForSerials, listSubstations, listBays, listClasses, listKTables, listCriteria, saveCriteria, deleteCriteria, listLibrary, saveLibraryDoc, deleteLibraryDoc, uploadLibraryFile, libraryFileUrl, crud,
     get client() { return client; }, get user() { return user; }, get role() { return role; }, get profile() { return profile; },
     get busy() { return inflight; },
     canEdit: () => role === 'editor' || role === 'admin',
