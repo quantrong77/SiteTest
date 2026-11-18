@@ -56,8 +56,10 @@
   function number(value) {
     const s = String(value || '').replace(/\s/g, '').replace(/[^\d,.-]/g, '');
     if (!s) return '';
-    if (s.includes(',') && s.includes('.')) return s.lastIndexOf(',') > s.lastIndexOf('.') ? s.replace(/\./g, '').replace(',', '.') : s.replace(/,/g, '');
-    return s.replace(',', '.');
+    const normalized = s.includes(',') && s.includes('.')
+      ? (s.lastIndexOf(',') > s.lastIndexOf('.') ? s.replace(/\./g, '').replace(',', '.') : s.replace(/,/g, ''))
+      : s.replace(',', '.');
+    return /^[+-]?(?:\d+(?:\.\d*)?|\.\d+)$/.test(normalized) ? normalized : '';
   }
   function pageWidth(page) {
     if (Number(page && page.pageWidth) > 0) return Number(page.pageWidth);
@@ -67,16 +69,36 @@
   const centerX = item => Number(item.x || 0) + Number(item.w || 0) / 2;
   const fallbackCenters = (width, ratios) => ratios.map(r => width * r);
 
+  // PDF.js/OCR thường tách ký tự chỉ số dưới thành item riêng (U + o, R + 15).
+  function headerGroups(line) {
+    const items = line.items;
+    const out = [];
+    for (let i = 0; i < items.length; i++) {
+      let text = '', last = null;
+      for (let j = i; j < Math.min(items.length, i + 4); j++) {
+        const item = items[j];
+        if (last && Number(item.x || 0) - (Number(last.x || 0) + Number(last.w || 0)) > 7) break;
+        text += item.str;
+        out.push({ text, item: { x: items[i].x, w: Number(item.x || 0) + Number(item.w || 0) - Number(items[i].x || 0) } });
+        last = item;
+      }
+    }
+    return out;
+  }
+  function headerMatch(lines, from, to, keys) {
+    const opts = Array.isArray(keys) ? keys : [keys];
+    for (let n = Math.max(0, from || 0); n < Math.min(lines.length, to == null ? lines.length : to); n++) {
+      for (const g of headerGroups(lines[n])) {
+        const value = compact(g.text);
+        if (opts.some(key => value === key || (key.length > 2 && (value.startsWith(key) || value.includes(key))))) return centerX(g.item);
+      }
+    }
+    return null;
+  }
+
   function headerCenters(lines, aliases, from, to, fallback) {
     return aliases.map((opts, index) => {
-      const keys = Array.isArray(opts) ? opts : [opts];
-      for (let n = Math.max(0, from || 0); n < Math.min(lines.length, to == null ? lines.length : to); n++) {
-        for (const item of lines[n].items) {
-          const value = compact(item.str);
-          if (keys.some(key => value === key || (key.length > 2 && value.startsWith(key)))) return centerX(item);
-        }
-      }
-      return fallback[index];
+      return headerMatch(lines, from, to, opts) ?? fallback[index];
     });
   }
   function phaseCenters(lines, start, side, width, ocrLegacy) {
@@ -113,6 +135,15 @@
   }
   function cellNumber(page, y, centers, index) {
     const item = cellItem(page, y, centers, index, 10);
+    return item ? number(item.str) : '';
+  }
+  function nearbyText(lines, y, centers, maxY) {
+    return lines.filter(line => Math.abs(line.y - y) <= maxY)
+      .sort((a, b) => Math.abs(a.y - y) - Math.abs(b.y - y))
+      .map(line => leftText(line, centers)).filter(Boolean).join(' ');
+  }
+  function nearestCellNumber(page, y, centers, index, maxY) {
+    const item = cellItem(page, y, centers, index, maxY || 16);
     return item ? number(item.str) : '';
   }
   function cellText(page, y, centers, index, tolerance) {
@@ -166,6 +197,11 @@
     if (s.includes('loitugongtu') || s.includes('coreclamp')) return 'r8';
     return '';
   }
+  // Đề mục "8. …" / "8.2 …": số mục rồi đến chữ — không nhầm với dòng số liệu như "8.25 0.2 8.257"
+  const SEC8 = /^\s*8\s*\.(?!\s*\d)/;
+  // mục con "8.2 …" hoặc "8.2. …" (có dấu chấm sau số); không khớp số liệu "8.25", "8.257"
+  const SUB_HEAD = { 1: /^\s*[89]\s*\.\s*1\.?(?![\d,])\s*\D/, 2: /^\s*[89]\s*\.\s*2\.?(?![\d,])\s*\D/, 3: /^\s*[89]\s*\.\s*3\.?(?![\d,])\s*\D/ };
+  const subHead = (f, n) => SUB_HEAD[n].test(f);
   function parseTemperature(value) {
     const text = String(value || '');
     const m = text.match(/(?:nhiệt\s*độ|temperature)[^0-9+-]*([+-]?\d+(?:[.,]\d+)?)/i)
@@ -196,16 +232,17 @@
         if (opts.ocr && c.includes('dcvoltage') && !line.items.some(item => compact(item.str).startsWith('r15'))) {
           legacyOcr = true;
           centers = fallbackCenters(pageWidth(page), [0.425, 0.560, 0.700, 0.840]);
-        } else if (line.items.some(item => compact(item.str).startsWith('r15')) && line.items.some(item => compact(item.str).startsWith('r60'))) {
+        } else if (headerMatch(lines, i, Math.min(lines.length, i + 3), ['r15']) != null
+          && headerMatch(lines, i, Math.min(lines.length, i + 3), ['r60']) != null) {
           centers = headerCenters(lines, ['r15', 'r60', 'r600', 'kht', 'pi', 'dcvoltage'], i, Math.min(lines.length, i + 8), fallback);
         }
         if (corrected || !centers) return;
-        const label = leftText(line, centers);
+        const label = nearbyText(lines, line.y, centers, 12);
         let row = terminalRow(label) || coreRow(label);
         if (opts.ocr && legacyOcr) {
           if (row === 'r0') r0AnchorY = line.y;
-          const first = cellNumber(page, line.y, centers, 0), second = cellNumber(page, line.y, centers, 1);
-          const voltage = cellNumber(page, line.y, centers, 3);
+          const first = nearestCellNumber(page, line.y, centers, 0, 16), second = nearestCellNumber(page, line.y, centers, 1, 16);
+          const voltage = nearestCellNumber(page, line.y, centers, 3, 16);
           if (!row && r0AnchorY != null && r0AnchorY - line.y >= 25 && first && second) row = 'r1';
           if (!row || (!first && !second && !voltage)) return;
           putMeasurementNumber(v, 'ir.meas.' + row + '.r15', first, true);
@@ -216,9 +253,9 @@
         if (!row) return;
         ['r15', 'r60', 'r600'].forEach((col, index) => {
           if ((row === 'r6' || row === 'r7' || row === 'r8') && col !== 'r60') return;
-          putNumber(v, 'ir.meas.' + row + '.' + col, cellNumber(page, line.y, centers, index));
+          putNumber(v, 'ir.meas.' + row + '.' + col, nearestCellNumber(page, line.y, centers, index, 16));
         });
-        putNumber(v, 'ir.meas.' + row + '.u', cellNumber(page, line.y, centers, 5));
+        putNumber(v, 'ir.meas.' + row + '.u', nearestCellNumber(page, line.y, centers, 5, 16));
       });
     });
   }
@@ -312,15 +349,16 @@
           const m = line.text.match(/k2\s*=\s*([+-]?\d+(?:[.,]\d+)?)/i);
           if (m) putNumber(v, 'wtgd.k2', m[1]);
         }
-        if (line.items.some(item => compact(item.str).startsWith('tgdelta')) && line.items.some(item => compact(item.str) === 'c')) {
+        if (headerMatch(lines, i, Math.min(lines.length, i + 3), ['tgdelta', 'tg']) != null
+          && headerMatch(lines, i, Math.min(lines.length, i + 3), ['c']) != null) {
           centers = headerCenters(lines, [['tgdelta', 'tg'], 'c', 'kv', 'diagram'], i, Math.min(lines.length, i + 9), fallback);
         }
         if (corrected || !centers) return;
-        const row = terminalRow(leftText(line, centers));
+        const row = terminalRow(nearbyText(lines, line.y, centers, 12));
         if (!row) return;
-        putNumber(v, 'wtgd.meas.' + row + '.tgd', cellNumber(page, line.y, centers, 0));
-        putNumber(v, 'wtgd.meas.' + row + '.c', cellNumber(page, line.y, centers, 1));
-        putNumber(v, 'wtgd.meas.' + row + '.u', cellNumber(page, line.y, centers, 2));
+        putNumber(v, 'wtgd.meas.' + row + '.tgd', nearestCellNumber(page, line.y, centers, 0, 16));
+        putNumber(v, 'wtgd.meas.' + row + '.c', nearestCellNumber(page, line.y, centers, 1, 16));
+        putNumber(v, 'wtgd.meas.' + row + '.u', nearestCellNumber(page, line.y, centers, 2, 16));
         putText(v, 'wtgd.meas.' + row + '.d', cellText(page, line.y, centers, 3));
       });
     });
@@ -337,7 +375,8 @@
         if (/2\.2/.test(f) && (c.includes('dienapthap') || c.includes('lowvoltage'))) { active = 'nl.hv'; centers = null; }
         if (/2\.3/.test(f) || c.includes('dienrocachdien') || c.includes('insulationresistance')) { active = ''; centers = null; }
         if (!active) return;
-        if (line.items.some(item => compact(item.str).startsWith('uo')) && line.items.some(item => compact(item.str).startsWith('io'))) {
+        if (headerMatch(lines, i, Math.min(lines.length, i + 3), ['uo']) != null
+          && headerMatch(lines, i, Math.min(lines.length, i + 3), ['io']) != null) {
           centers = headerCenters(lines, ['uo', 'io', 'po', 'short'], i, Math.min(lines.length, i + 8), fallback);
         }
         if (!centers) return;
@@ -350,43 +389,298 @@
     });
   }
 
-  function parseDcr(linesByPage, v) {
-    let active = false, side = '', centers = null;
-    const aliases = {
+  function dcrAliases() {
+    return {
       mv: ['amn', 'bmn', 'cmn'],
       hv: [['an', 'ao', 'aam'], ['bn', 'bo', 'bbm'], ['cn', 'co', 'ccm']],
       lv: ['ab', 'bc', 'ca'],
     };
-    const fallback = fallbackCenters(595, [0.350, 0.500, 0.650]);
+  }
+  function dcrHeaderCenters(lines, side, from, to) {
+    const aliases = dcrAliases()[side].map(x => Array.isArray(x) ? x : [x]);
+    return aliases.map(options => {
+      for (let i = Math.max(0, from || 0); i < Math.min(lines.length, to == null ? lines.length : to); i++) {
+        for (const group of headerGroups(lines[i])) {
+          const value = compact(group.text);
+          if (options.some(key => value === key || (!value.startsWith('delta') && value.startsWith(key)))) return centerX(group.item);
+        }
+      }
+      return null;
+    });
+  }
+  function schemaRowForTap(schema, gridId, tap) {
+    const grid = Common.findGrid(schema, gridId);
+    if (!grid || !grid.rows || !grid.rows.length) return '';
+    if (grid.rows.length === 1) return grid.rows[0].k;
+    const wanted = String(tap);
+    const row = grid.rows.find(item => String(item.tap || '').replace(/\D/g, '') === wanted
+      || String(item.k || '').match(/\d+/)?.[0] === wanted
+      || String(item.label || '').match(/\d+/)?.[0] === wanted);
+    return row ? row.k : '';
+  }
+  function voltageTokens(value) {
+    return (String(value || '').match(/\d+(?:[.,]\d+)?/g) || []).map(x => Number(x.replace(',', '.'))).filter(Number.isFinite);
+  }
+  function dcrVoltage(line) {
+    const match = String(line || '').match(/(\d+(?:[.,]\d+)?)\s*k\s*v/i);
+    return match ? Number(match[1].replace(',', '.')) : null;
+  }
+  function nearestVoltageRank(value, levels) {
+    const unique = [...new Set(levels.filter(Number.isFinite))].sort((a, b) => b - a);
+    if (unique.length < 2) return '';
+    let nearest = 0;
+    unique.forEach((v, i) => {
+      if (Math.abs(Math.log(value / v)) < Math.abs(Math.log(value / unique[nearest]))) nearest = i;
+    });
+    if (nearest === 0) return 'HV';
+    if (nearest === unique.length - 1 && unique.length > 2) return 'LV';
+    return 'MV';
+  }
+  function detectDcrWinding(linesByPage, ratedVoltage) {
+    let active = false, current = null;
+    const blocks = [];
+    linesByPage.forEach(lines => lines.forEach((line, i) => {
+      const f = fold(line.text), c = compact(line.text);
+      if (/^\s*7\s*\./.test(f) && (c.includes('dienromotchieu') || c.includes('windingresistance'))) active = true;
+      if (!active) return;
+      if (SEC8.test(f) || c.includes('tysobien') || c.includes('voltageratio')) { active = false; current = null; return; }
+      if (/^\s*7\.\d/.test(f)) {
+        current = { heading: f, lines: [], voltage: null, tapped: false, columnSide: '' };
+        blocks.push(current);
+      }
+      if (!current) return;
+      current.lines.push(line.text);
+      const voltage = dcrVoltage(line.text);
+      if (voltage != null) current.voltage = voltage;
+      if (!c.includes('nac') && !c.includes('tap')) return;
+      const nearby = lines.slice(i, Math.min(lines.length, i + 4));
+      const has = side => dcrHeaderCenters(nearby, side, 0, nearby.length).every(x => x != null);
+      const columnSide = has('mv') ? 'MV' : has('hv') ? 'HV' : '';
+      if (columnSide) { current.tapped = true; current.columnSide = columnSide; }
+    }));
+
+    const tapped = blocks.find(block => block.tapped);
+    if (!tapped) return { winding: '', conflict: false, tappedHeading: '', warning: '' };
+    const vi = tapped.heading;
+    const vn = /trung\s*(?:the|ap)/.test(vi) ? 'MV' : /cao\s*(?:the|ap)/.test(vi) ? 'HV' : '';
+    const en = /m\.?\s*v\.?\s*winding/.test(vi) ? 'MV' : /h\.?\s*v\.?\s*winding/.test(vi) ? 'HV' : '';
+    const rated = voltageTokens(ratedVoltage);
+    const subheadings = blocks.map(block => block.voltage).filter(Number.isFinite);
+    let byVoltage = '';
+    if (tapped.voltage != null) {
+      const occurrences = subheadings.filter(x => Math.abs(x - tapped.voltage) / tapped.voltage < 0.03).length;
+      if (new Set(subheadings).size > 1 && occurrences === 1) byVoltage = nearestVoltageRank(tapped.voltage, subheadings);
+      if (!byVoltage) byVoltage = nearestVoltageRank(tapped.voltage, rated);
+      if (!byVoltage && rated.length && tapped.voltage < Math.max(...rated)) byVoltage = 'MV';
+    }
+    const winding = byVoltage || vn || en || tapped.columnSide || '';
+    const disagreement = [vn, en, tapped.columnSide].filter(Boolean).some(side => side !== winding);
+    let warning = '';
+    if (disagreement) {
+      const vnText = vn ? (vn === 'MV' ? 'trung áp/trung thế' : 'cao áp/cao thế') : 'không ghi rõ phía';
+      const voltageText = tapped.voltage == null ? '' : ` và ${String(tapped.voltage).replace('.', ',')} kV`;
+      // nhãn tiếng Anh và tên cột cùng một phía thì chỉ ghi một lần
+      const labels = [...new Set([en, tapped.columnSide].filter(Boolean))].map(side => side === 'MV' ? 'M.V/AmN' : 'H.V/AN').join(', ');
+      warning = `Đề mục ghi '${vnText}'${voltageText} nhưng nhãn tiếng Anh/cột ghi ${labels} — đã nhận là cuộn ${winding === 'MV' ? 'trung áp' : 'cao áp'}; kiểm tra lại.`;
+    }
+    return { winding, conflict: disagreement, tappedHeading: tapped.heading, warning };
+  }
+  function parseDcr(linesByPage, v, warnings, schema, windingInfo) {
+    let active = false, side = '', centers = null, headerY = null, headerPage = -1, seen75 = false;
+    const aliases = dcrAliases();
+    linesByPage.forEach((lines, pageIndex) => {
+      const page = linesByPage.pages[pageIndex];
+      lines.forEach((line, i) => {
+        const f = fold(line.text), c = compact(line.text);
+        if (/^\s*7\s*\./.test(f) && (c.includes('dienromotchieu') || c.includes('windingresistance'))) {
+          active = true; side = ''; centers = null; headerY = null; headerPage = -1;
+        }
+        if (!active) return;
+        if (SEC8.test(f) || c.includes('tysobien') || c.includes('voltageratio') || c.includes('onloadtap')) {
+          active = false; side = ''; centers = null; headerY = null; headerPage = -1; return;
+        }
+        const nextSide = c.includes('mvwinding') || (c.includes('cuondaytrungthe') && !c.includes('hvwinding')) ? 'mv'
+          : c.includes('hvwinding') || c.includes('cuondaycaothe') ? 'hv'
+            : c.includes('cuondayhath') || c.includes('lvwinding') ? 'lv' : '';
+        if (nextSide) {
+          side = fold(line.text) === windingInfo.tappedHeading && windingInfo.winding ? windingInfo.winding.toLowerCase() : nextSide;
+          centers = null; headerY = null; headerPage = -1;
+        }
+        if (!side) return;
+
+        // Chỉ ghi nhiệt độ được in kèm phía đo; không lấy con số ở dòng này làm trị số đo.
+        if ((f.includes('nhiet do') || f.includes('temperature')) && /\bt\s*=/.test(f)) {
+          const t = parseTemperature(line.text);
+          if (t) {
+            putNumber(v, 'dcr.' + side + '.t', t);
+            if (Number(t) === 75) seen75 = true;
+          }
+        }
+
+        let cols = aliases[side];
+        if (!centers) {
+          let found;
+          if (side === 'lv') {
+            const labels = ['ab', 'bc', 'ca'];
+            found = labels.map(label => {
+              for (let n = i; n < Math.min(lines.length, i + 4); n++) {
+                const item = lines[n].items.find(x => fold(x.str).replace(/\s+/g, '') === 'pha' + label);
+                if (item) return centerX(item);
+              }
+              return null;
+            });
+          } else found = dcrHeaderCenters(lines, side, i, Math.min(lines.length, i + 4));
+          if (found.some(x => x == null) && (c.includes('nac') || c.includes('tap'))) {
+            const hv = dcrHeaderCenters(lines, 'hv', i, Math.min(lines.length, i + 4));
+            const mv = dcrHeaderCenters(lines, 'mv', i, Math.min(lines.length, i + 4));
+            if (hv.every(x => x != null)) { cols = aliases.hv; found = hv; }
+            else if (mv.every(x => x != null)) { cols = aliases.mv; found = mv; }
+          }
+          if (found.every(x => x != null)) {
+            centers = found;
+            const header = side === 'lv'
+              ? lines.slice(i, Math.min(lines.length, i + 4)).find(candidate =>
+                ['ab', 'bc', 'ca'].every(label => candidate.items.some(x => fold(x.str).replace(/\s+/g, '') === 'pha' + label)))
+              : lines.slice(i, Math.min(lines.length, i + 4)).find(candidate =>
+                dcrHeaderCenters([candidate], side, 0, 1).every(x => x != null));
+            headerY = header ? header.y : line.y;
+            headerPage = pageIndex;
+            return;
+          }
+        }
+        if (!centers || (pageIndex === headerPage && line.y >= headerY - 2)) return;
+        // Chỉ nhận hàng số liệu bên dưới tiêu đề, trong cùng tiểu mục và loại bỏ nhiệt độ/điện áp/quy đổi.
+        if (/nhiet\s*do|temperature|\bkv\b|quy\s*doi|corrected|%/.test(f)) return;
+        let tap = null;
+        if (side === 'mv' || side === 'hv') {
+          const first = centers[0];
+          const tapItem = line.items.find(item => centerX(item) < first - 20 && /^\d{1,2}$/.test(String(item.str || '').trim()));
+          if (!tapItem && side === 'mv') return;
+          if (tapItem) {
+            tap = Number(tapItem.str);
+            if (tap < 1 || tap > 19) return;
+          }
+        }
+        const values = centers.map((_, index) => cellNumber(page, line.y, centers, index));
+        if (!values.every(value => value && Number.isFinite(Number(value)))) return;
+        const gridId = 'dcr.' + side;
+        const grid = Common.findGrid(schema, gridId);
+        const row = tap == null
+          ? schemaRowForTap(schema, gridId, grid && grid.rows.length === 1 ? 0 : 1)
+          : schemaRowForTap(schema, gridId, tap);
+        if (!row) return;
+        const phaseCols = (grid.cols || []).filter(col => col.phase && !col.calc && !col.auto).slice(0, 3);
+        phaseCols.forEach((col, index) => putMeasurementNumber(v, `dcr.${side}.${row}.${col.k}`, values[index], false));
+      });
+    });
+    if (seen75) warnings.push('R một chiều trong PDF ghi ở 75 °C — kiểm tra đây là giá trị đo hay đã quy đổi');
+  }
+
+  function parseRatio(linesByPage, v, schema) {
+    let side = '', centers = null, headerY = null, headerPage = -1;
+    const ratioCols = {
+      hm: [['uabuambm'], ['ubcubmcm'], ['ucaucmam']],
+      hl: [['uabuab'], ['ubcubc'], ['ucauca']],
+      ml: [['uambmuab'], ['ubmcmubc'], ['ucmamuca']],
+    };
+    const fallback = fallbackCenters(595, [0.37, 0.55, 0.73]);
     linesByPage.forEach((lines, pageIndex) => {
       const page = linesByPage.pages[pageIndex], width = pageWidth(page);
       lines.forEach((line, i) => {
         const f = fold(line.text), c = compact(line.text);
-        if (c.includes('dienromotchieu') || c.includes('windingresistance')) { active = true; side = ''; centers = null; }
-        if (!active) return;
-        if (c.includes('tysobien') || c.includes('voltageratio') || c.includes('onloadtap')) { active = false; side = ''; centers = null; return; }
-        if (c.includes('cuondaytrungthe') || c.includes('mvwinding')) side = 'mv';
-        else if (c.includes('cuondaycaothe') || c.includes('hvwinding')) side = 'hv';
-        else if (c.includes('cuondayhath') || c.includes('lvwinding')) side = 'lv';
+        if (subHead(f, 1) || c.includes('hv:mv')) { side = 'hm'; centers = null; headerY = null; headerPage = -1; }
+        else if (subHead(f, 2) || c.includes('hv:lv')) { side = 'hl'; centers = null; headerY = null; headerPage = -1; }
+        else if (subHead(f, 3) || c.includes('mv:lv')) { side = 'ml'; centers = null; headerY = null; headerPage = -1; }
         if (!side) return;
-        const t = parseTemperature(line.text);
-        if (t && (f.includes('nhietdo') || f.includes('temperature'))) putNumber(v, 'dcr.' + side + '.t', t);
-        if (line.items.some(item => aliases[side].some(alias => (Array.isArray(alias) ? alias : [alias]).includes(compact(item.str))))) {
-          centers = headerCenters(lines, aliases[side], i, Math.min(lines.length, i + 10), fallback);
+        if (c.includes('onloadtap') || c.includes('oltc') || c.includes('bo dieu ap duoi tai')) { side = ''; centers = null; return; }
+        const aliases = ratioCols[side];
+        const found = aliases.map(keys => headerMatch(lines, i, Math.min(lines.length, i + 3), keys));
+        if (found.every(x => x != null)) { centers = found; headerY = line.y; headerPage = pageIndex; }
+        else if (!centers && (c.includes('nac') || c.includes('tap'))) {
+          const detected = headerCenters(lines, aliases, i, Math.min(lines.length, i + 10), fallback);
+          if (detected.some((x, j) => x !== fallback[j])) centers = detected;
         }
-        if (!centers) return;
-        const rowLabel = leftText(line, centers);
-        const tapText = line.items.filter(item => centerX(item) < width * 0.23).map(item => item.str).join(' ').trim();
-        const tapMatch = tapText.match(/^\s*(\d{1,2})\s*$/);
-        const tap = tapMatch ? Number(tapMatch[1]) : null;
-        let row = '';
-        if (side === 'hv') row = tap ? 't' + tap : 't1';
-        else if (side === 'mv') { if (!tap || tap === 9) row = 'r'; }
-        else row = 'r';
+        if (!centers || (pageIndex === headerPage && line.y >= headerY - 2)) return;
+        const tapText = line.items.filter(item => centerX(item) < (centers[0] + width * 0.20) / 2).map(item => item.str).join(' ').trim();
+        const match = tapText.match(/^\s*(\d{1,2})\s*$/);
+        const gridId = 'ratio.' + side, grid = Common.findGrid(schema, gridId);
+        const tap = match ? Number(match[1]) : null;
+        if (tap != null && (tap < 1 || tap > 19)) return;
+        if (tap == null && (!grid || grid.rows.length !== 1)) return;
+        const row = schemaRowForTap(schema, gridId, tap == null ? 0 : tap);
         if (!row) return;
-        ['A', 'B', 'C'].forEach((phase, index) => putNumber(v, 'dcr.' + side + '.' + row + '.' + phase, cellNumber(page, line.y, centers, index)));
+        const phaseCols = (grid.cols || []).filter(col => col.phase && !col.calc && !col.auto).slice(0, 3);
+        phaseCols.forEach((col, index) => putNumber(v, 'ratio.' + side + '.' + row + '.' + col.k,
+          nearestCellNumber(page, line.y, centers, index, 12)));
       });
     });
+  }
+
+  function parseBctInsulation(linesByPage, v) {
+    let side = '', cores = 4, active = false, centers = null;
+    linesByPage.forEach((lines, pageIndex) => {
+      const page = linesByPage.pages[pageIndex];
+      lines.forEach(line => {
+        const f = fold(line.text), c = compact(line.text);
+        if (c.includes('bushingtypecurrenttransformertesting')) { active = true; side = ''; centers = null; }
+        if (!active) return;
+        if (c.includes('excitationcurve') || c.includes('verificationofterminal') || /11\.5|11\.6/.test(f)) { active = false; return; }
+        if (/11\.2\.1/.test(f) || c.includes('hv') && c.includes('caoap')) { side = 'hv'; cores = 4; centers = null; }
+        else if (/11\.2\.2/.test(f) || c.includes('mvandneutral')) { side = 'mv'; cores = 4; centers = null; }
+        else if (/11\.2\.3/.test(f) || c.includes('lv') && c.includes('hath')) { side = 'lv'; cores = 4; centers = null; }
+        if (!side) return;
+        const count = f.match(/co\s*(?:≤\s*)?(4|5|6)\s*cuon/);
+        if (count) cores = Number(count[1]);
+        const phaseItems = line.items.filter(item => /^pha\s*(a|b|c|an|n)$/i.test(fold(item.str)));
+        if (phaseItems.length >= 3) {
+          const labels = side === 'lv' ? ['a', 'b', 'c'] : side === 'mv' && phaseItems.length >= 4 ? ['A', 'B', 'C', 'N'] : ['A', 'B', 'C'];
+          centers = labels.map((_, index) => centerX(phaseItems[index]));
+        }
+        if (!centers) return;
+        const left = line.items.filter(item => centerX(item) < centers[0] - 30).map(item => item.str).join(' ');
+        const rowMatch = left.match(/(?:thứ\s*cấp|winding)\s*(\d+)/i);
+        if (!rowMatch || Number(rowMatch[1]) > cores) return;
+        const row = 'w' + rowMatch[1];
+        const phases = side === 'lv' ? ['a', 'b', 'c'] : side === 'mv' && centers.length === 4 ? ['A', 'B', 'C', 'N'] : ['A', 'B', 'C'];
+        phases.forEach((phase, index) => putNumber(v, `bct.${side}.ir.${row}.${phase}`,
+          nearestCellNumber(page, line.y, centers, index, 18)));
+      });
+    });
+  }
+
+  function parseCoverResults(linesByPage, v) {
+    const cover = (linesByPage[0] || []).map(x => x.text).join(' ');
+    const vector = cover.match(/(?:tổ\s*đấu\s*dây\s*\(vector\s*group\)|vector\s*group)\s*[:：]?\s*([a-z0-9-]+)/i);
+    if (vector) putText(v, 'meta.vector', vector[1]);
+    const visual = cover.match(/1\s*\.\s*kiểm\s*tra\s*bên\s*ngoài[\s\S]{0,100}?(Đạt|Không\s+đạt|Bình\s+thường)/i);
+    return visual ? visual[1] : '';
+  }
+
+  function parseTextFields(linesByPage, v) {
+    const all = linesByPage.flat().map(x => x.text).join('\n');
+    const bctAt = all.search(/(?:bushing\s*type\s*current\s*transformer|biến\s*dòng\s*chân\s*sứ)/i);
+    const bctText = bctAt < 0 ? '' : all.slice(bctAt);
+    const visual = bctText.match(/(?:general\s*inspection)[^\n:]{0,30}[:：]\s*([^\n]+)/i);
+    if (visual) putText(v, 'bct.visual', visual[1]);
+    const moistAt = all.search(/(?:hàm\s*lượng\s*ẩm|moisture\s*content)/i);
+    const moistText = moistAt < 0 ? '' : all.slice(moistAt, bctAt > moistAt ? bctAt : undefined);
+    const moisture = moistText.match(/(?:độ\s*ẩm|moisture\s*(?:content)?)[^\n:]{0,30}[:=]\s*([\d]+(?:[.,]\d+)?)/i);
+    if (moisture) putNumber(v, 'moist.val', moisture[1]);
+    const method = moistText.match(/(?:phương\s*pháp|method|thiết\s*bị\s*đo)[^\n:]{0,20}[:：]\s*([^\n]+)/i);
+    if (method) putText(v, 'moist.method', method[1]);
+    const polarity = bctText.match(/\(S2,?3,?4,?5\)\s*[–-]\s*([^\n]+)/i);
+    if (polarity) putText(v, 'bct.polarity', polarity[1]);
+    const oltcAt = all.search(/(?:bộ\s*điều\s*áp\s*dưới\s*tải|on[- ]load\s*tap\s*changer)/i);
+    const oltcText = oltcAt < 0 ? '' : all.slice(oltcAt, moistAt > oltcAt ? moistAt : undefined);
+    const oltc = Boolean(oltcText);
+    if (oltc) {
+      const type = oltcText.match(/\(Type\)\s*[:：]\s*([^\n]+)/i);
+      const serial = oltcText.match(/\(Serial\s*No\)\s*[:：]\s*([^\n]+)/i);
+      const oscillograph = oltcText.match(/\(Oscillograph\s*result\)\s*[:：]\s*([^\n]+)/i);
+      if (type) putText(v, 'oltc.type', type[1]);
+      if (serial) putText(v, 'oltc.serial', serial[1]);
+      if (oscillograph) putText(v, 'oltc.osc', oscillograph[1]);
+    }
   }
 
   function measurementCount(v) {
@@ -442,18 +736,28 @@
 
     const cfg = EquipmentTypes.get('MBA').defaultCfg();
     cfg.template = '110'; cfg.layout = '110'; cfg.topology = 'threePhase'; cfg.reportScope = 'combined';
+    const winding = detectDcrWinding(positioned, v['meta.voltage']);
+    if (winding.winding) cfg.oltcWinding = winding.winding;
+    const schema = EquipmentTypes.get('MBA').buildSchema(cfg);
+    const parserWarnings = [];
+    if (!winding.winding) parserWarnings.push('Chưa xác định được cuộn đặt OLTC từ bảng R một chiều; giữ cấu hình cao áp, cần kiểm tra PDF.');
+    if (winding.warning) parserWarnings.push(winding.warning);
+    const visualResult = parseCoverResults(positioned, v);
+    parseTextFields(positioned, v);
     parseIR(positioned, v, opts);
     parseBushings(positioned, v, opts);
     parseWindingTgd(positioned, v);
     parseNoLoad(positioned, v);
-    parseDcr(positioned, v);
+    parseDcr(positioned, v, parserWarnings, schema, winding);
+    parseRatio(positioned, v, schema);
+    parseBctInsulation(positioned, v);
 
     const count = measurementCount(v);
     const state = {
-      type: 'MBA', v, cfg, sum: { tick: {}, ev: {} }, att: {}, created: new Date().toISOString(),
+      type: 'MBA', v, cfg, sum: { tick: {}, ev: visualResult ? { visual: visualResult } : {} }, att: {}, created: new Date().toISOString(),
       imported: { file: fileName, format: 'pdf', layout: '110', templateVersion: 'PTC3/NPTS BM.01', reportNo, at: new Date().toISOString() },
     };
-    const warnings = [];
+    const warnings = parserWarnings.slice();
     if (opts.ocr) warnings.push('PDF scan đã được OCR; cần đối chiếu từng số liệu nhận dạng với bản gốc trước khi lưu.');
     if (!hasTemplateCode) warnings.push('OCR chưa nhận dạng rõ mã mẫu; xác nhận đây là BBTN MBA 110–220 kV trước khi lưu.');
     if (!String(v['meta.serial'] || '').trim()) warnings.push('Chưa đọc được số chế tạo — nhập lại trong biểu mẫu.');
