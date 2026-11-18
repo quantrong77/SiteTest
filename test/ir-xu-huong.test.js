@@ -25,7 +25,7 @@ test('giảm >30% so với lần trước → Không đạt, hướng xử lý t
   const f = trend(res);
   assert.ok(f, 'có dòng xu hướng R60');
   assert.equal(f.status, 'fail');
-  assert.equal(f.irDrop, true);
+  assert.equal(f.trendFail, true);
   assert.match(f.basis, /Điều 29 mục 3/);
   assert.match(f.note, /PI/);
   assert.match(f.note, /Điều 9 ghi chú d/);
@@ -47,7 +47,7 @@ test('giảm ≤30% so với cả hai mốc → Đạt; tăng không phải dấ
   const { r20, row, run, trend } = setup();
   const f = trend(run([row(r20 / 0.8, '2020-01-01', 'SAT'), row(r20 / 0.75, '2023-01-01', 'PERIODIC')]));
   assert.equal(f.status, 'pass');
-  assert.equal(f.irDrop, undefined);
+  assert.equal(f.trendFail, undefined);
   assert.equal(trend(run([row(r20 * 0.5, '2020-01-01', 'SAT')])).status, 'pass');
 });
 

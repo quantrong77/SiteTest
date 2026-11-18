@@ -402,11 +402,13 @@
   // Cảnh báo xu hướng tại hiện trường (vd R60@20 giảm >30% so với giá trị khởi đầu / lần trước — QĐ 1901 Điều 29 mục 3):
   // hiện ngay đầu hạng mục khi vừa nhập số, kèm hướng xử lý của từng kết luận
   function trendAlertHTML(secId) {
-    const hits = (res.findings || []).filter(f => f.sec === secId && f.irDrop);
+    const hits = (res.findings || []).filter(f => f.sec === secId && f.trendFail);
     if (!hits.length) return '';
-    return `<div class="callout bad" role="alert"><b>Cảnh báo xu hướng (${esc(hits[0].basis || '')}):</b><ul>${hits.map(f =>
-      `<li><b>${esc(f.item)}</b>${f.loc ? ` – ${esc(f.loc)}` : ''}: ${esc(f.meas)}, ${esc(f.dev)} (${esc(f.ref)})</li>`).join('')}</ul>`
-      + `<div>${esc((hits[0].note || '').replace(/^.*?(Hướng xử lý:)/, '$1'))}</div></div>`;
+    // hướng xử lý theo từng tiêu chí (căn cứ khác nhau), mỗi loại ghi một lần
+    const actions = [...new Map(hits.map(f => [f.basis, (f.note || '').replace(/^.*?(Hướng xử lý:)/, '$1')])).entries()];
+    return `<div class="callout bad" role="alert"><b>Cảnh báo xu hướng so với số liệu quá khứ (QĐ 1901):</b><ul>${hits.map(f =>
+      `<li><b>${esc(f.item)}</b>${f.loc ? ` – ${esc(f.loc)}` : ''}: ${esc(f.meas)}, ${esc(f.dev)} — ${f.status === 'warn' ? 'cần xem xét' : 'không đạt'} (${esc(f.limit)}; ${esc(f.ref)})</li>`).join('')}</ul>`
+      + actions.map(([basis, a]) => `<div><b>${esc(basis)}:</b> ${esc(a)}</div>`).join('') + '</div>';
   }
   // Mục 0: chọn các hạng mục thực hiện trong lần thí nghiệm này
   function itemsChecklistHTML() {
