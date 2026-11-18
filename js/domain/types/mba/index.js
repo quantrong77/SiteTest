@@ -10,6 +10,8 @@
       ps: { A: '', B: '', C: '' }, taps: Schema.DEFAULT_TAPS.slice(), hvMeas: 'SER+COM', lvMode: 'unit',
       // mẫu 110–220 kV: bộ điều áp dưới tải đặt ở cuộn cao áp ('HV', mặc định) hay trung áp ('MV', MBA 220 kV kiểu Liên Xô cũ)
       oltcWinding: 'HV',
+      // hạng mục KHÔNG thực hiện trong lần thí nghiệm này ({ id hạng mục: true }); mặc định thực hiện tất cả
+      skip: {},
       iLV: '', sLV: '', sR: '', i0Ref: '', bC1Dev: '', bTgdMax: '', bctCores: { hv: 4, mv: 4, lv: 4 },
       ctNo: { hv: '1,2,3,4,5,6', mv: '4,5,6,7,8', n: '8,9,10', lv: '11,12,13,14' }, bctErrLimit: '', decSep: ',',
       hdr: {}, wtgdLabels: {}, wtgdRows: [], oltcCharts: 'all',
@@ -27,6 +29,8 @@
     cfg.reportScope = ['combined', 'separate'].includes(cfg.reportScope) ? cfg.reportScope : 'combined';
     if (cfg.topology !== 'bank1p') cfg.reportScope = 'combined';
     cfg.oltcWinding = cfg.oltcWinding === 'MV' ? 'MV' : 'HV';
+    // hạng mục KHÔNG thực hiện ({ id: true }); biên bản cũ: mọi hạng mục thực hiện
+    cfg.skip = cfg.skip && typeof cfg.skip === 'object' ? Object.fromEntries(Object.entries(cfg.skip).filter(([, x]) => x === true)) : {};
     cfg.reportPhases = Array.isArray(cfg.reportPhases)
       ? ['A', 'B', 'C'].filter(ph => cfg.reportPhases.includes(ph)) : ['A', 'B', 'C'];
     cfg.ps = Object.assign(defaultCfg().ps, saved.ps || {});
@@ -177,7 +181,7 @@
     report: { fill: MbaReport.fill, phaseState: MbaReport.phaseState, filePrefix: 'MBA', minTables: MbaReport.minTables, stdTables: MbaReport.stdTables, defaultReason: 'Sau lắp đặt' },
     references,
     // Số liệu đính kèm biên bản (state.att) thuộc hạng mục nào — để xóa / hoàn tác theo hạng mục
-    attSections: { oltc: 'oltc', oscAuto: 'oltc' },
+    attSections: Schema.ATT_SECTIONS,
     // Hướng dẫn đo rút gọn từ tài liệu đào tạo; sơ đồ và thao tác chi tiết theo quy trình được duyệt.
     workflow,
   });

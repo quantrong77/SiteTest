@@ -144,7 +144,7 @@
     res = T().evaluate(state, FX, schema);
     const rows = Appendix.shortCircuitResults(state, FX);
     const section = res.sec.shortCircuit;
-    if (section) {
+    if (section && !section.skipped) {
       const layout = state.cfg.template === 'custom' ? state.cfg.layout : state.cfg.template;
       const is3Phase = ['3P', '110'].includes(layout), phaseGroups = new Set();
       const add = finding => {
@@ -225,7 +225,7 @@
       if (!first && navPrev[it.id] !== status) navChangedAt[it.id] = Date.now();
       navPrev[it.id] = status;
       const flip = status && Date.now() - (navChangedAt[it.id] || 0) < 600;
-      const tip = status ? BRK_LABEL[status] : (S ? 'Chưa nhập' : '');
+      const tip = S && S.skipped ? 'Không thực hiện' : status ? BRK_LABEL[status] : (S ? 'Chưa nhập' : '');
       const workflow = S ? Workflow.stateOf(S, current === it.id) : '';
       return {
         id: it.id,
@@ -292,7 +292,9 @@
     const id = 'f_' + k.replace(/\W/g, '_');
     let ctrl;
     if (f.type === 'select') {
-      ctrl = `<select id="${id}" data-k="${k}">${f.options.map(o => `<option ${o === val ? 'selected' : ''}>${esc(o)}</option>`).join('')}</select>`;
+      // giá trị cũ không còn trong danh sách (vd lý do "Định kỳ" trước đây, chữ đọc từ PDF) vẫn hiện và giữ nguyên
+      const opts2 = val && !f.options.includes(val) ? f.options.concat([val]) : f.options;
+      ctrl = `<select id="${id}" data-k="${k}">${opts2.map(o => `<option ${o === val ? 'selected' : ''}>${esc(o)}${f.options.includes(o) ? '' : ' (giá trị cũ)'}</option>`).join('')}</select>`;
     } else if (f.type === 'textarea') {
       ctrl = `<textarea id="${id}" data-k="${k}" placeholder="${esc(f.placeholder || '')}">${esc(val)}</textarea>`;
     } else if (opts.calc) {
@@ -392,7 +394,16 @@
   function headHTML(no, title, en, secId) {
     const S = secId && res.sec[secId];
     const badge = S ? `<span class="badge ${S.status ? 'st-' + S.status : 'st-none'}">${S.text || 'Chưa nhập'}</span>` : '';
-    return `<div class="panel-head"><span class="secno">${esc(no)}</span><h2>${esc(title)}</h2><span class="en">${esc(en || '')}</span><span class="spacer"></span>${secId ? voiceHTML() : ''}${badge}</div>`;
+    // ô "Thực hiện": bỏ tích → hạng mục không thực hiện trong lần thí nghiệm này (ẩn vùng nhập liệu)
+    const doIt = S ? `<label class="sec-do"><input type="checkbox" data-skipsec="${secId}" ${S.skipped ? '' : 'checked'}> Thực hiện</label>` : '';
+    return `<div class="panel-head"><span class="secno">${esc(no)}</span><h2>${esc(title)}</h2><span class="en">${esc(en || '')}</span><span class="spacer"></span>${doIt}${secId && !(S && S.skipped) ? voiceHTML() : ''}${badge}</div>`;
+  }
+  // Mục 0: chọn các hạng mục thực hiện trong lần thí nghiệm này
+  function itemsChecklistHTML() {
+    const skip = state.cfg.skip || {};
+    return '<h3>Hạng mục thực hiện trong lần thí nghiệm này</h3><div class="hint-text">Bỏ tích hạng mục không thực hiện: vùng nhập liệu được ẩn, '
+      + 'không đánh giá, không ghi CSDL và để trống ô "đã thí nghiệm" ở trang 1 BBTN. Số liệu đã nhập vẫn được giữ — tích lại để xem.</div>'
+      + `<div class="sec-checklist">${schema.sections.map(s => `<label><input type="checkbox" data-skipsec="${s.id}" ${skip[s.id] ? '' : 'checked'}> ${esc(String(s.no))}. ${esc(s.title)}</label>`).join('')}</div>`;
   }
 
   // ---------------------------------------------------------------- pages
@@ -408,6 +419,7 @@
     h += U.generalTopology ? U.generalTopology(App) : '';
     h += `<h3>Thông tin thiết bị (điền vào đầu biên bản)</h3>${U.headTools ? U.headTools(App) : ''}${flagBannerHTML()}<div class="fields">${schema.head.filter(f => !(topology === 'bank1p' && f.k === 'meta.serial')).map(f => fieldHTML(f)).join('')}</div>`;
     h += U.unitSerialFields ? U.unitSerialFields(App) : '';
+    h += itemsChecklistHTML();
     h += '<h3>Template & số liệu xuất xưởng</h3><div class="fields">';
     h += cfgField('template', 'Mẫu BBTN theo cấu hình', { options: templateOptions.length ? templateOptions : [[state.cfg.template, topology === 'bank1p' ? 'Mẫu chung 3 MBA một pha' : topology === 'threePhase' ? 'Mẫu MBA ba pha' : 'Mẫu MBA một pha']] });
     h += `<div class="field"><label>Nạp template khác (.docx cùng cấu trúc)</label><button class="btn" data-act="loadDocx">Chọn file template…</button></div>`;
@@ -444,6 +456,10 @@
       if (U.sectionFooter) body += U.sectionFooter(s.id, App);
       body += `<div class="wf-sum" data-fsum="${s.id}"></div>`;
     }
+    if (S && S.skipped) {
+      return `<section class="panel" data-sec="${s.id}">${headHTML(String(s.no), s.title, s.en, s.id)}`
+        + '<div class="callout">Hạng mục <b>không thực hiện</b> trong lần thí nghiệm này. Tích ô <b>Thực hiện</b> ở trên để nhập số liệu (số liệu đã nhập trước đó vẫn được giữ).</div></section>';
+    }
     const h = headHTML(String(s.no), s.title, s.en, s.id) + `<div class="wf-bar">${Workflow.stepsHTML(s.id, S)}${editToolsHTML(s.id)}</div>`
       + `<div class="wf-layout"><div class="wf-main" data-step="${step}">${body}</div>${Workflow.referencesHTML(T(), s.id, esc, StandardsUI.docs || [], EquipmentTypes.codeOf(state), (id, path) => DB.libraryFileUrl(path))}</div>`;
     return `<section class="panel" data-sec="${s.id}">${h}</section>`;
@@ -470,10 +486,10 @@
     schema.sections.forEach(s => {
       const S = res.sec[s.id];
       const autoTick = !!S.status;
-      const tick = state.sum.tick[s.id] ?? autoTick;
+      const tick = !S.skipped && (state.sum.tick[s.id] ?? autoTick);
       const ev = state.sum.ev[s.id] || '';
-      h += `<tr class="${S.status ? 'st-' + S.status : ''}"><td>${s.no}</td><td>${esc(s.title)}</td>
-        <td><input type="checkbox" data-sumtick="${s.id}" ${tick ? 'checked' : ''}></td>
+      h += `<tr class="${S.skipped ? 'sec-skipped' : S.status ? 'st-' + S.status : ''}"><td>${s.no}</td><td>${esc(s.title)}</td>
+        <td><input type="checkbox" data-sumtick="${s.id}" ${tick ? 'checked' : ''} ${S.skipped ? 'disabled aria-label="Hạng mục không thực hiện"' : ''}></td>
         <td><span class="badge ${S.status ? 'st-' + S.status : 'st-none'}">${S.text || 'Chưa nhập'}</span></td>
         <td class="num">${S.counts.pass} / ${S.counts.warn} / ${S.counts.fail} / ${S.counts.missing}</td>
         <td><select data-sumev="${s.id}">${[['', 'Tự động'], ['Đạt', 'Đạt'], ['Không đạt', 'Không đạt'], ['Cần xem xét', 'Cần xem xét'], ['—', '(để trống)']].map(([v, t]) => `<option value="${v}" ${v === ev ? 'selected' : ''}>${t}</option>`).join('')}</select></td></tr>`;
@@ -659,6 +675,14 @@
       if (el.dataset.lbl) $$(`[data-lblm="${id}"]`).forEach(x => { x.textContent = t || el.placeholder; });
       if (!t) el.value = el.dataset.hk ? el.placeholder : '';
       schema = T().buildSchema(state.cfg); recompute(); updateComputed(); persist();
+    } else if (el.dataset.skipsec && e.type === 'change') {
+      // tích / bỏ tích "Thực hiện" của một hạng mục: số liệu giữ nguyên trong biên bản, chỉ ẩn / hiện và đánh giá lại
+      const id = el.dataset.skipsec;
+      state.cfg.skip = Object.assign({}, state.cfg.skip);
+      if (el.checked) delete state.cfg.skip[id]; else state.cfg.skip[id] = true;
+      recompute(); renderNav(); renderMain(); persist();
+      const s = schema.sections.find(x => x.id === id);
+      toast(`${s ? `${s.no}. ${s.title}` : id}: ${el.checked ? 'thực hiện' : 'không thực hiện (ẩn vùng nhập, không đánh giá, không ghi BBTN/CSDL)'}`);
     } else if (el.dataset.cfg && e.type === 'change') {
       const before = schema.layout;
       const previousTopology = el.dataset.cfg === 'topology' ? state.cfg.topology : null;
