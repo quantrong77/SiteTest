@@ -50,6 +50,12 @@ Khi xuất Word, cuối BBTN có phụ lục bảng tra theo từng hạng mục
 Tên một số nút trong khu vực có thể thay đổi theo nhánh/tính năng.
 Hãy dùng đúng nhãn hiển thị trên phiên bản đang chạy.
 
+### Hạng mục thực hiện và lý do thí nghiệm
+
+1. **Lý do thí nghiệm** chọn một trong: Sau lắp đặt, 1 năm sau lắp đặt, Định kỳ 1 năm, Định kỳ 3 năm, Định kỳ 6 năm, Tăng cường, Đột xuất, Sau sửa chữa/đại tu. Biên bản cũ ghi lý do khác vẫn giữ nguyên (hiện là "giá trị cũ").
+2. Ngưỡng "MBA mới" của QĐ 1901 áp dụng cho *Sau lắp đặt* và *Sau sửa chữa/đại tu*; *1 năm sau lắp đặt* và các lần định kỳ dùng ngưỡng máy đã vận hành.
+3. Khối **Hạng mục thực hiện trong lần thí nghiệm này**: bỏ tích hạng mục không làm (cũng có ô **Thực hiện** ở đầu từng hạng mục). Hạng mục bỏ tích: ẩn vùng nhập liệu, không đánh giá, không ghi CSDL, ô "đã thí nghiệm" ở trang 1 BBTN để trống. Số liệu đã nhập vẫn được giữ, tích lại là hiện.
+
 ### Thông tin nhận dạng và điều kiện đo
 
 1. Nhập số chế tạo máy chính vào trường số chế tạo.
@@ -207,18 +213,18 @@ Hãy dùng đúng nhãn hiển thị trên phiên bản đang chạy.
 11. Không áp ngưỡng cho phép ở phép đo điện áp thấp nếu QĐ không nêu.
 12. Mục này thường nhập tay; không có bộ đọc máy đo phổ quát trong UI.
 
-## 6. Mục 3: Thí nghiệm ngắn mạch MBA
+## 6. Mục 12 (mẫu 3 pha chung: mục 14): Thí nghiệm ngắn mạch MBA
 
 
-1. Nhập số liệu ở hạng mục chính **Mục 3 — Thí nghiệm ngắn mạch MBA**. Hạng mục có các tab Chuẩn bị, Hướng dẫn đo, Nhập số liệu và Đánh giá. Bố cục 1 pha dùng số chế tạo máy chính; mẫu 3 máy 1 pha ghép số chế tạo theo pha; mẫu MBA 3 pha dùng một S/N và các phép đo pha A/B/C.
+1. Nhập số liệu ở hạng mục **Thí nghiệm ngắn mạch MBA** — mục cuối của biên bản (mục 12; mẫu 3 pha chung: mục 14), các mục khác giữ đúng số của mẫu Word. Hạng mục có các tab Chuẩn bị, Hướng dẫn đo, Nhập số liệu và Đánh giá. Bố cục 1 pha dùng số chế tạo máy chính; mẫu 3 máy 1 pha ghép số chế tạo theo pha; mẫu MBA 3 pha dùng một S/N và các phép đo pha A/B/C.
 2. Theo Điều 25–26 QĐ 1387, thực hiện từng cặp cuộn ở tần số định mức, nối ngắn mạch một cuộn và cấp nguồn vào cuộn còn lại; dòng thử không thấp hơn 25% In. Khi hiện trường không có điện áp theo Test Report, dùng 380 V hoặc điện áp không quá 10 kV rồi nội suy.
 3. Nhập U thử tùy ý theo đơn vị V hoặc kV (có gợi ý 67, 220, 380 V), f đo/f định mức, Un/In, I/P đo, nhiệt độ, cặp cuộn, nấc và pha. App đổi U về kV rồi quy đổi Uk = U/Un × In/I và Pk theo P × (In/I)².
 4. Nếu hiệu chỉnh Pk theo nhiệt độ, nhập PI²R, chọn vật liệu dây dẫn và nhiệt độ Pk trong Test Report. Công thức: Pk₂ = Pcu₁ × (K+t₂)/(K+t₁) + Pstr₁ × (K+t₁)/(K+t₂), Pstr₁ = Pk₁−Pcu₁, K = 235 cho đồng hoặc 225 cho nhôm. Chỉ hiệu chỉnh khi đủ thành phần tổn hao và vật liệu.
 5. App đọc Pk/Uk từ sheet tổn hao/trở kháng của Test Report đang dùng, ghép theo cặp cuộn, nấc và số chế tạo. Có thể chọn trường hợp mới, sau đại tu hoặc đang vận hành; với hai trường hợp sau, nhập thêm Uk ban đầu. Với MBA mới, nhập Uk nhãn máy nếu Test Report không có trị số này để đánh giá Điều 27.
 6. Bảng hiển thị riêng Điều 27 QĐ 1387 (MBA mới: sai số Uk ≤5% tại nấc chính; sau đại tu/đang vận hành: ≤3% so với Uk ban đầu và giữa các pha; Pk ≤115% số liệu nhà chế tạo) và Điều 35 QĐ 1901 đang dùng (Uk ≤3%, Pk ≤115%, lệch pha MBA 3 pha ≤3%). Kết quả chung Đạt khi tất cả tiêu chí áp dụng đạt.
-7. Tần số không khớp, dòng thử dưới 25% In, thiếu Test Report/Uk ban đầu hoặc thiếu dữ liệu quy đổi thì hiện **Cần xem xét**. Khi xuất BBTN, bảng số liệu, so sánh Test Report và đánh giá được nối thành phụ lục riêng.
+7. Tần số không khớp, dòng thử dưới 25% In, thiếu Test Report/Uk ban đầu hoặc thiếu dữ liệu quy đổi thì hiện **Cần xem xét**. Khi xuất BBTN, app thêm hàng "12. Thí nghiệm ngắn mạch máy biến áp" vào bảng hạng mục trang 1 và đưa bảng số liệu, so sánh Test Report, đánh giá vào mục 12 (12.1–12.3) ngay trước "THIẾT BỊ THÍ NGHIỆM" — không còn là phụ lục.
 
-## 7. Mục 4: Điện trở cách điện
+## 7. Mục 3: Điện trở cách điện
 
 1. Nhập nhiệt độ đo tại trường **Nhiệt độ đo (°C)**.
 2. Nhập R15, R60, R180, R360 và R600 khi máy đo cung cấp.
@@ -234,7 +240,7 @@ Hãy dùng đúng nhãn hiển thị trên phiên bản đang chạy.
 12. Căn cứ gồm Điều 9 mục 4, Bảng 4, Bảng 5 và Điều 29.
 13. Mục này nhập thủ công từ máy đo điện trở cách điện.
 
-## 8. Mục 5: Kiểm tra tổ đấu dây
+## 8. Mục 4: Kiểm tra tổ đấu dây
 
 1. Đo tổ đấu dây bằng thiết bị/phương pháp được đơn vị phê duyệt.
 2. Nhập kết quả đo vào trường **Tổ đấu dây đo được**.
@@ -243,7 +249,7 @@ Hãy dùng đúng nhãn hiển thị trên phiên bản đang chạy.
 5. Căn cứ trong mã tham chiếu Điều 32 mục 3.
 6. Không có bộ đọc file tự động riêng trong luồng hiện hành.
 
-## 9. Mục 6: Sứ đầu vào
+## 9. Mục 5: Sứ đầu vào
 
 1. Chọn phía sứ: cao áp, trung áp/trung tính hoặc hạ áp.
 2. Chọn loại cách điện sứ nếu biết: RIP, OIP, RIS, RBP hoặc GIF.
@@ -264,7 +270,7 @@ Hãy dùng đúng nhãn hiển thị trên phiên bản đang chạy.
 17. Sứ có thể nhập tay hoặc nạp XLSX test report.
 18. Nếu bảng hệ số chưa phù hợp, nhờ admin cấu hình trang **Hệ số quy đổi sứ**.
 
-## 10. Mục 7: Tgδ và điện dung cuộn dây
+## 10. Mục 6: Tgδ và điện dung cuộn dây
 
 1. Nhập nhiệt độ cuộn dây/dầu đo được vào trường nhiệt độ.
 2. Nhập tgδ, điện dung C, điện áp đo và sơ đồ đo cho từng đối tượng.
@@ -279,7 +285,7 @@ Hãy dùng đúng nhãn hiển thị trên phiên bản đang chạy.
 11. Tiêu chí tgδ và tăng so với xuất xưởng tham chiếu Điều 9 mục 5 và Điều 30.
 12. Nhập thủ công từ cầu đo tgδ hoặc nạp file nếu có luồng phù hợp.
 
-## 11. Mục 8: Điện trở một chiều
+## 11. Mục 7: Điện trở một chiều
 
 1. Chọn/kiểm tra cách đo cuộn cao áp: A-N hoặc A-Am.
 2. Nhập nhiệt độ cho cuộn cao áp.
@@ -308,7 +314,7 @@ Hãy dùng đúng nhãn hiển thị trên phiên bản đang chạy.
 8. Nếu nhận nhầm pha/nấc, hủy hoặc sửa mapping trước khi áp dụng.
 9. Dữ liệu nhiều hạng mục có thể được ghi theo từng mục để hỗ trợ hoàn tác riêng.
 
-## 12. Mục 9: Tỷ số biến
+## 12. Mục 8: Tỷ số biến
 
 1. Nhập tỷ số đo cho từng nấc và từng cặp cuộn.
 2. Kiểm tra tiêu đề pha A, B, C và các tỷ số HV:MV, HV:LV, MV:LV.
@@ -319,7 +325,7 @@ Hãy dùng đúng nhãn hiển thị trên phiên bản đang chạy.
 7. Chọn pha/nấc trong hộp thoại nếu app không suy ra duy nhất.
 8. Kiểm tra đơn vị và chiều tỷ số trước khi lưu.
 
-## 13. Mục 10: OLTC
+## 13. Mục 9: OLTC
 
 1. Nhập kiểu OLTC, số chế tạo, hãng và năm sản xuất.
 2. Chọn dải nấc chiều 1 và chiều 2.
@@ -336,7 +342,7 @@ Hãy dùng đúng nhãn hiển thị trên phiên bản đang chạy.
 13. Không dùng cảnh báo đó thay cho đánh giá hướng dẫn của nhà sản xuất.
 14. Dạng sóng có thể được đưa vào phụ lục BBTN.
 
-## 14. Mục 11: Độ ẩm cách điện cứng
+## 14. Mục 10: Độ ẩm cách điện cứng
 
 1. Nhập giá trị độ ẩm theo phần trăm.
 2. Nhập phương pháp hoặc thiết bị đo, ví dụ FDS/PDC nếu đúng.
@@ -348,7 +354,7 @@ Hãy dùng đúng nhãn hiển thị trên phiên bản đang chạy.
 8. Căn cứ tham chiếu Điều 28.
 9. Đảm bảo phương pháp và điều kiện đo đúng hướng dẫn thiết bị.
 
-## 15. Mục 12: Biến dòng chân sứ
+## 15. Mục 11: Biến dòng chân sứ
 
 1. Kiểm tra cấu hình số cuộn thứ cấp trong mục 0.
 2. Nhập kết quả kiểm tra ngoài và nhiệt độ đo cách điện.
@@ -417,7 +423,7 @@ Hãy dùng đúng nhãn hiển thị trên phiên bản đang chạy.
 
 ## 18. Phụ lục BBTN
 
-Số liệu thí nghiệm ngắn mạch được nhập ở **Mục 3**; khi xuất DOCX, bảng số liệu, phần so sánh và đánh giá được nối sau biên bản như phụ lục.
+Thí nghiệm ngắn mạch không còn là phụ lục: số liệu nằm trong mục cuối của biên bản (xem chương Thí nghiệm ngắn mạch MBA).
 
 ### Dầu MBA (DGA và lý hóa dầu)
 

@@ -225,7 +225,7 @@
       if (!first && navPrev[it.id] !== status) navChangedAt[it.id] = Date.now();
       navPrev[it.id] = status;
       const flip = status && Date.now() - (navChangedAt[it.id] || 0) < 600;
-      const tip = status ? BRK_LABEL[status] : (S ? 'Chưa nhập' : '');
+      const tip = S && S.skipped ? 'Không thực hiện' : status ? BRK_LABEL[status] : (S ? 'Chưa nhập' : '');
       const workflow = S ? Workflow.stateOf(S, current === it.id) : '';
       return {
         id: it.id,
