@@ -30,9 +30,23 @@ Khi xuất Word, cuối BBTN có phụ lục bảng tra theo từng hạng mục
 3. Không mở trực tiếp `index.html` nếu cần Google OAuth.
 4. Lần đầu mở, app tạo biên bản MBA mặc định nếu chưa có hồ sơ đang nhập.
 5. Dữ liệu nhập dở được tự lưu trên trình duyệt hiện tại.
-6. Dùng **Lưu .json** để sao lưu thành file.
-7. Dùng **Mở…** để mở file JSON đã lưu.
+6. Dùng **Lưu ▾ → Lưu file .json** để sao lưu thành file.
+7. Dùng **Mở ▾ → File .json trên máy** để mở file JSON đã lưu.
 8. JSON trên một máy không tự đồng bộ sang máy khác.
+
+### Bố cục màn hình
+
+- **Thanh điều hướng bên trái** chia nhóm:
+  - **Biên bản** — thông tin chung & cấu hình, số liệu xuất xưởng, nhập BBTN cũ (dữ liệu đầu vào của biên bản đang lập);
+  - **Hạng mục thí nghiệm** — mô hình 3D và các mục 1…12;
+  - **Kết quả** — tổng hợp & kết luận, **xu hướng**, phụ lục BBTN;
+  - **Cơ sở dữ liệu** — biên bản đã lưu, trạm – ngăn – thiết bị;
+  - **Tiêu chuẩn & tra cứu** — bộ tiêu chí, hệ số quy đổi sứ, thư viện tài liệu.
+  Hai nhóm cuối bấm vào tên nhóm để đóng / mở.
+- Nút **«** (hoặc **Ctrl+B**) thu gọn thanh điều hướng thành dải hẹp chỉ còn số mục và trạng thái; di chuột lên mục để xem tên. Kéo mép phải thanh điều hướng để đổi độ rộng; nhấp đúp mép để về mặc định.
+- **Thanh công cụ:** **Mới**; **Mở ▾** (biên bản trong CSDL / file .json); **Lưu ▾** (lưu lên CSDL / lưu file .json); **Xuất BBTN .docx**; **Xuất khác ▾** (bảng so sánh – đánh giá .xlsx).
+- Trong mỗi hạng mục, thanh **Chuẩn bị · Hướng dẫn đo · Nhập số liệu · Đánh giá** luôn hiện khi cuộn. Khung **Tài liệu tham khảo** bên phải (màn hình rộng từ 1100 px) kéo thanh chia để đổi độ rộng (Tab tới thanh chia rồi dùng mũi tên trái / phải), bấm **×** để ẩn, nút **Tài liệu tham khảo** để hiện lại.
+- App nhớ các lựa chọn bố cục trên từng máy.
 
 ### Tạo hồ sơ mới
 

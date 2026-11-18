@@ -201,7 +201,9 @@ h4 { font-size: 13px; margin: 14px 0 6px; color: var(--muted); font-weight: 600;
 .grid-block { margin: 8px 0 18px; }
 .grid-title { display: flex; align-items: center; gap: 10px; margin: 6px 0; font-size: 13px; font-weight: 600; color: var(--muted); }
 .grid-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: var(--radius); }
-table.grid { border-collapse: collapse; min-width: 100%; font-size: 13px; }
+/* display: table bắt buộc: Tailwind (vỏ React) sinh tiện ích .grid { display: grid } trùng tên lớp này → thead / tbody
+   thành khối riêng, tiêu đề cột lệch với ô số liệu. CSS của app không thuộc layer nên luôn thắng tiện ích Tailwind. */
+table.grid { display: table; border-collapse: collapse; min-width: 100%; font-size: 13px; }
 table.grid th, table.grid td { border-bottom: 1px solid var(--line-soft); border-right: 1px solid var(--line-soft); padding: 0; }
 table.grid thead th[data-ph="A"] { box-shadow: inset 0 3px 0 var(--ph-a); }
 table.grid thead th[data-ph="B"] { box-shadow: inset 0 3px 0 var(--ph-b); }
@@ -437,7 +439,16 @@ tr.np-missing .np-val { background: #fde6e3; border-color: var(--fail); }
 .nav-st.st-warn { color: var(--warn); }
 .nav-st.st-fail { color: var(--fail); }
 
-.wf-bar { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: 8px 12px; }
+/* Thanh bước dính dưới thanh trên cùng khi cuộn lưới số liệu dài (--shell-header-h do src/main.jsx đo) */
+.wf-bar { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: 8px 12px;
+  position: sticky; top: var(--shell-header-h, 0px); z-index: 5; margin: 0 -20px 4px; padding: 10px 20px 0; background: var(--panel); border-bottom: 1px solid transparent; }
+.wf-bar-tools { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 6px; }
+.wf-refs-toggle[aria-pressed="true"] { border-color: var(--accent); color: var(--accent); }
+@media (max-width: 1099px) { .wf-refs-toggle { display: none; } }
+@media (max-width: 900px) { .wf-bar { margin: 0 -14px 4px; padding: 8px 14px 0; } }
+/* điện thoại: thanh bước 2 hàng — không dính để khỏi che lưới số liệu */
+@media (max-width: 700px) { .wf-bar { position: static; margin: 0 0 4px; padding: 0; } }
+.callout-foot { margin-top: 8px; }
 .sec-edit { display: flex; flex-wrap: wrap; gap: 6px; margin: -4px 0 14px; }
 .btn.danger { color: var(--fail); border-color: #e7b9b4; }
 .btn.danger:hover:not(:disabled) { background: var(--fail-bg); }
@@ -452,10 +463,27 @@ tr.np-missing .np-val { background: #fde6e3; border-color: var(--fail); }
 .wf-step.on .wf-n { background: var(--accent); border-color: var(--accent); color: #fff; }
 .wf-badge { min-width: 18px; padding: 0 5px; border-radius: 99px; background: var(--fail-bg); color: var(--fail); font-size: 11px; font-weight: 650; text-align: center; }
 
+/* Vùng nhập | thanh chia kéo được | khung tài liệu tham khảo (độ rộng --refs-w do app.js đặt, nhớ theo máy) */
 .wf-layout { display: grid; grid-template-columns: minmax(0, 1fr); gap: 18px; }
-@media (min-width: 1380px) { .wf-layout { grid-template-columns: minmax(0, 1fr) 260px; } .wf-refs { position: sticky; top: 12px; align-self: start; } }
+.wf-split { display: none; }
+@media (min-width: 1100px) {
+  .wf-layout { grid-template-columns: minmax(0, 1fr) 14px var(--refs-w, 280px); gap: 0; }
+  .wf-layout > .wf-main { padding-right: 4px; }
+  .wf-split { display: block; position: relative; cursor: col-resize; touch-action: none; border-radius: 4px; }
+  .wf-split::before { content: ""; position: absolute; top: 0; bottom: 0; left: 6px; width: 2px; border-radius: 2px; background: var(--line-soft); transition: background .12s; }
+  .wf-split:hover::before, .wf-split:focus-visible::before, body.is-resizing .wf-split::before { background: var(--accent); }
+  .wf-split:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .wf-refs { position: sticky; top: calc(var(--shell-header-h, 0px) + 64px); align-self: start; max-height: calc(100vh - var(--shell-header-h, 0px) - 80px); overflow: auto; }
+}
+.wf-layout.refs-hidden { grid-template-columns: minmax(0, 1fr); }
+.wf-layout.refs-hidden > .wf-split, .wf-layout.refs-hidden > .wf-refs { display: none; }
 .wf-main { min-width: 0; }
 .wf-refs { border: 1px solid var(--line); border-radius: var(--radius); background: #f7f8f9; padding: 12px 14px; font-size: 12.5px; }
+.wf-refs-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 0 0 4px; }
+.wf-refs-head h3 { margin: 0; }
+.wf-refs-close { flex: none; width: 26px; height: 26px; border: 1px solid transparent; border-radius: 6px; background: transparent; color: var(--muted); font-size: 18px; line-height: 1; cursor: pointer; }
+.wf-refs-close:hover { border-color: var(--line); background: var(--panel); color: var(--ink); }
+.wf-refs-close:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 .wf-refs h3 { margin: 0 0 4px; font-size: 13.5px; }
 .wf-refs h4 { margin: 12px 0 4px; font-size: 12px; }
 .wf-refs-list { margin: 0; padding-left: 16px; }
