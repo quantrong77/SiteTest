@@ -123,12 +123,23 @@
     extra = Object.assign({}, extra);
     delete extra.bayId;
     const body = Object.assign({}, pack.session, extra, { equipment_id: ids[pack.mainRef] });
+    // biên bản lập trên app: luôn ghi baseline_reset (null = bỏ cờ "giá trị khởi đầu sau sửa chữa" đã lưu trước đó)
+    if (body.source === 'field_app' && !('baseline_reset' in body)) body.baseline_reset = null;
+    // CSDL chưa chạy migration 20261118000100 (chưa có cột) → ghi không kèm cột, chỉ báo lỗi khi cần lưu cờ
+    const write = async q => {
+      const r = await q(body);
+      if (r.error && /baseline_reset/.test(r.error.message || '') && body.baseline_reset == null) {
+        delete body.baseline_reset;
+        return q(body);
+      }
+      return r;
+    };
     let id = sessionId;
     if (id) {
-      const upd = chk(await need().from('test_sessions').update(body).eq('id', id).select('id'));
+      const upd = chk(await write(b => need().from('test_sessions').update(b).eq('id', id).select('id')));
       if (!upd.length) id = null; // đã bị xóa trên CSDL → tạo mới
     }
-    if (!id) id = chk(await need().from('test_sessions').insert(body).select('id').single()).id;
+    if (!id) id = chk(await write(b => need().from('test_sessions').insert(b).select('id').single())).id;
     const rows = pack.rows.map(r => { const o = Object.assign({}, r, { equipment_id: ids[r.eq] }); delete o.eq; return o; });
     const n = chk(await need().rpc('replace_session_data', { p_session_id: id, p_measurements: rows, p_findings: pack.findings || [] }));
     return { id, n, equipmentId: ids[pack.mainRef] };
@@ -184,6 +195,23 @@
   async function downloadDoc(path) { return chk(await need().storage.from(BUCKET).download(path)); }
 
   const listSessions = async () => chk(await need().from('v_session_list').select('*').order('test_date', { ascending: false }).limit(500));
+  // Số liệu xuất xưởng: các lần thí nghiệm FAT; số liệu đo của một lần (kèm số chế tạo / loại / vị trí của thiết bị)
+  const listFactorySessions = async () => chk(await need().from('v_session_list').select('*').eq('kind', 'FAT').order('test_date', { ascending: false }).limit(2000));
+  const factoryMeasurements = async sessionId => chk(await need().from('v_trend')
+    .select('id, equipment_id, serial_no, class_code, equipment_name, position, item, param, config, phase, tap, value, value_text, unit, temp_c, value_norm, norm_temp_c, note')
+    .eq('session_id', sessionId).order('item').order('param').order('config').order('phase').order('tap').limit(20000));
+  // Sửa tay số liệu xuất xưởng: thông tin lần thí nghiệm + từng dòng đo theo id (RLS: editor / admin)
+  async function updateFactory(sessionId, meta, rows) {
+    if (meta && Object.keys(meta).length) chk(await need().from('test_sessions').update(meta).eq('id', sessionId).select('id'));
+    let n = 0;
+    for (const r of rows || []) {
+      const out = chk(await need().from('measurements').update({ value: r.value, value_text: r.value_text, value_norm: r.value_norm, note: r.note })
+        .eq('id', r.id).eq('session_id', sessionId).select('id'));
+      if (!out.length) throw new Error(`Không cập nhật được dòng ${r.id} (không có quyền hoặc đã bị xóa)`);
+      n += out.length;
+    }
+    return n;
+  }
   const loadSession = async id => chk(await need().from('test_sessions').select('*').eq('id', id).single());
   const deleteSession = async id => chk(await need().from('test_sessions').delete().eq('id', id).select('id'));
   const listDocs = async sessionId => chk(await need().from('documents').select('*').eq('session_id', sessionId).order('created_at'));
@@ -217,6 +245,11 @@
   async function trend(equipmentIds) {
     return chk(await need().from('v_trend_delta').select('*').in('equipment_id', equipmentIds).order('test_date').limit(20000));
   }
+  // Thông số định mức đã lưu của một thiết bị (vd MBA: cuộn đặt OLTC) theo loại + số chế tạo; chưa có thì null
+  async function equipmentRated(classCode, serial) {
+    const r = chk(await need().from('equipment').select('rated').eq('class_code', classCode).eq('serial_no', String(serial || '').trim()).maybeSingle());
+    return r ? (r.rated || {}) : null;
+  }
   // Lịch sử đo theo số chế tạo (xu hướng tại ô: biên bản có máy chính, máy từng pha, sứ)
   async function trendForSerials(serials) {
     const ids = [...new Set((serials || []).map(x => String(x || '').trim()).filter(Boolean))];
@@ -226,7 +259,7 @@
 
   window.DB = {
     connect, cfgGet, checkConfig, siteCfg, refreshUser, signIn, signUp, signOut, signInWithGoogle, resetPassword, updatePassword, onAuthChange, authInit, saveField, importFactory, uploadDoc, downloadDoc,
-    listSessions, loadSession, deleteSession, listDocs, listEquipment, trend, trendForSerials, listSubstations, listBays, listClasses, listKTables, listCriteria, saveCriteria, deleteCriteria, listLibrary, saveLibraryDoc, deleteLibraryDoc, uploadLibraryFile, libraryFileUrl, crud,
+    listSessions, listFactorySessions, factoryMeasurements, updateFactory, loadSession, deleteSession, listDocs, listEquipment, equipmentRated, trend, trendForSerials, listSubstations, listBays, listClasses, listKTables, listCriteria, saveCriteria, deleteCriteria, listLibrary, saveLibraryDoc, deleteLibraryDoc, uploadLibraryFile, libraryFileUrl, crud,
     get client() { return client; }, get user() { return user; }, get role() { return role; }, get profile() { return profile; },
     get busy() { return inflight; },
     canEdit: () => role === 'editor' || role === 'admin',

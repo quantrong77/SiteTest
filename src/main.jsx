@@ -20,6 +20,8 @@ const legacyScripts = [
   'js/domain/equipment-types.js',
   'js/domain/report.js',
   'js/domain/records.js',
+  'js/domain/factory-tree.js',
+  'js/domain/equipment-specs.js',
   'js/domain/oltc-wave.js',
   'js/domain/edit-history.js',
   'js/domain/appendix.js',
@@ -35,6 +37,7 @@ const legacyScripts = [
   'js/domain/types/mba/import-2293.js',
   'js/domain/types/mba/nameplate.js',
   'js/domain/types/mba/import-report.js',
+  'js/domain/types/mba/import-report-pdf.js',
   'js/domain/types/mba/index.js',
   'js/data/docx.js',
   'js/data/file-store.js',
@@ -50,6 +53,8 @@ const legacyScripts = [
   'js/ui/workflow.js',
   'js/ui/auth-ui.js',
   'js/ui/db-ui.js',
+  'js/ui/factory-ui.js',
+  'js/ui/setup-ui.js',
   'js/ui/catalog-ui.js',
   'js/ui/kconf-ui.js',
   'js/ui/criteria-ui.js',
@@ -74,6 +79,14 @@ const rootElement = document.getElementById('app-root');
 if (!rootElement) throw new Error('Không tìm thấy vùng gắn ứng dụng #app-root');
 
 flushSync(() => createRoot(rootElement).render(<AppShell />));
+
+// Chiều cao thanh trên cùng (đổi khi xuống dòng ở màn hình hẹp) → --shell-header-h cho thanh bước / khung tham khảo dính
+const shellHeader = document.querySelector('.shell-header');
+if (shellHeader && 'ResizeObserver' in window) {
+  new ResizeObserver(([entry]) => {
+    document.documentElement.style.setProperty('--shell-header-h', `${Math.round(entry.target.getBoundingClientRect().height)}px`);
+  }).observe(shellHeader);
+}
 
 const nav = document.getElementById('nav');
 const toggle = document.getElementById('navToggle');

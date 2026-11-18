@@ -27,7 +27,12 @@ jobs:
 
   deploy:
     needs: test
-    if: ${{ always() && (needs.test.result == 'success' || github.ref == 'refs/heads/codex/shadcn-ui-refactor') }}
+    if: >-
+      ${{ always() && (
+        needs.test.result == 'success' ||
+        github.ref == 'refs/heads/codex/shadcn-ui-refactor' ||
+        (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/codex/bbtn-pdf-import-review')
+      ) }}
     runs-on: ubuntu-latest
     environment:
       name: github-pages

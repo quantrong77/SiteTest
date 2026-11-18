@@ -30,9 +30,23 @@ Khi xuất Word, cuối BBTN có phụ lục bảng tra theo từng hạng mục
 3. Không mở trực tiếp `index.html` nếu cần Google OAuth.
 4. Lần đầu mở, app tạo biên bản MBA mặc định nếu chưa có hồ sơ đang nhập.
 5. Dữ liệu nhập dở được tự lưu trên trình duyệt hiện tại.
-6. Dùng **Lưu .json** để sao lưu thành file.
-7. Dùng **Mở…** để mở file JSON đã lưu.
+6. Dùng **Lưu ▾ → Lưu file .json** để sao lưu thành file.
+7. Dùng **Mở ▾ → File .json trên máy** để mở file JSON đã lưu.
 8. JSON trên một máy không tự đồng bộ sang máy khác.
+
+### Bố cục màn hình
+
+- **Thanh điều hướng bên trái** chia nhóm:
+  - **Biên bản** — thông tin chung & cấu hình, số liệu xuất xưởng, nhập BBTN cũ (dữ liệu đầu vào của biên bản đang lập);
+  - **Hạng mục thí nghiệm** — mô hình 3D và các mục 1…12;
+  - **Kết quả** — tổng hợp & kết luận, **xu hướng**, phụ lục BBTN;
+  - **Cơ sở dữ liệu** — biên bản đã lưu, trạm – ngăn – thiết bị;
+  - **Tiêu chuẩn & tra cứu** — bộ tiêu chí, hệ số quy đổi sứ, thư viện tài liệu.
+  Hai nhóm cuối bấm vào tên nhóm để đóng / mở.
+- Nút **«** (hoặc **Ctrl+B**) thu gọn thanh điều hướng thành dải hẹp chỉ còn số mục và trạng thái; di chuột lên mục để xem tên. Kéo mép phải thanh điều hướng để đổi độ rộng; nhấp đúp mép để về mặc định.
+- **Thanh công cụ:** **Mới**; **Mở ▾** (biên bản trong CSDL / file .json); **Lưu ▾** (lưu lên CSDL / lưu file .json); **Xuất BBTN .docx**; **Xuất khác ▾** (bảng so sánh – đánh giá .xlsx).
+- Trong mỗi hạng mục, thanh **Chuẩn bị · Hướng dẫn đo · Nhập số liệu · Đánh giá** luôn hiện khi cuộn. Khung **Tài liệu tham khảo** bên phải (màn hình rộng từ 1100 px) kéo thanh chia để đổi độ rộng (Tab tới thanh chia rồi dùng mũi tên trái / phải), bấm **×** để ẩn, nút **Tài liệu tham khảo** để hiện lại.
+- App nhớ các lựa chọn bố cục trên từng máy.
 
 ### Tạo hồ sơ mới
 
@@ -43,12 +57,32 @@ Khi xuất Word, cuối BBTN có phụ lục bảng tra theo từng hạng mục
 5. Nếu chọn lại cùng loại đang mở, cấu hình của loại có thể được giữ lại.
 6. Nếu đổi loại, app dùng cấu hình mặc định của loại mới.
 7. Biên bản mới thay state hiện hành; hãy lưu hồ sơ cần giữ trước đó.
-8. App đưa người dùng về mục **0. Thông tin chung & cấu hình**.
+8. App mở **trình khởi tạo biên bản** (Thông tin chung & cấu hình) gồm 4 bước, bấm tên bước để chuyển, nút **Tiếp ›** / **‹ Quay lại** ở cuối trang:
+   1. **Thiết bị** — đã đăng nhập: chọn **Trạm → Ngăn (vị trí lắp đặt) → Thiết bị** từ danh mục; ngăn có tổ 3 máy 1 pha rời thì chọn thêm **Pha**
+      (BBTN riêng máy pha A / B / C, hoặc **Cả tổ A+B+C** — mẫu chung 3 pha); thiết bị chưa có trong danh mục chọn **＋ Thiết bị mới trong ngăn này** rồi nhập số chế tạo.
+      Bấm **Chọn thiết bị này →**: app gắn ngăn (lưu CSDL ghi thiết bị vào ngăn), chọn mẫu BBTN theo pha / cấu hình, điền số chế tạo các máy của tổ.
+      Chưa đăng nhập: chọn cấu hình và nhập số chế tạo như trước.
+   2. **Thông số kỹ thuật** — app tự điền tên trạm, vị trí lắp đặt, hãng, kiểu, năm sản xuất, công suất, điện áp, dòng, tổ đấu dây theo thứ tự:
+      thông số đã lưu của thiết bị trong **CSDL** → **test report** (file .xlsx trên máy có số chế tạo này, hoặc file test report gốc lưu trong CSDL — tự tải về) → **nhập tay**.
+      Ô tự điền tô vàng "Tự điền từ … — kiểm tra lại"; ô chưa có nguồn nào tô đỏ "nhập tay" (giá trị mẫu của template được xóa để khỏi ghi nhầm).
+      Sửa ô là bỏ tô nền; ô đã nhập tay không bị ghi đè. Nút **Điền lại từ CSDL / test report** chạy lại theo số chế tạo đang nhập; vẫn dùng được **Nhập ảnh nameplate…**.
+   3. **Lần thí nghiệm** — lý do, ngày, nhiệt độ, độ ẩm; giá trị khởi đầu sau sửa chữa; hạng mục thực hiện.
+   4. **Mẫu & cấu hình** — template, file xuất xưởng đang dùng, phạm vi xuất BBTN, phụ lục, thông số tính toán. Bấm **Bắt đầu nhập số liệu →** sang hạng mục đầu.
+9. Trang này không còn trên thanh điều hướng. Muốn sửa lại thông tin chung, bấm **thanh thông tin biên bản** (Máy biến áp · S/N · ngày · lý do ✎) ở đầu trang.
+10. Bảng **Các máy trong file xuất xưởng** (Job No., P0, nhiệt độ đo, độ ẩm DFR) chuyển sang mục **XX** (khối File .xlsx trên máy này).
 
 ## 2. Mục 0: Thông tin chung và cấu hình
 
+Mở bằng nút **Mới** (trình khởi tạo 4 bước, xem mục 1) hoặc bấm thanh thông tin biên bản ở đầu trang. Các phần dưới đây nằm trong các bước tương ứng.
+
 Tên một số nút trong khu vực có thể thay đổi theo nhánh/tính năng.
 Hãy dùng đúng nhãn hiển thị trên phiên bản đang chạy.
+
+### Hạng mục thực hiện và lý do thí nghiệm
+
+1. **Lý do thí nghiệm** chọn một trong: Sau lắp đặt, 1 năm sau lắp đặt, Định kỳ 1 năm, Định kỳ 3 năm, Định kỳ 6 năm, Tăng cường, Đột xuất, Sau sửa chữa/đại tu. Biên bản cũ ghi lý do khác vẫn giữ nguyên (hiện là "giá trị cũ").
+2. Ngưỡng "MBA mới" của QĐ 1901 áp dụng cho *Sau lắp đặt* và *Sau sửa chữa/đại tu*; *1 năm sau lắp đặt* và các lần định kỳ dùng ngưỡng máy đã vận hành.
+3. Khối **Hạng mục thực hiện trong lần thí nghiệm này**: bỏ tích hạng mục không làm (cũng có ô **Thực hiện** ở đầu từng hạng mục). Hạng mục bỏ tích: ẩn vùng nhập liệu, không đánh giá, không ghi CSDL, ô "đã thí nghiệm" ở trang 1 BBTN để trống. Số liệu đã nhập vẫn được giữ, tích lại là hiện.
 
 ### Thông tin nhận dạng và điều kiện đo
 
@@ -66,7 +100,8 @@ Hãy dùng đúng nhãn hiển thị trên phiên bản đang chạy.
 1. Chọn **Cấu hình thiết bị** trước: tổ 3 MBA một pha, MBA ba pha hoặc MBA một pha độc lập. Điện áp định mức không tự chọn topology.
 2. Với tổ 3 MBA một pha (thường là MBA 500 kV), nhập S/N riêng cho pha A, B, C. Các S/N được giữ lại khi đổi file Test Report.
 3. Chọn **Một BBTN chung cho cả tổ A+B+C** hoặc **Tách thành BBTN riêng theo pha**. Khi tách, chọn pha cần xuất; một pha tải DOCX, nhiều pha tải ZIP chứa từng DOCX.
-4. Mẫu theo pha (**A**, **B**, **C**) là mẫu riêng cho từng máy một pha. Mẫu chung **3P** gộp ba MBA một pha A, B, C vào một biên bản.
+4. Mẫu theo pha (**A**, **B**, **C**) là mẫu riêng cho từng máy một pha. Mẫu chung **3P** gộp ba MBA một pha A, B, C vào một biên bản. Với mẫu theo pha, nhập **Số chế tạo máy pha B, C trong tổ**: cột pha B, C của bảng R một chiều và tỷ số biến được so với xuất xưởng và ghi CSDL theo máy đó; máy độc lập thì để trống.
+   - Phụ lục *Bảng tra cứu tiêu chuẩn thí nghiệm* (QĐ EVNNPT, IEC, IEEE) mặc định **không kèm** để BBTN đúng mẫu giấy; muốn kèm thì chọn *Kèm phụ lục cuối BBTN* ở mục **Phụ lục BBTN**.
 5. Với MBA ba pha 110–220 kV, chọn topology MBA ba pha và nhập một S/N; ứng dụng chỉ xuất một BBTN. Với MBA một pha độc lập, chọn topology tương ứng và nhập một S/N.
 6. Số mục khác nhau giữa các mẫu: xem bảng dưới. Các phần 4–14 của hướng dẫn này theo cách đánh số mẫu theo pha / 110.
 7. Nếu cần template riêng, dùng nút **Chọn file template…** và chọn DOCX bản trống đúng loại, đúng layout.
@@ -97,6 +132,7 @@ Hãy dùng đúng nhãn hiển thị trên phiên bản đang chạy.
 7. A-N gồm đấu nối tiếp và chung theo cách mô tả giao diện.
 8. A-Am chỉ đo cuộn nối tiếp theo cách mô tả giao diện.
 9. Tên cột và mapping xuất DOCX đổi theo lựa chọn.
+10. Mẫu 110–220 kV: chọn **Bộ điều áp dưới tải (OLTC) đặt ở cuộn**. Máy 220 kV kiểu Liên Xô cũ có OLTC ở phía 110 kV thì chọn *Cuộn trung áp*: R một chiều cuộn trung áp và tỷ số MV:LV nhập theo nấc, cuộn cao áp và tỷ số HV:LV một giá trị.
 
 ### Cấu hình biến dòng chân sứ
 
@@ -119,6 +155,24 @@ Hãy dùng đúng nhãn hiển thị trên phiên bản đang chạy.
 8. Nếu cần, chọn thủ công file số liệu xuất xưởng tại trường cấu hình.
 9. Nguồn tham chiếu của từng pha cần khớp số chế tạo trong cột pha.
 10. File lớn có thể chỉ được giữ trong phiên nếu không lưu được vào local storage.
+
+### Tra cứu và sửa số liệu xuất xưởng (mục XX)
+
+1. Mở **XX Số liệu xuất xưởng** (nhóm Biên bản). Đăng nhập để xem số liệu đã lưu CSDL; chưa đăng nhập chỉ thấy file .xlsx trên máy.
+2. Cây bên trái: **Trạm → Ngăn → Thiết bị → Số chế tạo** (máy chính và các sứ) theo **toàn bộ danh mục** — ngăn chưa có thiết bị, thiết bị **chưa có test report** vẫn hiện (chuột phải → **Thêm file test report (.xlsx)…**, nạp xong lưu lên CSDL ở nhóm Chưa lưu CSDL). Thiết bị chưa gắn trạm / ngăn nằm ở nhóm **Chưa gắn trạm / ngăn**;
+   máy trong file .xlsx trên máy mà CSDL chưa có nằm ở nhóm **Chưa lưu CSDL**. Bàn phím: ↑ ↓ di chuyển, → mở nhánh, ← đóng nhánh.
+3. Bấm một nút trên cây để lọc danh sách bên phải; bấm lại hoặc **Bỏ lọc** để xem tất cả.
+4. Ô **Tìm** lọc ngay theo trạm, ngăn, tên thiết bị, số chế tạo (kể cả số chế tạo sứ), số report — không cần gõ dấu.
+5. **Chuột phải** vào một dòng (hoặc nút **⋯**, hoặc phím Menu / Shift+F10):
+   - **Xem số liệu** — bảng giá trị xuất xưởng theo hạng mục, lọc theo thiết bị / hạng mục;
+   - **Sửa giá trị đo (N giá trị)** (quyền ghi) — sửa từng giá trị, ngày thí nghiệm, số report → **Lưu thay đổi** → kiểm tra danh sách thay đổi → **Xác nhận lưu**.
+     Nhiệt độ đo chỉ đọc; giá trị quy đổi tính lại theo tỷ lệ; mỗi giá trị sửa được ghi chú ngày và người sửa;
+   - **Sửa số chế tạo, tên thiết bị…** (quyền ghi) — sửa thông tin của máy hoặc sứ đang chọn; chỉ sửa số chế tạo khi nhập sai (xu hướng tra theo số chế tạo);
+   - **Gán trạm / ngăn…** / **Đổi trạm / ngăn…** (quyền ghi, máy chính) — chọn trạm, ngăn trong danh mục; thiết bị ở nhóm **Chưa gắn trạm / ngăn** chuyển vào đúng ngăn, các sứ đi theo máy chính;
+   - **Dùng cho biên bản đang lập** — tải file test report gốc từ CSDL và dùng làm file xuất xưởng của biên bản;
+   - **Tải file test report**;
+   - với máy **Chưa lưu CSDL**: xem sheet gốc, dùng file, **Lưu lên CSDL**.
+6. Đánh giá "so xuất xưởng" trong biên bản dùng file .xlsx đang dùng; số liệu sửa trong CSDL dùng cho **xu hướng** các lần thí nghiệm sau.
 
 ### Test report sứ Hitachi
 
@@ -206,18 +260,18 @@ Hãy dùng đúng nhãn hiển thị trên phiên bản đang chạy.
 11. Không áp ngưỡng cho phép ở phép đo điện áp thấp nếu QĐ không nêu.
 12. Mục này thường nhập tay; không có bộ đọc máy đo phổ quát trong UI.
 
-## 6. Mục 3: Thí nghiệm ngắn mạch MBA
+## 6. Mục 12 (mẫu 3 pha chung: mục 14): Thí nghiệm ngắn mạch MBA
 
 
-1. Nhập số liệu ở hạng mục chính **Mục 3 — Thí nghiệm ngắn mạch MBA**. Hạng mục có các tab Chuẩn bị, Hướng dẫn đo, Nhập số liệu và Đánh giá. Bố cục 1 pha dùng số chế tạo máy chính; mẫu 3 máy 1 pha ghép số chế tạo theo pha; mẫu MBA 3 pha dùng một S/N và các phép đo pha A/B/C.
+1. Nhập số liệu ở hạng mục **Thí nghiệm ngắn mạch MBA** — mục cuối của biên bản (mục 12; mẫu 3 pha chung: mục 14), các mục khác giữ đúng số của mẫu Word. Hạng mục có các tab Chuẩn bị, Hướng dẫn đo, Nhập số liệu và Đánh giá. Bố cục 1 pha dùng số chế tạo máy chính; mẫu 3 máy 1 pha ghép số chế tạo theo pha; mẫu MBA 3 pha dùng một S/N và các phép đo pha A/B/C.
 2. Theo Điều 25–26 QĐ 1387, thực hiện từng cặp cuộn ở tần số định mức, nối ngắn mạch một cuộn và cấp nguồn vào cuộn còn lại; dòng thử không thấp hơn 25% In. Khi hiện trường không có điện áp theo Test Report, dùng 380 V hoặc điện áp không quá 10 kV rồi nội suy.
 3. Nhập U thử tùy ý theo đơn vị V hoặc kV (có gợi ý 67, 220, 380 V), f đo/f định mức, Un/In, I/P đo, nhiệt độ, cặp cuộn, nấc và pha. App đổi U về kV rồi quy đổi Uk = U/Un × In/I và Pk theo P × (In/I)².
 4. Nếu hiệu chỉnh Pk theo nhiệt độ, nhập PI²R, chọn vật liệu dây dẫn và nhiệt độ Pk trong Test Report. Công thức: Pk₂ = Pcu₁ × (K+t₂)/(K+t₁) + Pstr₁ × (K+t₁)/(K+t₂), Pstr₁ = Pk₁−Pcu₁, K = 235 cho đồng hoặc 225 cho nhôm. Chỉ hiệu chỉnh khi đủ thành phần tổn hao và vật liệu.
 5. App đọc Pk/Uk từ sheet tổn hao/trở kháng của Test Report đang dùng, ghép theo cặp cuộn, nấc và số chế tạo. Có thể chọn trường hợp mới, sau đại tu hoặc đang vận hành; với hai trường hợp sau, nhập thêm Uk ban đầu. Với MBA mới, nhập Uk nhãn máy nếu Test Report không có trị số này để đánh giá Điều 27.
 6. Bảng hiển thị riêng Điều 27 QĐ 1387 (MBA mới: sai số Uk ≤5% tại nấc chính; sau đại tu/đang vận hành: ≤3% so với Uk ban đầu và giữa các pha; Pk ≤115% số liệu nhà chế tạo) và Điều 35 QĐ 1901 đang dùng (Uk ≤3%, Pk ≤115%, lệch pha MBA 3 pha ≤3%). Kết quả chung Đạt khi tất cả tiêu chí áp dụng đạt.
-7. Tần số không khớp, dòng thử dưới 25% In, thiếu Test Report/Uk ban đầu hoặc thiếu dữ liệu quy đổi thì hiện **Cần xem xét**. Khi xuất BBTN, bảng số liệu, so sánh Test Report và đánh giá được nối thành phụ lục riêng.
+7. Tần số không khớp, dòng thử dưới 25% In, thiếu Test Report/Uk ban đầu hoặc thiếu dữ liệu quy đổi thì hiện **Cần xem xét**. Khi xuất BBTN, app thêm hàng "12. Thí nghiệm ngắn mạch máy biến áp" vào bảng hạng mục trang 1 và đưa bảng số liệu, so sánh Test Report, đánh giá vào mục 12 (12.1–12.3) ngay trước "THIẾT BỊ THÍ NGHIỆM" — không còn là phụ lục.
 
-## 7. Mục 4: Điện trở cách điện
+## 7. Mục 3: Điện trở cách điện
 
 1. Nhập nhiệt độ đo tại trường **Nhiệt độ đo (°C)**.
 2. Nhập R15, R60, R180, R360 và R600 khi máy đo cung cấp.
@@ -232,8 +286,22 @@ Hãy dùng đúng nhãn hiển thị trên phiên bản đang chạy.
 11. Kht và PI là chỉ báo; đọc kết hợp tình trạng và hướng dẫn áp dụng.
 12. Căn cứ gồm Điều 9 mục 4, Bảng 4, Bảng 5 và Điều 29.
 13. Mục này nhập thủ công từ máy đo điện trở cách điện.
+14. **Xu hướng theo QĐ 1901 so với số liệu quá khứ:** ngay khi gõ số chế tạo, app tải lịch sử đo của máy và sứ (CSDL khi đã đăng nhập; mất mạng thì dùng bản lưu tạm trên máy). Nhập số đến đâu, app so với **giá trị khởi đầu** (xuất xưởng, không có thì lần đo sớm nhất) và **lần thí nghiệm trước** đến đó, mỗi đại lượng một dòng "Xu hướng …" trong mục:
+    - **R60@20** (Điều 29 mục 3): giảm quá 30% so với khởi đầu hoặc lần trước → Không đạt. Hướng xử lý: kiểm tra điều kiện đo theo Điều 29 mục 2 rồi đo lại; đo PI (Điều 9 ghi chú d, IEEE C57.152); gợi ý đối chiếu Kht, tgδ/điện dung, ẩm cách điện cứng, BBTN dầu; nếu các hạng mục khác đạt, người có thẩm quyền quyết định đóng điện.
+    - **tgδ cuộn dây @20 °C** (Điều 30 mục 3): tăng quá 30% so với khởi đầu → Không đạt; tgδ20 < 1% coi là tốt, không so. Hướng xử lý: loại trừ yếu tố ẩm, ô nhiễm, sứ bẩn, nhiễu (Điều 30 mục 2); đo ở nhiệt độ cao thì để MBA nguội đo lại.
+    - **Điện dung cuộn dây** (Điều 9 mục 5): lệch quá ±5% so với khởi đầu → Không đạt.
+    - **Sứ đầu vào** (Điều 38 mục 3): C1 thay đổi quá 5% → Không đạt; tgδ C1 trong vận hành tăng 70–100% → Cần xem xét (đo thêm ở 15 Hz và 400 Hz), quá 100% → Không đạt.
+    - **Tổn hao không tải P0** (Điều 34 mục 3): sau lắp đặt/sửa chữa ±5% xuất xưởng (MBA 3 pha ≥110 kV) hoặc ±10% khởi đầu (MBA 1 pha ≥110 kV); vận hành ±15% khởi đầu.
 
-## 8. Mục 5: Kiểm tra tổ đấu dây
+    Đại lượng vượt tiêu chí hiện khung cảnh báo đỏ đầu mục kèm hướng xử lý; kết luận tự động liệt kê. Không có lịch sử thì app đánh giá như trước.
+
+    **Sau sửa chữa / đại tu:** chọn lý do "Sau sửa chữa/đại tu" thì trang Thông tin chung hiện ô *Lấy số liệu lần này làm giá trị khởi đầu cho các lần sau*:
+    - *Có lọc dầu, sấy chân không* — số liệu cách điện cuộn dây lần này (R cách điện, tgδ, điện dung cuộn dây) là giá trị khởi đầu mới; sứ, tổn hao không tải vẫn so xuất xưởng.
+    - *Thay cuộn dây / thay đổi kết cấu cách điện* — mọi số liệu lần này là giá trị khởi đầu mới (QĐ 1901 Điều 2).
+
+    Lần sửa chữa này vẫn được so với giá trị khởi đầu cũ; các lần thí nghiệm sau so với lần này (dòng xu hướng ghi "giá trị khởi đầu sau sửa chữa dd/mm/yyyy"). Cần chạy migration `20261118000100_baseline_reset.sql` trên CSDL.
+
+## 8. Mục 4: Kiểm tra tổ đấu dây
 
 1. Đo tổ đấu dây bằng thiết bị/phương pháp được đơn vị phê duyệt.
 2. Nhập kết quả đo vào trường **Tổ đấu dây đo được**.
@@ -242,7 +310,7 @@ Hãy dùng đúng nhãn hiển thị trên phiên bản đang chạy.
 5. Căn cứ trong mã tham chiếu Điều 32 mục 3.
 6. Không có bộ đọc file tự động riêng trong luồng hiện hành.
 
-## 9. Mục 6: Sứ đầu vào
+## 9. Mục 5: Sứ đầu vào
 
 1. Chọn phía sứ: cao áp, trung áp/trung tính hoặc hạ áp.
 2. Chọn loại cách điện sứ nếu biết: RIP, OIP, RIS, RBP hoặc GIF.
@@ -263,7 +331,7 @@ Hãy dùng đúng nhãn hiển thị trên phiên bản đang chạy.
 17. Sứ có thể nhập tay hoặc nạp XLSX test report.
 18. Nếu bảng hệ số chưa phù hợp, nhờ admin cấu hình trang **Hệ số quy đổi sứ**.
 
-## 10. Mục 7: Tgδ và điện dung cuộn dây
+## 10. Mục 6: Tgδ và điện dung cuộn dây
 
 1. Nhập nhiệt độ cuộn dây/dầu đo được vào trường nhiệt độ.
 2. Nhập tgδ, điện dung C, điện áp đo và sơ đồ đo cho từng đối tượng.
@@ -278,7 +346,7 @@ Hãy dùng đúng nhãn hiển thị trên phiên bản đang chạy.
 11. Tiêu chí tgδ và tăng so với xuất xưởng tham chiếu Điều 9 mục 5 và Điều 30.
 12. Nhập thủ công từ cầu đo tgδ hoặc nạp file nếu có luồng phù hợp.
 
-## 11. Mục 8: Điện trở một chiều
+## 11. Mục 7: Điện trở một chiều
 
 1. Chọn/kiểm tra cách đo cuộn cao áp: A-N hoặc A-Am.
 2. Nhập nhiệt độ cho cuộn cao áp.
@@ -293,6 +361,7 @@ Hãy dùng đúng nhãn hiển thị trên phiên bản đang chạy.
 11. Ngưỡng lệch trong mã là 2% theo Điều 9 mục 7.
 12. Haefely 2293 có thể nạp số liệu điện trở từ CSV.
 13. CPC 100 không phải bộ đọc mặc định cho phép đo này.
+14. Mẫu 110–220 kV có OLTC ở cuộn trung áp: mục 8.1 là cuộn trung áp theo nấc, 8.2 cuộn cao áp một giá trị; BBTN xuất ra ghi bảng nấc cho cuộn trung áp. Đổi lựa chọn giữa chừng không mất số liệu đã nhập (chỉ ẩn khỏi biểu mẫu), đổi lại để xem.
 
 ### Nhập Haefely 2293
 
@@ -306,7 +375,7 @@ Hãy dùng đúng nhãn hiển thị trên phiên bản đang chạy.
 8. Nếu nhận nhầm pha/nấc, hủy hoặc sửa mapping trước khi áp dụng.
 9. Dữ liệu nhiều hạng mục có thể được ghi theo từng mục để hỗ trợ hoàn tác riêng.
 
-## 12. Mục 9: Tỷ số biến
+## 12. Mục 8: Tỷ số biến
 
 1. Nhập tỷ số đo cho từng nấc và từng cặp cuộn.
 2. Kiểm tra tiêu đề pha A, B, C và các tỷ số HV:MV, HV:LV, MV:LV.
@@ -317,7 +386,7 @@ Hãy dùng đúng nhãn hiển thị trên phiên bản đang chạy.
 7. Chọn pha/nấc trong hộp thoại nếu app không suy ra duy nhất.
 8. Kiểm tra đơn vị và chiều tỷ số trước khi lưu.
 
-## 13. Mục 10: OLTC
+## 13. Mục 9: OLTC
 
 1. Nhập kiểu OLTC, số chế tạo, hãng và năm sản xuất.
 2. Chọn dải nấc chiều 1 và chiều 2.
@@ -334,7 +403,7 @@ Hãy dùng đúng nhãn hiển thị trên phiên bản đang chạy.
 13. Không dùng cảnh báo đó thay cho đánh giá hướng dẫn của nhà sản xuất.
 14. Dạng sóng có thể được đưa vào phụ lục BBTN.
 
-## 14. Mục 11: Độ ẩm cách điện cứng
+## 14. Mục 10: Độ ẩm cách điện cứng
 
 1. Nhập giá trị độ ẩm theo phần trăm.
 2. Nhập phương pháp hoặc thiết bị đo, ví dụ FDS/PDC nếu đúng.
@@ -346,7 +415,7 @@ Hãy dùng đúng nhãn hiển thị trên phiên bản đang chạy.
 8. Căn cứ tham chiếu Điều 28.
 9. Đảm bảo phương pháp và điều kiện đo đúng hướng dẫn thiết bị.
 
-## 15. Mục 12: Biến dòng chân sứ
+## 15. Mục 11: Biến dòng chân sứ
 
 1. Kiểm tra cấu hình số cuộn thứ cấp trong mục 0.
 2. Nhập kết quả kiểm tra ngoài và nhiệt độ đo cách điện.
@@ -415,7 +484,7 @@ Hãy dùng đúng nhãn hiển thị trên phiên bản đang chạy.
 
 ## 18. Phụ lục BBTN
 
-Số liệu thí nghiệm ngắn mạch được nhập ở **Mục 3**; khi xuất DOCX, bảng số liệu, phần so sánh và đánh giá được nối sau biên bản như phụ lục.
+Thí nghiệm ngắn mạch không còn là phụ lục: số liệu nằm trong mục cuối của biên bản (xem chương Thí nghiệm ngắn mạch MBA).
 
 ### Dầu MBA (DGA và lý hóa dầu)
 
@@ -554,20 +623,17 @@ Số liệu thí nghiệm ngắn mạch được nhập ở **Mục 3**; khi xu�
 ## 21. Nhập BBTN cũ
 
 1. Mở trang **Nhập BBTN cũ** trong nhóm Cơ sở dữ liệu.
-2. Chọn một hoặc nhiều file DOCX cũ.
-3. Có thể chọn thư mục nếu trình duyệt và giao diện cho phép.
-4. Chờ bảng soát hiển thị kết quả đọc.
-5. Kiểm tra mẫu được nhận dạng, số chế tạo, ngày và số ô đọc được.
-6. Đọc cảnh báo thiếu trường hoặc số ô đọc thấp.
-7. Bấm **Mở để soát** để nạp một biên bản vào giao diện.
-8. Kiểm tra giá trị đã đọc, sửa sai và lưu theo luồng thông thường.
-9. Bấm **Lưu CSDL** trong bảng nhập để nhập thẳng theo cơ chế đó.
-10. Xác nhận thiết bị, ngày và nguồn dữ liệu trước khi ghi.
-11. Mẫu 3P lưu số chế tạo máy chính ở một trường.
-12. Mẫu 3P chỉ hạn chế số chế tạo máy chính theo parser hiện tại.
-13. Không dùng lệnh nhập hàng loạt nếu bảng soát chưa đúng.
-14. BBTN cũ không đảm bảo đọc được mọi template hoặc bản scan.
-15. Chỉ DOCX có cấu trúc bảng phù hợp mới được parser hỗ trợ.
+2. Chọn một/nhiều file `.docx`, `.pdf` hoặc chọn cả thư mục.
+3. DOCX được đọc theo cấu trúc bảng của mẫu PTC3/BM.01 đã hỗ trợ; PDF có lớp chữ được đọc trực tiếp, PDF scan được OCR bằng [Tesseract.js](https://github.com/naptha/tesseract.js) (`vie+eng`) sau khi PDF.js render từng trang.
+4. Kiểm tra mẫu, số chế tạo, ngày thí nghiệm, số biên bản, số ô số liệu và các cảnh báo trong bảng.
+5. Với PDF, bấm **Soát cạnh PDF** để mở bản gốc trong khung trái và biểu mẫu trong khung phải cùng trang.
+6. Đối chiếu nội dung bìa, nhập hoặc sửa số liệu đo trong biểu mẫu bên phải. PDF không có trường form nên số liệu bảng đo chưa được tự động trích xuất.
+7. Bấm **Đã soát** trên thanh phía trên khung PDF sau khi đã nhập ít nhất một giá trị đo; nếu đã đóng khung song song, mở lại file rồi đánh dấu. Kiểm tra số liệu và ngày trước khi lưu.
+8. Bấm **Lưu CSDL** hoặc **Lưu các biên bản đã soát**. Mỗi phiên lưu số liệu đo phục vụ xu hướng và đính kèm file gốc trong Storage.
+9. Để xem lại, vào **CSDL** → **Biên bản đã lưu** → **Mở cùng PDF**. PDF và biểu mẫu mở cạnh nhau, không cần tab mới.
+10. OCR chạy trên máy này, nhưng lần đầu cần Internet để tải engine và dữ liệu tiếng Việt/tiếng Anh; Tesseract.js lưu cache trong trình duyệt.
+11. OCR nhận dạng chữ in; soát lại trường bìa và số liệu theo PDF gốc. Số liệu bảng đo hiện chưa tự động đưa vào biểu mẫu; chữ viết tay có thể nhận sai.
+12. Trước khi lưu PDF, quản trị CSDL cần áp dụng migration `20261116000100_bbtn_pdf_import.sql` để cho phép loại tài liệu `BBTN_PDF`.
 
 ## 22. Thư viện tài liệu
 

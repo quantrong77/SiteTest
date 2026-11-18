@@ -14,6 +14,11 @@
   const NS_DECL = `xmlns:w="${W}" xmlns:r="${R_NS}" `
     + 'xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" '
     + 'xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture"';
+  // Bảng / hàng do app thêm vào thân biên bản (mục ngắn mạch, BCT trong mục 13, hàng hạng mục trang 1): đánh dấu để khi
+  // mở lại BBTN đã xuất (nhập BBTN cũ, đọc giá trị mặc định) chỉ số bảng và hàng của template không bị lệch
+  const ADD_MARK = '_BBTN_ADD';
+  const isAddedTbl = tbl => desc(tbl, 'tblDescription').some(d => wAttr(d, 'val') === ADD_MARK);
+  const isAddedRow = tr => desc(tr, 'bookmarkStart').some(b => wAttr(b, 'name') === ADD_MARK + '_ROW');
   const xesc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   // Đoạn văn: o = { bold, italic, size (pt), align, after (twip), keepNext }; xuống dòng bằng \n
   function paraXml(text, o = {}) {
@@ -30,7 +35,7 @@
       t.doc = new DOMParser().parseFromString(xml, 'application/xml');
       t.body = t.doc.getElementsByTagNameNS(W, 'body')[0];
       t.children = Array.from(t.body.childNodes).filter(n => n.nodeType === 1);
-      t.tables = t.children.filter(n => n.localName === 'tbl');
+      t.tables = t.children.filter(n => n.localName === 'tbl' && !isAddedTbl(n));
       return t;
     }
 
@@ -42,11 +47,11 @@
       let p = end;
       while (p && p.parentNode !== this.body) p = p.parentNode;
       const at = this.children.indexOf(p);
-      return at < 0 ? this.tables.length : this.children.slice(0, at).filter(n => n.localName === 'tbl').length;
+      return at < 0 ? this.tables.length : this.children.slice(0, at).filter(n => n.localName === 'tbl' && !isAddedTbl(n)).length;
     }
 
     // Hàng của nhiều bảng ghép liên tiếp (bảng bị ngắt trang)
-    rows(tables) { return tables.flatMap(i => (this.tables[i] ? kids(this.tables[i], 'tr') : [])); }
+    rows(tables) { return tables.flatMap(i => (this.tables[i] ? kids(this.tables[i], 'tr').filter(tr => !isAddedRow(tr)) : [])); }
 
     cellAt(tr, gridCol) {
       const trPr = kids(tr, 'trPr')[0];
@@ -140,7 +145,8 @@
     }
 
     // Chèn một hàng sau hàng thứ `after` của bảng (sao định dạng hàng đó, xóa số liệu, giữ ô "/"), ô đầu ghi nhãn
-    insertRowAfter(tblIdx, after, label) {
+    // opts.mark: hàng app thêm vào biên bản (không thuộc template) — bỏ qua khi mở lại BBTN đã xuất
+    insertRowAfter(tblIdx, after, label, opts) {
       const tbl = this.tables[tblIdx];
       const ref = tbl && kids(tbl, 'tr')[after];
       if (!ref) return false;
@@ -149,8 +155,13 @@
         if (k === 0) this.setCellText(tc, label);
         else if (tc.textContent.trim() !== '/') this.setCellText(tc, '');
       });
+      if (opts && opts.mark) {
+        const p = desc(tr, 'p')[0], bs = this.doc.createElementNS(W, 'w:bookmarkStart'), be = this.doc.createElementNS(W, 'w:bookmarkEnd');
+        bs.setAttributeNS(W, 'w:id', '90002'); bs.setAttributeNS(W, 'w:name', ADD_MARK + '_ROW'); be.setAttributeNS(W, 'w:id', '90002');
+        if (p) { p.appendChild(bs); p.appendChild(be); }
+      }
       tbl.insertBefore(tr, ref.nextSibling);
-      return true;
+      return tr;
     }
 
     // Chèn hàng tiêu đề (sao định dạng hàng đầu tiên) lên đầu bảng
@@ -270,7 +281,13 @@
     blockNodes(blocks) {
       const xml = blocks.map(b => this.blockXml(b)).join('');
       const frag = new DOMParser().parseFromString(`<w:body ${NS_DECL}>${xml}</w:body>`, 'application/xml');
-      return Array.from(frag.documentElement.childNodes).map(n => this.doc.importNode(n, true));
+      return Array.from(frag.documentElement.childNodes).map(n => {
+        const node = this.doc.importNode(n, true);
+        // bảng do app dựng: đánh dấu (tblDescription là phần tử cuối của tblPr)
+        const pr = node.localName === 'tbl' && kids(node, 'tblPr')[0];
+        if (pr) { const d = this.doc.createElementNS(W, 'w:tblDescription'); d.setAttributeNS(W, 'w:val', ADD_MARK); pr.appendChild(d); }
+        return node;
+      });
     }
 
     // Đoạn văn cấp thân văn bản đầu tiên khớp regex (vd đề mục "13. Kiểm tra biến dòng chân sứ")
@@ -281,6 +298,12 @@
     insertBlocksAfter(el, blocks) {
       const ref = el.nextSibling;
       this.blockNodes(blocks).forEach(n => this.body.insertBefore(n, ref));
+      this.children = Array.from(this.body.childNodes).filter(n => n.nodeType === 1);
+    }
+
+    // Chèn khối ngay trước một phần tử cấp thân văn bản (vd mục ngắn mạch trước "THIẾT BỊ THÍ NGHIỆM")
+    insertBlocksBefore(el, blocks) {
+      this.blockNodes(blocks).forEach(n => this.body.insertBefore(n, el));
       this.children = Array.from(this.body.childNodes).filter(n => n.nodeType === 1);
     }
 

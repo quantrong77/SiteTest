@@ -14,6 +14,7 @@
   // ======================================================================= biểu mẫu → dòng
   // opts.withKey: kèm khóa ô (state.v) vào từng dòng — dùng cho xu hướng tại ô; dòng lưu CSDL không có khóa
   function fieldRows(state, res, schema, opts = {}) {
+    state = Report.performed(state, schema, Schema.ATT_SECTIONS); // hạng mục không thực hiện: không ghi CSDL
     const v = state.v, cfg = state.cfg;
     const refs = new Map(), rows = [];
     const statusOf = {};
@@ -32,11 +33,13 @@
     const mainRef = addRef('MBA', main, {
       name: str(v['meta.site']) || undefined, manufacturer: str(v['meta.manuf']) || undefined, model: str(v['meta.type']) || undefined,
       year_made: toNum(v['meta.year']) || undefined,
-      rated: { power_mva: str(v['meta.power']), voltage: str(v['meta.voltage']), current_a: str(v['meta.current']), vector_group: str(v['meta.vector']) },
+      rated: { power_mva: str(v['meta.power']), voltage: str(v['meta.voltage']), current_a: str(v['meta.current']), vector_group: str(v['meta.vector']),
+        // mẫu 110–220 kV: cuộn đặt OLTC (HV / MV) — thuộc tính của máy, lần thí nghiệm sau dùng lại
+        oltc_winding: schema.layout === Schema.LAYOUT_110 ? (schema.oltcWinding === 'MV' ? 'MV' : 'HV') : undefined },
     });
     const unitRef = ph => {
       const p = String(ph || '').toUpperCase();
-      const s = p === 'N' ? main : (str(cfg.ps[p]) || main);
+      const s = p === 'N' || schema.layout === Schema.LAYOUT_110 ? main : (str(cfg.ps[p]) || main);
       return s === main ? mainRef : addRef('MBA', s, { phase: p });
     };
     const put = (eq, item, param, o) => {
@@ -244,11 +247,13 @@
     });
 
     const session = {
-      kind: kindOf(v['meta.reason']), test_date: isoDate(v['meta.date']), reason: str(v['meta.reason']) || null,
+      kind: kindOf(v['meta.reason']), test_date: isoDate(v['meta.date']), report_no: state.imported && state.imported.reportNo || null, reason: str(v['meta.reason']) || null,
       ambient_temp_c: ok(amb) ? amb : null, humidity_pct: ok(toNum(v['meta.hum'])) ? toNum(v['meta.hum']) : null,
-      // BBTN cũ nhập từ file .docx: nguồn 'manual', ghi tên file gốc
+      // BBTN cũ nhập từ file .docx/.pdf: nguồn 'manual', ghi tên file gốc
       source: state.imported ? 'manual' : 'field_app', ...(state.imported ? { source_file: state.imported.file || null } : {}), template_code: cfg.template, conclusion: str(v['meta.conclusion']) || Evaluate.autoConclusion(res, schema, state) || null,
       remark: str(v['meta.remark']) || null,
+      // sau sửa chữa: lần này là giá trị khởi đầu mới (chỉ ghi khi có — CSDL cần migration 20261118000100)
+      ...(kindOf(v['meta.reason']) === 'AFTER_REPAIR' && ['INSULATION', 'ALL'].includes(cfg.baselineReset) ? { baseline_reset: cfg.baselineReset } : {}),
       summary: Object.fromEntries(Object.entries(res.sec).map(([k, s]) => [k, { status: s.status, text: s.text, counts: s.counts }])),
     };
     const findings = res.findings.map(f => ({

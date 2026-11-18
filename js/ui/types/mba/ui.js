@@ -38,7 +38,7 @@
           <div class="row-actions"><button class="btn small" data-nav="kconf">Xem bảng hệ số K</button><button class="btn small" data-act="fillBushingSN">Điền S/N sứ theo hồ sơ xuất xưởng (cần đối chiếu thực tế)</button></div></div>`;
       }
       case 'wtgd': return `<div class="callout">${mainLine}. Quy đổi về 20 °C theo <b>Bảng 7 QĐ 1901</b>: tgδ20 = tgδ(t) ÷ K2 (đo dưới 20 °C thì nhân K2); K2 tự tra theo độ chênh nhiệt độ. Tiêu chuẩn: <b>tgδ@20 °C ≤ 1 %</b>. Số liệu xuất xưởng (đo ${fm(FX.insT(s), 1)} °C) chỉ để tham khảo xu hướng.</div>`;
-      case 'dcr': return `<div class="callout">So sánh theo số chế tạo của từng cột pha (${ps}). Xuất xưởng cho R quy đổi ${D.dcr.refT} °C: cuộn SER theo nấc, COM, LV. Cuộn cao áp đo <b>${state.cfg.hvMeas === 'SER' ? 'A-Am, B-Bm, C-Cm — so với cuộn SER' : 'A-N, B-N, C-N — so với SER + COM'}</b> (chọn ở ô “Phép đo cuộn cao áp”); cuộn hạ áp: ${state.cfg.lvMode === 'delta' ? 'tam giác đã đấu (×2/3)' : 'từng máy (a–x)'} — đổi ở mục 0. ${is3P ? 'Mẫu chung 3 pha: 17 nấc, nhiệt độ đo theo từng máy, ghi BBTN đơn vị mΩ.' : 'Nấc 9a/9b/9c ứng với nấc 9A xuất xưởng.'}</div>`;
+      case 'dcr': return `<div class="callout">So sánh theo số chế tạo của từng cột pha (${ps}). Xuất xưởng cho R quy đổi ${D.dcr.refT} °C: cuộn SER theo nấc, COM, LV. Cuộn cao áp đo <b>${state.cfg.hvMeas === 'SER' ? 'A-Am, B-Bm, C-Cm — so với cuộn SER' : 'A-N, B-N, C-N — so với SER + COM'}</b> (chọn ở ô “Phép đo cuộn cao áp”); cuộn hạ áp: ${state.cfg.lvMode === 'delta' ? 'tam giác đã đấu (×2/3)' : 'từng máy (a–x)'} — đổi ở mục 0. ${is3P ? 'Mẫu chung 3 pha: 17 nấc, nhiệt độ đo theo từng máy, ghi BBTN đơn vị mΩ.' : 'Nấc 9a/9b/9c ứng với nấc 9A xuất xưởng.'}${state.cfg.oltcWinding === 'MV' && Schema.layoutOf(state.cfg) === Schema.LAYOUT_110 ? ' <b>OLTC ở cuộn trung áp</b>: cuộn trung áp nhập theo nấc, chỉ so xuất xưởng khi file xuất xưởng có R cuộn chung theo nấc; cuộn cao áp một giá trị. Khi xuất BBTN, bảng nấc của mẫu ghi cuộn trung áp (đổi nhãn đề mục).' : ''}</div>`;
       case 'ratio': return `<div class="callout">Tỷ số định mức lấy từ bảng xuất xưởng theo nấc (HV:MV), HV:LV = (U<sub>HV</sub>/√3)/U<sub>LV</sub>${state.cfg.lvMode === 'delta' ? ' × √3 (tổ đã đấu tam giác)' : ''}. ΔK tự tính nếu để trống; có thể nhập ΔK đọc từ máy đo. ${ps}.</div>`;
       case 'oltc': return `<div class="callout">OLTC theo hồ sơ xuất xưởng: <b>${esc(D.specs.oltc || '—')}</b>.</div>`;
       case 'moisture': return `<div class="callout">${mainLine}: độ ẩm cách điện cứng theo DFR xuất xưởng = <b>${fm(FX.moisture(s), 2)} %</b>. Phân loại theo Điều 28.</div>`;
@@ -159,7 +159,8 @@
     return rip ? `<div class="field"><label>${A.esc(label)}</label><div class="calcval" data-n="${f.k}"></div></div>` : null;
   }
   // Đổi cách quy đổi sứ / trạng thái lắp → vẽ lại hạng mục (ô K đổi giữa ô nhập và giá trị tính)
-  const rerenderOn = /\.(kmode|mount)$/;
+  // đổi lý do thí nghiệm: hiện / ẩn ô "lấy làm giá trị khởi đầu" (sau sửa chữa)
+  const rerenderOn = /\.(kmode|mount)$|^meta\.reason$/;
 
   // Lưới đặc tính từ hóa: nút tải XML cho đúng phía/pha; nhãn hàng theo đầu cuộn thực đo
   const gridTools = g => (g.ex ? `<button class="btn small" data-act="cpcSlot" data-grid="${g.id}">Tải XML CPC 100…</button>` : '');
@@ -217,9 +218,16 @@
   function generalConfig(A) {
     const { cfgField } = A;
     let h = '';
+    h += '<h3>Phụ lục BBTN</h3><div class="fields">'
+      + cfgField('stdAppendix', 'Phụ lục bảng tra cứu tiêu chuẩn thí nghiệm (QĐ EVNNPT, IEC, IEEE)', { options: [['off', 'Không kèm (như mẫu BBTN)'], ['on', 'Kèm phụ lục cuối BBTN']] })
+      + '</div>';
     h += '<h3>Thông số tính toán & quy ước so sánh</h3><div class="fields">';
     h += cfgField('taps', 'Nhãn 19 nấc (thứ tự hàng 1..19 của template)', { wide: true, note: 'Ngăn cách bằng dấu phẩy. Nhãn 9a/9b/9c được so với nấc 9A của xuất xưởng.' });
     h += cfgField('hvMeas', 'Phép đo R một chiều cuộn cao áp (mục 7.1)', { options: Schema.HV_MEAS });
+    if (Schema.layoutOf(A.state.cfg) === Schema.LAYOUT_110) {
+      h += cfgField('oltcWinding', 'Bộ điều áp dưới tải (OLTC) đặt ở cuộn', { options: Schema.OLTC_WINDINGS,
+        note: 'Trung áp: R một chiều cuộn trung áp và tỷ số MV:LV nhập theo nấc; cuộn cao áp, tỷ số HV:LV một giá trị' });
+    }
     h += cfgField('lvMode', 'Cuộn hạ áp khi đo', { options: [['unit', 'Từng máy 1 pha (chưa đấu tam giác)'], ['delta', 'Tổ 3 pha đã đấu tam giác']] });
     h += cfgField('iLV', 'Dòng định mức cuộn hạ áp I_LV (A)', { num: true });
     h += cfgField('sLV', 'Công suất cuộn hạ áp S_LV (MVA)', { num: true });
@@ -249,8 +257,15 @@
   }
 
   function unitSerialFields(A) {
-    if (A.state.cfg.topology !== 'bank1p') return '';
     const { cfgField } = A;
+    // mẫu theo pha: bảng R một chiều / tỷ số biến có cột pha B, C — số liệu của máy B, C trong tổ (so xuất xưởng, ghi CSDL theo máy đó)
+    if (A.state.cfg.topology === 'single1p') {
+      return '<h3>Số chế tạo máy pha B, C trong tổ</h3><div class="fields serial-fields">'
+        + ['B', 'C'].map(ph => cfgField(`ps.${ph}`, `Số chế tạo máy pha ${ph}`, { list: true,
+          note: ph === 'B' ? 'Cột pha B, C của bảng R một chiều, tỷ số biến được so với xuất xưởng và ghi CSDL theo máy này. Máy độc lập: để trống.' : '' })).join('')
+        + '</div>';
+    }
+    if (A.state.cfg.topology !== 'bank1p') return '';
     return '<h3>Số chế tạo từng máy trong tổ</h3><div class="fields serial-fields">'
       + A.fieldHTML({ k: 'meta.serial', label: 'Số chế tạo máy pha A', serial: true })
       + ['B', 'C'].map(ph => cfgField(`ps.${ph}`, `Số chế tạo máy pha ${ph}`, { list: true })).join('')

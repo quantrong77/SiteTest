@@ -69,5 +69,23 @@
     return /^[-+]?\d+([.,]\d+)?$/.test(t) ? t.replace(/[.,]/, sep === '.' ? '.' : ',') : t;
   };
 
-  window.Report = { readDefaults, readValues, prepare, decimal };
+  // Hạng mục KHÔNG thực hiện trong lần thí nghiệm (cfg.skip = { <id hạng mục>: true }): bản sao state bỏ số liệu của các
+  // hạng mục đó (ô nhập, trường, số liệu đính kèm state.att theo attSections, ✓/đánh giá trang 1). Số liệu gốc vẫn giữ
+  // trong biên bản; đánh giá, dòng CSDL, xuất BBTN dùng bản sao này. Không bỏ tích hạng mục nào → trả nguyên state.
+  function performed(state, schema, attSections) {
+    const skip = (state && state.cfg && state.cfg.skip) || {};
+    const off = new Set(Object.keys(skip).filter(id => skip[id] && schema.sections.some(s => s.id === id)));
+    if (!off.size) return state;
+    const secOf = Common.sectionOfKey(schema);
+    const v = {};
+    Object.keys(state.v || {}).forEach(k => { if (!off.has(secOf(k))) v[k] = state.v[k]; });
+    const att = Object.assign({}, state.att || {});
+    Object.entries(attSections || {}).forEach(([key, sec]) => { if (off.has(sec)) delete att[key]; });
+    const pick = o => Object.fromEntries(Object.entries(o || {}).filter(([id]) => !off.has(id)));
+    const sum = state.sum ? Object.assign({}, state.sum, { tick: pick(state.sum.tick), ev: pick(state.sum.ev) }) : state.sum;
+    return Object.assign({}, state, { v, att, sum });
+  }
+  const isSkipped = (state, id) => !!(state && state.cfg && state.cfg.skip && state.cfg.skip[id]);
+
+  window.Report = { readDefaults, readValues, prepare, decimal, performed, isSkipped };
 })();

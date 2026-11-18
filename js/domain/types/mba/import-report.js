@@ -43,6 +43,17 @@
     return out;
   }
 
+  // Mẫu 110–220 kV: đề mục đứng trước bảng nấc R một chiều ghi cuộn trung áp ("Cuộn dây trung áp, ( M.V Winding )")
+  // → OLTC đặt ở cuộn trung áp (MBA 220 kV kiểu Liên Xô cũ, BBTN xuất từ app hoặc đơn vị tự đổi nhãn)
+  function detectOltcWinding(tpl, schema) {
+    const dcr = schema.sections.find(s => s.id === 'dcr');
+    const hv = dcr && dcr.groups && dcr.groups.find(g => g.id === 'hv');
+    const t = hv && hv.grids[0].tables && hv.grids[0].tables[0];
+    if (t === undefined || !tpl.paraBefore || !tpl.paraText) return 'HV';
+    const p = tpl.paraBefore(t, /Winding/i);
+    return p && /M\.?\s*V\.?\s+Winding|trung\s+(?:áp|thế)/i.test(tpl.paraText(p)) ? 'MV' : 'HV';
+  }
+
   // Một file BBTN → { state, layout, count, warnings }; lỗi khi không nhận ra mẫu
   function read(tpl, fileName) {
     const T = EquipmentTypes.get('MBA');
@@ -52,9 +63,11 @@
     const cfg = T.defaultCfg();
     cfg.template = TEMPLATE_OF[layout];
     cfg.bctCores = detectBct(tpl, cfg);
+    if (layout === Schema.LAYOUT_110) cfg.oltcWinding = detectOltcWinding(tpl, T.buildSchema(cfg));
     const schema = T.buildSchema(cfg);
     const v = Report.readValues(tpl, schema, { all: true });
     if (v['meta.date']) v['meta.date'] = normDate(v['meta.date']) || v['meta.date'];
+    if (v['meta.reason']) v['meta.reason'] = Common.optionOf(v['meta.reason'], Schema.REASONS);
     // mẫu 3 pha: ô "Số chế tạo" ghi số chế tạo cả 3 máy "S1; S2; S3" → máy chính là số đầu, cột pha theo thứ tự A, B, C
     if (layout === Schema.LAYOUT_3P && /;/.test(v['meta.serial'] || '')) {
       const sn = v['meta.serial'].split(';').map(x => x.trim()).filter(Boolean);
@@ -74,5 +87,5 @@
     return { state, layout, count, warnings };
   }
 
-  window.MbaImportReport = { detectLayout, normDate, read };
+  window.MbaImportReport = { detectLayout, detectOltcWinding, normDate, read };
 })();

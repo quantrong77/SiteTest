@@ -108,6 +108,7 @@
   }
 
   function fill(tpl, { state, res, schema, assets }) {
+    state = Report.performed(state, schema, Schema.ATT_SECTIONS); // hạng mục không thực hiện: không ghi số liệu vào BBTN
     const miss = [];
     const out = Report.decimal(state.cfg.decSep);
     const write = (f, value) => {
@@ -117,6 +118,7 @@
     const v = state.v;
     const is3P = schema.layout === Schema.LAYOUT_3P;
     Report.prepare(tpl, schema); // chèn hàng template thiếu (vd nhiệt độ từng sứ ở mẫu 3 pha) trước khi ghi
+    if (schema.docSwaps) swapHeadings(tpl, schema.docSwaps); // OLTC ở cuộn trung áp: đổi nhãn đề mục trước khi ghi nhiệt độ
     eachField(schema, f => {
       if (!f.doc) return;
       let val = v[f.k];
@@ -190,7 +192,10 @@
       if (bctToBody(tpl, state, schema, res, out)) bctAppx = false;
       else miss.push('Mục 13 – biến dòng chân sứ (không thấy đề mục trong template, đã xuất thành phụ lục)');
     }
-    if (tpl.appendSection) Appendix.list(state, { fra: !!A.fraDoc, oil: Object.fromEntries(Object.keys(A.oilDocs || {}).map(id => [id, true])), bct: bctAppx }).forEach(a => {
+    // template thiếu đoạn "THIẾT BỊ THÍ NGHIỆM" → vẫn xuất kết quả ngắn mạch thành phụ lục (không mất số liệu)
+    const sc = shortCircuitToBody(tpl, state, schema, res, A, out, SUM);
+    if (sc === 'fallback') miss.push('Thí nghiệm ngắn mạch: không thấy đoạn "THIẾT BỊ THÍ NGHIỆM" trong template — đã xuất thành phụ lục');
+    if (tpl.appendSection) Appendix.list(state, { shortCircuit: sc === 'fallback', fra: !!A.fraDoc, oil: Object.fromEntries(Object.keys(A.oilDocs || {}).map(id => [id, true])), bct: bctAppx }).forEach(a => {
       if (a.kind === 'oltc') tpl.appendSection(oltcAppendix(state, state.att.oltc, A, out, a.label));
       if (a.kind === 'fra') { tpl.appendSection(Appendix.fraHeader(a.label, state.att.fra)); tpl.importBody(A.fraDoc); }
       if (a.kind === 'oil') { const item = state.att.oil.items.find(x => x.id === a.id); tpl.appendSection(Appendix.oilHeader(a.label, item)); tpl.importBody(A.oilDocs[a.id]); }
@@ -200,6 +205,26 @@
       if (a.kind === 'standards') tpl.appendSection(Appendix.standardsAppendix(a.label));
     });
     return { cells, miss };
+  }
+
+  // Mẫu 110–220 kV, OLTC ở cuộn trung áp: bảng nấc của template dùng cho cuộn trung áp / tỷ số MV:LV, bảng một hàng cho
+  // cuộn cao áp / HV:LV → đổi chỗ nhãn đề mục đứng trước hai bảng (tên cuộn dây, cấp điện áp; "Cuộn HV:LV" ↔ "Cuộn MV:LV").
+  // Đoạn không tìm thấy (template đã sửa tay) thì bỏ qua, không đoán.
+  const SWAP_RE = {
+    // nhãn gồm cả dấu chấm cuối câu (nếu có) để setSlot không chèn khoảng trắng trước dấu chấm
+    winding: [/(?<v>Cuộn dây\s+(?:cao|trung)\s+(?:thế|áp)\s*,\s*\(\s*[HM]\.?\s*V\.?\s+Winding\s*\)\s*\.?)/i, /Cuộn dây\s*(?<v>\d+(?:[.,]\d+)?\s*kV)/i],
+    ratio: [/Cuộn\s+(?<v>[HM]V\s*:\s*LV\s*\.?)/i],
+  };
+  function swapHeadings(tpl, swaps) {
+    if (!tpl.paraBefore || !tpl.getSlot || !tpl.setSlot) return;
+    swaps.forEach(sw => (SWAP_RE[sw.kind] || []).forEach(re => {
+      const pa = tpl.paraBefore(sw.a, re), pb = tpl.paraBefore(sw.b, re);
+      if (!pa || !pb || pa === pb) return;
+      const va = tpl.getSlot(pa, re), vb = tpl.getSlot(pb, re);
+      if (va === null || vb === null) return;
+      tpl.setSlot(pa, re, vb);
+      tpl.setSlot(pb, re, va);
+    }));
   }
 
   // Cột bảng số liệu giống bảng máy đo (và mẫu phụ lục của đơn vị); độ rộng theo khổ chữ của template A4 (16 cm)
@@ -268,6 +293,32 @@
     return true;
   }
 
+  // Thí nghiệm ngắn mạch: mục cuối biên bản (template Word không có) — thêm hàng "N. Thí nghiệm ngắn mạch…" vào bảng hạng
+  // mục trang 1 (sau hạng mục cuối, gắn dấu hàng do app thêm) và, khi có số liệu, đề mục + bảng kết quả ngay trước
+  // "THIẾT BỊ THÍ NGHIỆM". Làm sau khi đã ghi mọi ô của bảng 0 (chèn hàng làm dời chỉ số các hàng sau).
+  const TESTING_INSTRUMENTS = /THI[ẾE]T\s+B[ỊI]\s+TH[ÍI]\s+NGHI[ỆE]M|Testing\s+instruments/i;
+  function shortCircuitToBody(tpl, state, schema, res, A, out, SUM) {
+    const sec = schema.sections.find(s => s.id === 'shortCircuit');
+    const S = sec && res.sec[sec.id];
+    if (!sec || !S || S.skipped || Report.isSkipped(state, sec.id)) return false;
+    const label = `${sec.no}. ${sec.title} (Short-circuit impedance and load loss)`;
+    const last = Math.max(...Object.values(SUM.rows || {}).flatMap(x => [].concat(x)));
+    const tr = tpl.insertRowAfter && Number.isFinite(last) ? tpl.insertRowAfter(0, last, label, { mark: true }) : null;
+    if (tr && tr.nodeType && tpl.cellAt) {
+      // hàng mới không thuộc template (bộ đọc hàng bỏ qua) → ghi thẳng vào ô của hàng vừa chèn
+      const tick = (state.sum && state.sum.tick && state.sum.tick[sec.id]) ?? !!S.status;
+      const ev = state.sum && state.sum.ev && state.sum.ev[sec.id];
+      tpl.setCellText(tpl.cellAt(tr, SUM.tick), tick ? '✓' : '');
+      tpl.setCellText(tpl.cellAt(tr, SUM.ev), ev === '—' ? '' : (ev || (tick ? S.text : '')));
+    }
+    if (!Appendix.shortCircuitHasData(state.att && state.att.shortCircuit)) return true;
+    const p = tpl.bodyPara && tpl.insertBlocksBefore ? tpl.bodyPara(TESTING_INSTRUMENTS) : null;
+    if (!p) return 'fallback';
+    tpl.insertBlocksBefore(p, [{ type: 'p', text: `${label}:`, bold: true, size: 12, keepNext: true }]
+      .concat(Appendix.shortCircuitBlocks(A.shortCircuitRows || [], out, n => `${sec.no}.${n}`)));
+    return 'body';
+  }
+
   // Nội dung BCT dùng chung cho phụ lục và mục 13: thông tin chung + bảng theo phía; num(n) đánh số nhóm (1. / 13.1)
   function bctBlocks(state, schema, res, out, num) {
     const v = state.v, blocks = [];
@@ -306,5 +357,5 @@
   }
 
   // Template chuẩn MBA 500 kV có 73 bảng; ít hơn 72 thì vị trí điền có thể lệch (mẫu chung 3 pha: 28 bảng, schema.tables)
-  window.MbaReport = { fill, phaseState, oltcAppendix, bctAppendix, bctBlocks, bctToBody, hasBct, minTables: 72, stdTables: 73 };
+  window.MbaReport = { fill, shortCircuitToBody, swapHeadings, phaseState, oltcAppendix, bctAppendix, bctBlocks, bctToBody, hasBct, minTables: 72, stdTables: 73 };
 })();

@@ -162,6 +162,30 @@
     });
   }
 
+  // Nội dung kết quả ngắn mạch dùng chung cho phụ lục và mục cuối thân biên bản; num(n) đánh số tiểu mục (1. / 12.1)
+  function shortCircuitBlocks(results, out, num) {
+    const blocks = [];
+    blocks.push({ type: 'p', text: `${num(1)} Số liệu thí nghiệm`, bold: true, size: 12, keepNext: true });
+    const fmt = (x, digits = 2) => x === null || x === undefined || !Number.isFinite(Number(x)) ? '—' : out(Number(x).toFixed(digits));
+    const inputRows = results.map(x => [x.row.pair || '', `${x.row.tap || ''}${x.phase ? ` / ${x.phase}` : ''}`, x.testCase === 'new' ? 'Mới' : x.testCase === 'overhaul' ? 'Đại tu' : 'Vận hành', x.tapRole === 'main' ? 'Nấc chính' : 'Nấc khác', fmt(x.tempC, 1), fmt(x.frequencyHz, 2), fmt(x.ratedFrequencyHz, 2), fmt(x.testVoltageInput, 2), x.testVoltageUnit, fmt(x.measuredVoltageKV, 4), fmt(x.ratedVoltageKV, 3), fmt(x.ratedCurrentA, 2), fmt(x.testCurrentA, 2), fmt(x.testCurrentPct, 1), fmt(x.powerKw, 3)]);
+    blocks.push({ type: 'table', size: 8, head: ['Cặp cuộn', 'Nấc / pha', 'Trường hợp', 'Vị trí nấc', 'T (°C)', 'f đo', 'fđm (Hz)', 'U đo', 'Đơn vị', 'U quy đổi (kV)', 'Un (kV)', 'In (A)', 'I đo (A)', 'I/In (%)', 'P đo (kW)'],
+      widths: [650, 700, 670, 700, 500, 500, 560, 520, 420, 740, 580, 560, 600, 560, 650], rows: inputRows });
+    const correctionRows = results.map(x => [x.row.pair || '', `${x.row.tap || ''}${x.phase ? ` / ${x.phase}` : ''}`, fmt(x.copperLossKw, 3), fmt(valueOf(x.row.tempFactor), 0), fmt(x.reportTempC, 1)]);
+    blocks.push({ type: 'table', size: 8, head: ['Cặp cuộn', 'Nấc / pha', 'PI²R đo (kW)', 'K vật liệu', 'Nhiệt độ Pk Test Report (°C)'], widths: [1600, 1800, 1200, 900, 2200], rows: correctionRows });
+    blocks.push({ type: 'p', text: `${num(2)} So sánh Uk`, bold: true, size: 12, keepNext: true, before: 180 });
+    const stateText = s => s === 'pass' ? 'Đạt' : s === 'fail' ? 'Không đạt' : s === 'na' ? '—' : 'Cần xem xét';
+    const ukRows = results.map(x => [x.row.pair || '', `${x.row.tap || ''}${x.phase ? ` / ${x.phase}` : ''}`, x.sameFrequency ? 'Đạt' : 'Cần xem xét', x.currentAdequate ? 'Đạt' : 'Cần xem xét', fmt(x.ukPct, 3), fmt(x.nameplateUkPct, 3), fmt(x.deltaUk1387Pct, 2), fmt(x.ref && x.ref.ukPct, 3), fmt(x.deltaUkPct, 2), stateText(x.ukStatus), fmt(x.initialUkPct, 3), fmt(x.deltaInitialUkPct, 2), stateText(x.uk1387Status), fmt(x.phaseDeltaPct, 2), stateText(x.phaseStatus), stateText(x.overall)]);
+    blocks.push({ type: 'table', size: 8, head: ['Cặp', 'Nấc / pha', 'f = fđm', 'I ≥ 25% In', 'Uk đo (%)', 'Uk nh\u00e3n m\u00e1y (%)', '\u0394Uk nh\u00e3n (%)', 'Uk Test Report (%)', 'ΔUk Report (%)', 'QĐ1901', 'Uk ban đầu (%)', 'ΔUk ban đầu (%)', 'QĐ1387', 'Lệch pha (%)', '\u0054\u00ecnh tr\u1ea1ng pha', '\u004b\u1ebft lu\u1eadn'],
+      widths: [470, 560, 500, 550, 560, 650, 600, 480, 620, 550, 600, 550, 480, 600, 450, 520], rows: ukRows });
+    blocks.push({ type: 'p', text: `${num(3)} So sánh Pk`, bold: true, size: 12, keepNext: true, before: 180 });
+    const pkRows = results.map(x => [x.row.pair || '', `${x.row.tap || ''}${x.phase ? ` / ${x.phase}` : ''}`, fmt(x.pkAtReportTempKw, 3), fmt(x.ref && x.ref.pkKw, 3), fmt(x.deltaPkPct, 2), x.currentAdequate ? 'Đạt' : 'Cần xem xét', stateText(x.pkStatus)]);
+    blocks.push({ type: 'table', size: 8, head: ['Cặp / nấc / pha', 'Pk quy đổi cùng điều kiện (kW)', 'Pk Test Report (kW)', 'ΔPk (%)', 'I ≥ 25% In', 'Pk', 'Kết luận'], widths: [1800, 2200, 1900, 900, 1000, 700, 900], rows: pkRows });
+    blocks.push({ type: 'p', text: 'Uk (%) = U / Un × In / I × 100, với U, I, Un và In cùng phía đo; U nhập theo V hoặc kV rồi quy về kV trước tính. Pk quy về dòng định mức: Pk1 = Pđo × (In / I)². Khi nhiệt độ khác Test Report: Pk2 = Pcu1 × (K + t2) / (K + t1) + Pstr1 × (K + t1) / (K + t2), trong đó Pstr1 = Pk1 − Pcu1; K = 235 cho dây đồng, K = 225 cho dây nhôm.', size: 9, before: 120 });
+    blocks.push({ type: 'p', text: 'Ph\u1ea1m vi theo Q\u0110 1387: th\u00ed nghi\u1ec7m sau l\u1eafp \u0111\u1eb7t m\u1edbi v\u00e0 \u0111\u1ea1i tu/c\u1ea3i t\u1ea1o; khi \u0111ang v\u1eadn h\u00e0nh, th\u1ef1c hi\u1ec7n sau khi d\u00f2ng ng\u1eafn m\u1ea1ch \u0111\u00e3 qua v\u01b0\u1ee3t 70% d\u00f2ng ch\u1ecbu \u0111\u1ef1ng t\u00ednh to\u00e1n. V\u1edbi OLTC, \u0111o n\u1ea5c ch\u00ednh v\u00e0 hai n\u1ea5c \u0111\u1ea7u/cu\u1ed1i; BCT kh\u00f4ng s\u1eed d\u1ee5ng ph\u1ea3i ng\u1eafn m\u1ea1ch v\u00e0 n\u1ed1i \u0111\u1ea5t.', size: 9 });
+    blocks.push({ type: 'p', text: 'Căn cứ QĐ 1387/QĐ-EVNNPT: Điều 26 yêu cầu dòng thử không nhỏ hơn 25% In; khi hiện trường không có điện áp thử theo Test Report, dùng 380 V hoặc điện áp không quá 10 kV và nội suy. Điều 27: MBA mới sai số Uk không quá 5% tại nấc chính; sau đại tu/đang vận hành không quá 3% so với giá trị ban đầu và giữa các pha; Pk quy về cùng điều kiện không lớn hơn 115% số liệu nhà chế tạo. App đồng thời giữ tiêu chí QĐ 1901 Điều 35: Uk sai lệch không quá 3%, Pk không quá 115%, và MBA ba pha kiểm tra lệch pha không quá 3%. Thiếu tham chiếu, sai tần số, dòng thử dưới 25% In hoặc thiếu dữ liệu quy đổi được ghi “Cần xem xét”.', size: 9 });
+    return blocks;
+  }
+
   function shortCircuitAppendix(state, results, factoryName, out, label = 'PHỤ LỤC') {
     const v = state.v || {}, blocks = [{ type: 'page' },
       { type: 'p', text: label, bold: true, size: 14, align: 'center' },
@@ -169,24 +193,7 @@
     if (v['meta.project'] || v['meta.site']) blocks.push({ type: 'p', text: [v['meta.project'], v['meta.site']].filter(Boolean).join(' – '), align: 'center', size: 12 });
     blocks.push({ type: 'p', text: `Số chế tạo: ${v['meta.serial'] || '—'} · Test Report: ${factoryName || 'chưa nạp'}`, italic: true, size: 10, align: 'center', after: 160 });
     blocks.push({ type: 'p', text: 'Quy trình tham khảo: QĐ 1387/QĐ-EVNNPT (25/04/2015), Điều 25–27; Tài liệu đào tạo thí nghiệm MBA (2026), I.11.', italic: true, size: 9, align: 'center', after: 140 });
-    blocks.push({ type: 'p', text: '1. Số liệu thí nghiệm', bold: true, size: 12, keepNext: true });
-    const fmt = (x, digits = 2) => x === null || x === undefined || !Number.isFinite(Number(x)) ? '—' : out(Number(x).toFixed(digits));
-    const inputRows = results.map(x => [x.row.pair || '', `${x.row.tap || ''}${x.phase ? ` / ${x.phase}` : ''}`, x.testCase === 'new' ? 'Mới' : x.testCase === 'overhaul' ? 'Đại tu' : 'Vận hành', x.tapRole === 'main' ? 'Nấc chính' : 'Nấc khác', fmt(x.tempC, 1), fmt(x.frequencyHz, 2), fmt(x.ratedFrequencyHz, 2), fmt(x.testVoltageInput, 2), x.testVoltageUnit, fmt(x.measuredVoltageKV, 4), fmt(x.ratedVoltageKV, 3), fmt(x.ratedCurrentA, 2), fmt(x.testCurrentA, 2), fmt(x.testCurrentPct, 1), fmt(x.powerKw, 3)]);
-    blocks.push({ type: 'table', size: 8, head: ['Cặp cuộn', 'Nấc / pha', 'Trường hợp', 'Vị trí nấc', 'T (°C)', 'f đo', 'fđm (Hz)', 'U đo', 'Đơn vị', 'U quy đổi (kV)', 'Un (kV)', 'In (A)', 'I đo (A)', 'I/In (%)', 'P đo (kW)'],
-      widths: [650, 700, 670, 700, 500, 500, 560, 520, 420, 740, 580, 560, 600, 560, 650], rows: inputRows });
-    const correctionRows = results.map(x => [x.row.pair || '', `${x.row.tap || ''}${x.phase ? ` / ${x.phase}` : ''}`, fmt(x.copperLossKw, 3), fmt(valueOf(x.row.tempFactor), 0), fmt(x.reportTempC, 1)]);
-    blocks.push({ type: 'table', size: 8, head: ['Cặp cuộn', 'Nấc / pha', 'PI²R đo (kW)', 'K vật liệu', 'Nhiệt độ Pk Test Report (°C)'], widths: [1600, 1800, 1200, 900, 2200], rows: correctionRows });
-    blocks.push({ type: 'p', text: '2. So sánh Uk', bold: true, size: 12, keepNext: true, before: 180 });
-    const stateText = s => s === 'pass' ? 'Đạt' : s === 'fail' ? 'Không đạt' : s === 'na' ? '—' : 'Cần xem xét';
-    const ukRows = results.map(x => [x.row.pair || '', `${x.row.tap || ''}${x.phase ? ` / ${x.phase}` : ''}`, x.sameFrequency ? 'Đạt' : 'Cần xem xét', x.currentAdequate ? 'Đạt' : 'Cần xem xét', fmt(x.ukPct, 3), fmt(x.nameplateUkPct, 3), fmt(x.deltaUk1387Pct, 2), fmt(x.ref && x.ref.ukPct, 3), fmt(x.deltaUkPct, 2), stateText(x.ukStatus), fmt(x.initialUkPct, 3), fmt(x.deltaInitialUkPct, 2), stateText(x.uk1387Status), fmt(x.phaseDeltaPct, 2), stateText(x.phaseStatus), stateText(x.overall)]);
-    blocks.push({ type: 'table', size: 8, head: ['Cặp', 'Nấc / pha', 'f = fđm', 'I ≥ 25% In', 'Uk đo (%)', 'Uk nh\u00e3n m\u00e1y (%)', '\u0394Uk nh\u00e3n (%)', 'Uk Test Report (%)', 'ΔUk Report (%)', 'QĐ1901', 'Uk ban đầu (%)', 'ΔUk ban đầu (%)', 'QĐ1387', 'Lệch pha (%)', '\u0054\u00ecnh tr\u1ea1ng pha', '\u004b\u1ebft lu\u1eadn'],
-      widths: [470, 560, 500, 550, 560, 650, 600, 480, 620, 550, 600, 550, 480, 600, 450, 520], rows: ukRows });
-    blocks.push({ type: 'p', text: '3. So sánh Pk', bold: true, size: 12, keepNext: true, before: 180 });
-    const pkRows = results.map(x => [x.row.pair || '', `${x.row.tap || ''}${x.phase ? ` / ${x.phase}` : ''}`, fmt(x.pkAtReportTempKw, 3), fmt(x.ref && x.ref.pkKw, 3), fmt(x.deltaPkPct, 2), x.currentAdequate ? 'Đạt' : 'Cần xem xét', stateText(x.pkStatus)]);
-    blocks.push({ type: 'table', size: 8, head: ['Cặp / nấc / pha', 'Pk quy đổi cùng điều kiện (kW)', 'Pk Test Report (kW)', 'ΔPk (%)', 'I ≥ 25% In', 'Pk', 'Kết luận'], widths: [1800, 2200, 1900, 900, 1000, 700, 900], rows: pkRows });
-    blocks.push({ type: 'p', text: 'Uk (%) = U / Un × In / I × 100, với U, I, Un và In cùng phía đo; U nhập theo V hoặc kV rồi quy về kV trước tính. Pk quy về dòng định mức: Pk1 = Pđo × (In / I)². Khi nhiệt độ khác Test Report: Pk2 = Pcu1 × (K + t2) / (K + t1) + Pstr1 × (K + t1) / (K + t2), trong đó Pstr1 = Pk1 − Pcu1; K = 235 cho dây đồng, K = 225 cho dây nhôm.', size: 9, before: 120 });
-    blocks.push({ type: 'p', text: 'Ph\u1ea1m vi theo Q\u0110 1387: th\u00ed nghi\u1ec7m sau l\u1eafp \u0111\u1eb7t m\u1edbi v\u00e0 \u0111\u1ea1i tu/c\u1ea3i t\u1ea1o; khi \u0111ang v\u1eadn h\u00e0nh, th\u1ef1c hi\u1ec7n sau khi d\u00f2ng ng\u1eafn m\u1ea1ch \u0111\u00e3 qua v\u01b0\u1ee3t 70% d\u00f2ng ch\u1ecbu \u0111\u1ef1ng t\u00ednh to\u00e1n. V\u1edbi OLTC, \u0111o n\u1ea5c ch\u00ednh v\u00e0 hai n\u1ea5c \u0111\u1ea7u/cu\u1ed1i; BCT kh\u00f4ng s\u1eed d\u1ee5ng ph\u1ea3i ng\u1eafn m\u1ea1ch v\u00e0 n\u1ed1i \u0111\u1ea5t.', size: 9 });
-    blocks.push({ type: 'p', text: 'Căn cứ QĐ 1387/QĐ-EVNNPT: Điều 26 yêu cầu dòng thử không nhỏ hơn 25% In; khi hiện trường không có điện áp thử theo Test Report, dùng 380 V hoặc điện áp không quá 10 kV và nội suy. Điều 27: MBA mới sai số Uk không quá 5% tại nấc chính; sau đại tu/đang vận hành không quá 3% so với giá trị ban đầu và giữa các pha; Pk quy về cùng điều kiện không lớn hơn 115% số liệu nhà chế tạo. App đồng thời giữ tiêu chí QĐ 1901 Điều 35: Uk sai lệch không quá 3%, Pk không quá 115%, và MBA ba pha kiểm tra lệch pha không quá 3%. Thiếu tham chiếu, sai tần số, dòng thử dưới 25% In hoặc thiếu dữ liệu quy đổi được ghi “Cần xem xét”.', size: 9 });
+    blocks.push(...shortCircuitBlocks(results, out, n => `${n}.`));
     blocks.push({ type: 'p', text: 'Người thí nghiệm', bold: true, size: 12, align: 'right', after: 1200 });
     return blocks;
   }
@@ -212,10 +219,12 @@
     if (att.dfr && Array.isArray(att.dfr.items) && att.dfr.items.some(x => x.use)) out.push({ kind: 'dfr' });
     const oilHas = id => has.oil === undefined || (typeof has.oil.has === 'function' ? has.oil.has(id) : !!has.oil[id]);
     (att.oil && att.oil.items || []).filter(x => x.use !== false && oilHas(x.id)).forEach(x => out.push({ kind: 'oil', id: x.id }));
-    if (shortCircuitHasData(att.shortCircuit)) out.push({ kind: 'shortCircuit' });
+    // thí nghiệm ngắn mạch: mục cuối thân biên bản (MbaReport.fill); chỉ thành phụ lục khi template không có chỗ chèn
+    if (has.shortCircuit && shortCircuitHasData(att.shortCircuit)) out.push({ kind: 'shortCircuit' });
     // mẫu chung 3 pha: biến dòng chân sứ không có bảng trong thân BBTN → phụ lục dựng từ số liệu mục BCT
     if (has.bct) out.push({ kind: 'bct' });
-    out.push({ kind: 'standards' });
+    // phụ lục bảng tra cứu tiêu chuẩn: chỉ khi chọn kèm (cfg.stdAppendix = 'on'); mặc định BBTN như mẫu giấy
+    if (state.cfg && state.cfg.stdAppendix === 'on') out.push({ kind: 'standards' });
     out.forEach((a, i) => { a.label = out.length > 1 ? `PHỤ LỤC ${i + 1}` : 'PHỤ LỤC'; });
     return out;
   }
@@ -240,5 +249,5 @@
     ];
   }
 
-  window.Appendix = { SFRA_URL, DGA_URL, dgaLink, oilSummary, serialMatch, fraSummary, shortCircuitPairs, shortCircuitHasData, shortCircuitResults, shortCircuitAppendix, standardsAppendix, list, fraHeader, oilHeader };
+  window.Appendix = { SFRA_URL, DGA_URL, dgaLink, oilSummary, serialMatch, fraSummary, shortCircuitPairs, shortCircuitHasData, shortCircuitResults, shortCircuitBlocks, shortCircuitAppendix, standardsAppendix, list, fraHeader, oilHeader };
 })();
