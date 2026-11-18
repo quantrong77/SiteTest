@@ -593,20 +593,45 @@
   }
 
   let factoryTab = 0;
+  // Trang XX: cây / danh sách / xem / sửa số liệu xuất xưởng (FactoryUI); bảng file .xlsx trên máy + sheet thô ở khối thu gọn
   function renderFactory() {
-    let h = headHTML('XX', 'Số liệu xuất xưởng', FX ? FX.data.fileName : '');
-    if (!FX) return `<section class="panel">${h}<div class="empty">Chưa nạp file.</div></section>`;
+    return `<section class="panel">${headHTML('XX', 'Số liệu xuất xưởng', FX ? `Đang dùng: ${FX.data.fileName}` : '')}${FactoryUI.render(App)}</section>`;
+  }
+  function localFactoryHTML() {
+    let h = '';
+    if (!FX) return '<div class="empty">Chưa nạp file .xlsx trên máy này.</div>';
     const sh = FX.data.sheets;
     h += '<div class="grid-wrap"><table class="grid"><thead><tr><th>File</th><th>Các máy (số chế tạo – pha)</th><th>Cảnh báo</th><th></th></tr></thead><tbody>'
       + FXS.map(x => { const d = x.api.data; return `<tr><th>${esc(x.name)}${x.emb ? ' <span class="badge">nhúng sẵn</span>' : ''}${x.api === FX ? ' <span class="badge st-pass">đang dùng</span>' : ''}</th>`
         + `<td>${esc(d.order.map(sn => `${sn} – ${d.units[sn].phase || '?'}`).join(', '))}</td><td>${d.warnings.length ? `<span title="${esc(d.warnings.join('\n'))}">${d.warnings.length}</span>` : '—'}</td>`
         + `<td class="row-actions">${x.api === FX ? '' : `<button class="btn small" data-act="useFx" data-name="${esc(x.name)}">Dùng file này</button>`}${x.emb ? '' : `<button class="btn small danger" data-act="delFx" data-name="${esc(x.name)}">Bỏ</button>`}</td></tr>`; }).join('')
       + '</tbody></table></div>';
-    h += `<div class="row-actions"><button class="btn" data-act="loadXlsx">Thêm file .xlsx…</button></div>`;
+    h += `<h4>Xem sheet của file đang dùng: ${esc(FX.data.fileName)}</h4>`;
     h += '<div class="tabs">' + sh.map((s, i) => `<button data-ftab="${i}" class="${i === factoryTab ? 'on' : ''}">${esc(s.name)}</button>`).join('') + '</div>';
-    const rows = sh[factoryTab].rows;
+    const rows = (sh[factoryTab] || sh[0]).rows;
     h += '<div class="raw"><table>' + rows.map(r => '<tr>' + (r || []).map(c => `<td title="${esc(c)}">${esc(typeof c === 'number' ? +c.toFixed(6) : c)}</td>`).join('') + '</tr>').join('') + '</table></div>';
-    return `<section class="panel">${h}</section>`;
+    return h;
+  }
+
+  // Thêm một file xuất xưởng (.xlsx) vào danh sách trên máy và dùng ngay (nút "Thêm file .xlsx", "Dùng cho biên bản" ở trang XX)
+  function addFactoryFile(name, buf, quiet) {
+    const entry = { name, api: factoryReader().fromArrayBuffer(buf, name), emb: false };
+    if (!entry.api.data.order.length) throw new Error('không xác định được số chế tạo các máy trong file');
+    const list = factoryFiles().filter(x => x.name !== name).concat([{ name, b64: abToB64(buf) }]);
+    if (!lsSet(LS_FACS, JSON.stringify(list))) toast('File lớn — chỉ dùng trong phiên này', true);
+    FXS = FXS.filter(x => x.name !== name).concat([entry]);
+    setFactory(entry, true);
+    recompute(); renderNav(); renderMain(); persist();
+    const D = entry.api.data;
+    if (!quiet) toast(`Đã thêm ${name}: ${D.order.length} máy (${D.order.join(', ')})${D.warnings.length ? ' — có cảnh báo, xem mục 0' : ''}`, D.warnings.length > 0);
+    return entry;
+  }
+  // nội dung gốc của file đã nạp (base64) — để lưu file test report lên CSDL cùng số liệu
+  function factoryFileB64(name) {
+    const e = FXS.find(x => x.name === name);
+    if (e && e.emb) return EMB.factory && EMB.factory.name === name ? EMB.factory.b64 : null;
+    const o = factoryFiles().find(x => x.name === name);
+    return o ? o.b64 : null;
   }
 
   function renderMain() {
@@ -633,6 +658,7 @@
     if (current === 'db' || current === 'trend') DbUI.afterRender(current);
     if (current === 'model3d') MbaModel3DUI.init(main);
     if (current === 'catalog') Catalog.afterRender();
+    if (current === 'factory') FactoryUI.afterRender(App);
     if (current === 'kconf') KConf.afterRender();
     if (current === 'appendix') AppendixUI.afterRender(App);
     if (current === 'criteria') CriteriaUI.afterRender();
@@ -948,7 +974,8 @@
       else if (act === 'autoConclusion') {
         state.v['meta.conclusion'] = T().autoConclusion(res, schema, state);
         renderMain(); persist();
-      } else if (act && act.startsWith('db')) await DbUI.action(act, b);
+      } else if (act && act.startsWith('fx')) await FactoryUI.action(act, b, App);
+      else if (act && act.startsWith('db')) await DbUI.action(act, b);
       else if (act && act.startsWith('appx')) await AppendixUI.action(act, b, App);
       else if (act && act.startsWith('imp')) await ImportReportUI.action(act, b, App);
       else if (act && TU().actions && TU().actions[act]) await track(b.textContent.trim() || act, () => TU().actions[act](b, App));
@@ -1225,18 +1252,7 @@
       if (obj.files) await AppendixUI.restoreFiles(obj.files);
       recompute(); current = 'general'; renderMain(); persist(); toast('Đã mở ' + f.name);
     }));
-    $('#fileXlsx').addEventListener('change', e => readFile(e.target, async f => {
-      const buf = await f.arrayBuffer();
-      const entry = { name: f.name, api: factoryReader().fromArrayBuffer(buf, f.name), emb: false };
-      if (!entry.api.data.order.length) throw new Error('không xác định được số chế tạo các máy trong file');
-      const list = factoryFiles().filter(x => x.name !== f.name).concat([{ name: f.name, b64: abToB64(buf) }]);
-      if (!lsSet(LS_FACS, JSON.stringify(list))) toast('File lớn — chỉ dùng trong phiên này', true);
-      FXS = FXS.filter(x => x.name !== f.name).concat([entry]);
-      setFactory(entry, true);
-      recompute(); renderNav(); renderMain(); persist();
-      const D = entry.api.data;
-      toast(`Đã thêm ${f.name}: ${D.order.length} máy (${D.order.join(', ')})${D.warnings.length ? ' — có cảnh báo, xem mục 0' : ''}`, D.warnings.length > 0);
-    }));
+    $('#fileXlsx').addEventListener('change', e => readFile(e.target, async f => { addFactoryFile(f.name, await f.arrayBuffer()); }));
     $('#fileDocx').addEventListener('change', e => readFile(e.target, async f => {
       const buf = await f.arrayBuffer();
       const t = await DocxTemplate.load(buf);
@@ -1263,6 +1279,8 @@
   // API cho các trang khác (js/ui/*.js) và phần giao diện riêng của loại thiết bị (TypeUI)
   const App = window.App = {
     get state() { return state; }, get res() { return res; }, get schema() { return schema; }, get FX() { return FX; }, get type() { return T(); }, EMB,
+    get factories() { return FXS; }, addFactoryFile, factoryFileB64, localFactoryHTML,
+    useFactory(name) { const e = FXS.find(x => x.name === name); if (e) { setFactory(e); recompute(); renderNav(); renderMain(); persist(); } return e; },
     exportDocx, exportXlsx, toast, esc, download, safeName, persist, recompute, renderMain, fieldHTML, cfgField, readFile, lsGet, lsSet, abToB64, track,
     rebuild(schemaChanged) { if (schemaChanged) schema = T().buildSchema(state.cfg); recompute(); renderNav(); renderMain(); persist(); },
     render() { renderNav(); renderMain(); },
