@@ -49,14 +49,19 @@ test('ô trống: vẫn có lịch sử (ưu tiên giá trị quy đổi), khôn
   assert.equal(w.series([], KEY), null);
 });
 
-test('tô vàng chỉ khi có ngưỡng QĐ 1901: lệch hai chiều (R, tỷ số, C) hoặc tăng (tgδ)', () => {
+test('tô vàng chỉ khi có ngưỡng QĐ 1901: lệch hai chiều (R, tỷ số, C), tăng (tgδ) hoặc giảm R60 (Điều 29 mục 3)', () => {
   const ctx = load(CORE.concat(['js/domain/trend-inline.js']));
   const L = ctx.Criteria.limits(), w = ctx.TrendInline;
   assert.equal(w.warn({ item: 'DCR', param: 'R' }, -2.5, L), true);
   assert.equal(w.warn({ item: 'DCR', param: 'R' }, 1.5, L), false);
   assert.equal(w.warn({ item: 'BUSHING', param: 'TGD1' }, -80, L), false); // giảm tgδ không phải dấu hiệu xấu
   assert.equal(w.warn({ item: 'BUSHING', param: 'TGD1' }, L.BUSHING_TGD_RISE_WARN + 1, L), true);
-  assert.equal(w.warn({ item: 'IR', param: 'R60' }, -90, L), false); // không có ngưỡng % so khởi đầu dùng ở đây
+  // R60@20 cách điện cuộn dây: giảm quá IR_DROP (30%) so với khởi đầu HOẶC lần trước (QĐ 1901 Điều 29 mục 3)
+  assert.equal(w.warn({ item: 'IR', param: 'R60' }, -(L.IR_DROP + 5), L), true);
+  assert.equal(w.warn({ item: 'IR', param: 'R60' }, -(L.IR_DROP - 5), L), false);
+  assert.equal(w.warn({ item: 'IR', param: 'R60' }, +5, L, -(L.IR_DROP + 1)), true, 'so với lần trước');
+  assert.equal(w.warn({ item: 'IR', param: 'R60' }, +40, L), false, 'tăng không phải dấu hiệu xấu');
+  assert.equal(w.warn({ item: 'IR', param: 'R15' }, -90, L), false, 'chỉ R60 có ngưỡng');
   assert.equal(w.warn({ item: 'DCR', param: 'R' }, null, L), false);
 });
 

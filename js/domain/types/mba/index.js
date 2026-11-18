@@ -12,6 +12,8 @@
       oltcWinding: 'HV',
       // hạng mục KHÔNG thực hiện trong lần thí nghiệm này ({ id hạng mục: true }); mặc định thực hiện tất cả
       skip: {},
+      // lý do "Sau sửa chữa/đại tu": lấy lần này làm giá trị khởi đầu mới ('' | 'INSULATION' | 'ALL', Schema.BASELINE_RESETS)
+      baselineReset: '',
       // kèm phụ lục "Bảng tra cứu tiêu chuẩn" cuối BBTN ('on') hay không ('off', mặc định)
       stdAppendix: 'off',
       iLV: '', sLV: '', sR: '', i0Ref: '', bC1Dev: '', bTgdMax: '', bctCores: { hv: 4, mv: 4, lv: 4 },
@@ -31,6 +33,7 @@
     cfg.reportScope = ['combined', 'separate'].includes(cfg.reportScope) ? cfg.reportScope : 'combined';
     if (cfg.topology !== 'bank1p') cfg.reportScope = 'combined';
     cfg.oltcWinding = cfg.oltcWinding === 'MV' ? 'MV' : 'HV';
+    cfg.baselineReset = ['INSULATION', 'ALL'].includes(cfg.baselineReset) ? cfg.baselineReset : '';
     cfg.stdAppendix = cfg.stdAppendix === 'on' ? 'on' : 'off';
     // hạng mục KHÔNG thực hiện ({ id: true }); biên bản cũ: mọi hạng mục thực hiện
     cfg.skip = cfg.skip && typeof cfg.skip === 'object' ? Object.fromEntries(Object.entries(cfg.skip).filter(([, x]) => x === true)) : {};
@@ -177,7 +180,8 @@
     // nhập BBTN PDF có lớp chữ (PTC3/BM.01, MBA 110–220 kV)
     importPdfReport: (pages, fileName, opts) => MbaPdfImportReport.read(pages, fileName, opts),
     buildSchema: cfg => Schema.build(cfg),
-    evaluate: (state, FX, schema) => Evaluate.evaluate(state, FX, schema),
+    // opts: { history (lịch sử đo CSDL, xu hướng R60), sessionId }
+    evaluate: (state, FX, schema, opts) => Evaluate.evaluate(state, FX, schema, opts),
     autoConclusion: (res, schema, state) => Evaluate.autoConclusion(res, schema, state),
     factory: Factory,
     toRows: MbaRows,

@@ -11,6 +11,12 @@
 
   // ---------------- Thông tin chung (bảng 0) ----------------
   // Loại thí nghiệm (ô "Lý do thí nghiệm"); giá trị cũ khác danh sách vẫn giữ nguyên trong biên bản
+  // Lần sau sửa chữa / đại tu lấy làm giá trị khởi đầu mới cho các lần thí nghiệm sau (test_sessions.baseline_reset)
+  const BASELINE_RESETS = [
+    ['', 'Không — giữ giá trị khởi đầu cũ'],
+    ['INSULATION', 'Có lọc dầu, sấy chân không — lấy số liệu cách điện cuộn dây lần này (R cách điện, tgδ, điện dung) làm giá trị khởi đầu'],
+    ['ALL', 'Thay cuộn dây / thay đổi kết cấu cách điện — lấy mọi số liệu lần này làm giá trị khởi đầu (QĐ 1901 Điều 2)'],
+  ];
   const REASONS = ['Sau lắp đặt', '1 năm sau lắp đặt', 'Định kỳ 1 năm', 'Định kỳ 3 năm', 'Định kỳ 6 năm', 'Tăng cường', 'Đột xuất', 'Sau sửa chữa/đại tu'];
   const META = [
     { k: 'meta.project', label: 'Tên dự án / tên trạm', doc: { t: 0, r: 2, c: 0, re: /\(Project\):(?<v>.*)$/ } },
@@ -787,5 +793,5 @@
   // Duyệt biểu mẫu: hàm chung ở js/domain/common.js (trường đầu/cuối biên bản lấy từ schema.head/tail)
   const { eachGrid, eachField } = Common;
 
-  window.Schema = { HV_MEAS, OLTC_WINDINGS, ATT_SECTIONS, REASONS, LAYOUT_3P, LAYOUT_110, MAP_110, TAPS_19, layoutOf, TAPS_17, build, eachGrid, eachField, META, CLOSING, SUMMARY_ROWS, DEFAULT_TAPS, BCT_SIDES, BCT_TABLES };
+  window.Schema = { HV_MEAS, OLTC_WINDINGS, BASELINE_RESETS, ATT_SECTIONS, REASONS, LAYOUT_3P, LAYOUT_110, MAP_110, TAPS_19, layoutOf, TAPS_17, build, eachGrid, eachField, META, CLOSING, SUMMARY_ROWS, DEFAULT_TAPS, BCT_SIDES, BCT_TABLES };
 })();

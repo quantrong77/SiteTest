@@ -1,6 +1,7 @@
-// Xu hướng ngay tại ô nhập: biên bản đã lưu CSDL (đã gắn thiết bị) và đã đăng nhập → tải lịch sử đo của các thiết bị trong
-// biên bản một lần (theo số chế tạo), lưu tạm trong trình duyệt để dùng khi mất mạng; dưới mỗi ô số có lịch sử hiện biểu đồ
-// nhỏ và % thay đổi của giá trị đang nhập so với xuất xưởng / lần trước. Chỉ hiển thị, không đổi kết quả đánh giá.
+// Xu hướng ngay tại ô nhập: tải lịch sử đo của các thiết bị trong biên bản (theo số chế tạo — cả biên bản mới đang lập ở
+// hiện trường, không cần lưu CSDL trước), lưu tạm trong trình duyệt để dùng khi mất mạng; dưới mỗi ô số có lịch sử hiện biểu
+// đồ nhỏ và % thay đổi của giá trị đang nhập so với xuất xưởng / lần trước. Lịch sử cũng được đưa vào đánh giá các tiêu chí
+// so với giá trị khởi đầu / lần trước (vd R60@20 giảm >30%, QĐ 1901 Điều 29 mục 3) qua history().
 (function () {
   'use strict';
   const PREFIX = 'bbtn-mba.trend-inline.';
@@ -66,7 +67,7 @@
       sessionId: st.db && st.db.sessionId, testDate: Common.isoDate(st.v['meta.date']) || '',
     });
     if (!s) return '';
-    const yellow = TrendInline.warn(target, s.fromBase, window.Criteria ? Criteria.limits() : null);
+    const yellow = TrendInline.warn(target, s.fromBase, window.Criteria ? Criteria.limits() : null, s.fromPrevious);
     const baseLbl = s.base.kind === 'FAT' ? 'XX' : 'Đầu';
     const lines = s.hasCurrent
       ? [`${baseLbl} ${fmt(s.fromBase)}`].concat(s.fromPrevious !== null ? [`Trước ${fmt(s.fromPrevious)}`] : [])
@@ -94,27 +95,33 @@
   }
 
   // Tải lịch sử khi biên bản đã gắn thiết bị trong CSDL; gọi lại khi mở biên bản khác / đăng nhập. Không dựng lại trang.
-  async function load(c, root) {
+  // onChange(): gọi khi lịch sử dùng để đánh giá thay đổi (bản lưu tạm hoặc bản mới tải) — app đánh giá lại ngay
+  async function load(c, root, onChange) {
     ctx = c;
     const my = ++seq; // lượt tải mới nhất (mở biên bản khác trong lúc chờ thì bỏ kết quả cũ)
-    const linked = c.state && c.state.db && c.state.db.equipmentId;
-    const pack = linked ? rowsOf(c, false) : null;
+    const pack = rowsOf(c, false);
     const serials = pack ? serialsOf(pack) : [];
     const key = serials.join('|');
-    if (!key) { reset(); return; }
-    if (key !== loadedFor) { hist = readCache(key); loadedFor = key; }
+    if (!key) { const had = hist.length; reset(); if (had && onChange) onChange(); return; }
+    if (key !== loadedFor) {
+      hist = readCache(key); loadedFor = key;
+      if (onChange) onChange();
+    }
     if (window.DB && DB.user && DB.trendForSerials) {
       try {
         const fresh = await DB.trendForSerials(serials);
         if (my !== seq || loadedFor !== key) return;
+        const changed = JSON.stringify(fresh || []) !== JSON.stringify(hist);
         hist = fresh || [];
         writeCache(key, hist);
+        if (changed && onChange) onChange();
       } catch (_) { /* mất mạng: dùng bản lưu tạm */ }
     }
     prepare(ctx); // trang có thể đã dựng lại trong lúc chờ: dùng ngữ cảnh mới nhất
     decorate(root);
   }
   function reset() { hist = []; loadedFor = ''; cells = new Map(); seq++; }
+  const history = () => hist;
 
-  window.TrendInlineUI = { prepare, decorate, load, reset, has };
+  window.TrendInlineUI = { prepare, decorate, load, reset, has, history };
 })();

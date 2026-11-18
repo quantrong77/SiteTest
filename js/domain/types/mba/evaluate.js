@@ -5,7 +5,83 @@
 
   const { RANK, worst, toNum, ok, fmt, sgn, devPct, findGrid } = Common;
 
-  function evaluate(state, FX, schema) {
+  // QĐ 1901 Điều 29 mục 3 (Điều 9 mục 4): R60@20 cuộn dây giảm quá 30% so với giá trị khởi đầu hoặc lần trước → hướng xử lý.
+  // Bước có căn cứ ghi rõ điều khoản; bước còn lại là gợi ý kỹ thuật, không phải quy định.
+  const IR_DROP_ACTIONS = 'Hướng xử lý: (1) Kiểm tra điều kiện đo theo Điều 29 mục 2 — nhiệt độ dầu/cuộn dây dùng quy đổi (∆t, K1), '
+    + 'vệ sinh và làm khô bề mặt sứ, độ ẩm / ô nhiễm (dùng vòng màn chắn), Mêgôm ≥2500 V, cùng điện áp và sơ đồ đo với lần trước, '
+    + 'nối đất cuộn dây đủ thời gian — rồi đo lại. (2) Đo hệ số phân cực PI (Điều 9 ghi chú d), đánh giá theo IEEE C57.152. '
+    + '(3) Gợi ý: đối chiếu Kht, tgδ và điện dung cuộn dây, hàm lượng ẩm cách điện cứng, BBTN dầu (DGA, lý hóa). '
+    + '(4) Nếu các hạng mục khác đạt tiêu chuẩn vận hành: báo cáo người có thẩm quyền quyết định đóng điện MBA (Điều 29 mục 3).';
+  const IR_DROP_BASIS = 'QĐ 1901 Điều 29 mục 3 (Điều 9 mục 4)';
+  const REPORT_UP = 'Báo cáo người có thẩm quyền xem xét.';
+  // Ghi chú dòng so XX khi chưa có giá trị khởi đầu (text); CSDL đã có giá trị khởi đầu → đổi sang withHistory (trỏ dòng xu hướng)
+  const INIT_NOTE = {
+    r60: { text: ' XX không có R60 tuyệt đối → chưa áp tiêu chí “giảm ≤30%”; lần đo này là giá trị khởi đầu.', withHistory: ' Đã có giá trị khởi đầu trong CSDL: xem dòng xu hướng.' },
+    cap: { text: 'Không có điện dung XX cho sơ đồ đo này → lưu làm giá trị khởi đầu', withHistory: 'Không có điện dung XX; đã có giá trị khởi đầu trong CSDL: xem dòng xu hướng' },
+  };
+
+  // Tiêu chí xu hướng QĐ 1901 (so với giá trị khởi đầu / lần trước, theo lịch sử CSDL) — khóa "ITEM:PARAM" của dòng CSDL.
+  // judge(ctx) → { status, limit, actions } hoặc null (không áp dụng). ctx: { fromBase, fromPrevious, base, cur, L, isNew, layout, c1Lim }
+  // norm: chỉ so giá trị quy về 20 °C (lịch sử cmp_basis = norm). Mốc "khởi đầu" = xuất xưởng, không có thì lần đo sớm nhất
+  // (QĐ 1901 Điều 2 — định nghĩa; TrendInline.series).
+  const fin = d => d !== null && d !== undefined && Number.isFinite(d);
+  const TREND_RULES = {
+    'IR:R60': {
+      name: 'R60@20', unit: 'MΩ', digits: 0, rowLabel: true, basis: IR_DROP_BASIS, both: true, norm: true,
+      judge: c => ({ status: [c.fromBase, c.fromPrevious].some(d => fin(d) && d < -c.L.IR_DROP) ? 'fail' : 'pass',
+        limit: `giảm ≤ ${c.L.IR_DROP}% so với giá trị khởi đầu và lần trước`, actions: IR_DROP_ACTIONS }),
+    },
+    'WTGD:TGD': {
+      name: 'tgδ cuộn dây (20 °C)', unit: '%', digits: 3, rowLabel: true, basis: 'QĐ 1901 Điều 30 mục 3 (Điều 9 mục 5)', norm: true,
+      // tgδ20 < 1% coi là tốt, không cần so với giá trị khởi đầu (Điều 30 mục 3)
+      judge: c => (c.cur < c.L.WINDING_TGD_OK || !fin(c.fromBase) ? null : {
+        status: c.fromBase > c.L.WINDING_TGD_RISE ? 'fail' : 'pass',
+        limit: `tăng ≤ ${c.L.WINDING_TGD_RISE}% so với giá trị khởi đầu (tgδ20 < ${c.L.WINDING_TGD_OK}% coi là tốt)`,
+        actions: 'Hướng xử lý: (1) Xét các yếu tố làm tăng kết quả đo (Điều 30 mục 2): độ ẩm cao, môi trường ô nhiễm, sứ đầu ra bẩn, nhiễu của thiết bị mang điện ở gần — loại trừ rồi đo lại. '
+          + '(2) Đo ở nhiệt độ cao mà giá trị sau quy đổi lớn bất thường: để MBA nguội rồi đo lại (Điều 30). (3) Gợi ý: đối chiếu R60/Kht/PI, hàm lượng ẩm cách điện cứng, BBTN dầu. (4) ' + REPORT_UP }),
+    },
+    'WTGD:C': {
+      name: 'điện dung cuộn dây', unit: 'pF', digits: 1, rowLabel: true, basis: 'QĐ 1901 Điều 9 mục 5',
+      judge: c => (!fin(c.fromBase) ? null : {
+        status: Math.abs(c.fromBase) > c.L.WINDING_C_DEV ? 'fail' : 'pass', limit: `±${c.L.WINDING_C_DEV}% so với giá trị khởi đầu`,
+        actions: 'Hướng xử lý: (1) Gợi ý: kiểm tra sơ đồ đo, điện áp đo cùng với lần khởi đầu, đo lại. (2) Gợi ý: đối chiếu đáp ứng tần số quét (SFRA), điện áp ngắn mạch, tỷ số biến. (3) ' + REPORT_UP }),
+    },
+    'BUSHING:C1': {
+      name: 'điện dung C1 sứ', unit: 'pF', digits: 1, basis: 'QĐ 1901 Điều 38 mục 3c',
+      judge: c => (!fin(c.fromBase) ? null : {
+        status: Math.abs(c.fromBase) > c.c1Lim ? 'fail' : 'pass', limit: `thay đổi ≤ ${c.c1Lim}% so với giá trị khởi đầu (khi NSX không quy định)`,
+        actions: 'Hướng xử lý: (1) Đánh giá theo quy định của nhà sản xuất nếu có (Điều 38 mục 3c). (2) Gợi ý: vệ sinh sứ, kiểm tra sơ đồ đo (đầu đo test tap), đo lại. (3) ' + REPORT_UP }),
+    },
+    'BUSHING:TGD1': {
+      name: 'tgδ C1 sứ (20 °C)', unit: '%', digits: 3, basis: 'QĐ 1901 Điều 38 mục 3a', norm: true,
+      // chỉ áp dụng trong vận hành (không áp dụng cho lần sau lắp đặt / sửa chữa)
+      judge: c => (c.isNew || !fin(c.fromBase) ? null : {
+        status: c.fromBase > c.L.BUSHING_TGD_RISE_FAIL ? 'fail' : c.fromBase >= c.L.BUSHING_TGD_RISE_WARN ? 'warn' : 'pass',
+        limit: `trong vận hành tăng ≤ ${c.L.BUSHING_TGD_RISE_FAIL}% so với giá trị khởi đầu (${c.L.BUSHING_TGD_RISE_WARN}–${c.L.BUSHING_TGD_RISE_FAIL}%: đo thêm)`,
+        actions: 'Hướng xử lý: đo tgδ ở tần số 15 Hz và 400 Hz để có thêm cơ sở đánh giá (Điều 38 mục 3a, tham khảo Bảng 53); nếu tgδ ở 15 Hz, 50 Hz, 400 Hz chênh lệch lớn, '
+          + 'cách điện sứ có dấu hiệu nhiễm ẩm, cần tăng cường theo dõi. ' + REPORT_UP }),
+    },
+    'NOLOAD:P0': {
+      name: 'tổn hao không tải P0', unit: 'kW', digits: 2, rowLabel: true, basis: 'QĐ 1901 Điều 34 mục 3',
+      judge: c => {
+        if (!fin(c.fromBase)) return null;
+        // MBA 3 pha ≥110 kV sau lắp đặt / sửa chữa: so với giá trị xuất xưởng; MBA 1 pha ≥110 kV và vận hành: so với giá trị khởi đầu
+        const three = c.layout === Schema.LAYOUT_110;
+        if (c.isNew && three && c.base.kind !== 'FAT') return null;
+        const lim = c.isNew ? (three ? c.L.NOLOAD_3PH_NEW : c.L.NOLOAD_1PH_NEW) : c.L.NOLOAD_OPER;
+        return {
+          status: Math.abs(c.fromBase) > lim ? 'fail' : 'pass',
+          limit: `±${lim}% ${c.isNew && three ? 'giá trị xuất xưởng' : 'giá trị khởi đầu'} (${c.isNew ? 'sau lắp đặt / sửa chữa' : 'vận hành'})`,
+          actions: 'Hướng xử lý: (1) Gợi ý: kiểm tra điện áp đặt (U′mean / Urms), sơ đồ đo, khử từ dư lõi thép (sau đo R một chiều) rồi đo lại. (2) ' + REPORT_UP,
+        };
+      },
+    },
+  };
+  const isoToVn = d => { const m = String(d || '').match(/^(\d{4})-(\d{2})-(\d{2})/); return m ? `${m[3]}/${m[2]}/${m[1]}` : String(d || '?'); };
+
+  // opts.history: dòng v_trend_delta của thiết bị (lịch sử đo, nếu có); opts.sessionId: lần thí nghiệm đang mở (loại ra khi so)
+  function evaluate(state, FX, schema, opts) {
+    opts = opts || {};
     // hạng mục bỏ tích "Thực hiện": không đánh giá số liệu của hạng mục đó (số liệu vẫn giữ trong biên bản)
     state = Report.performed(state, schema, Schema.ATT_SECTIONS);
     // Ngưỡng theo bộ tiêu chí đang áp dụng (mặc định = QĐ 1901; Admin có thể chỉnh theo đơn vị)
@@ -28,6 +104,9 @@
     const is3P = schema.layout === Schema.LAYOUT_3P;
     const PH3 = ['A', 'B', 'C'];
     const sectionOf = id => schema.sections.find(s => s.id === id);
+    // Lịch sử đo của thiết bị trong CSDL (v_trend_delta) → tiêu chí xu hướng QĐ 1901 (cuối hàm, trendFindings)
+    const history = Array.isArray(opts.history) ? opts.history : [];
+    const testDate = Common.isoDate(txt('meta.date')) || '';
     const unitLabel = s => (F && F.unit(s) ? `${s} (pha ${F.unit(s).phase})` : s || '—');
 
     // ================= 1. Kiểm tra bên ngoài =================
@@ -137,7 +216,7 @@
           note: `K1 theo Bảng 4 với ∆t = ${cv.dt} °C (${cv.expr}).`
             + (cv.dt > 30 ? ' ∆t > 30 °C: vượt Bảng 4, QĐ 1901 không quy định cách tách hệ số — kết quả quy đổi chỉ để tham khảo.' : '')
             + (tIR < 10 || tIR > 40 ? ' Khuyến cáo đo khi nhiệt độ dầu 10–40 °C (Điều 9 mục 4).' : '')
-            + ' XX không có R60 tuyệt đối → chưa áp tiêu chí “giảm ≤30%”; lần đo này là giá trị khởi đầu.', keys: [`${p}.r60`] });
+            + INIT_NOTE.r60.text, keys: [`${p}.r60`] });
       } else {
         add({ sec: 'ir', item: `R60 ${row.label}`, meas: `${fmt(r60, 0)} MΩ`, status: 'missing', basis: R.ir, note: 'Thiếu nhiệt độ đo → chưa quy đổi/so Bảng 5', keys: [`${base}.t`] });
       }
@@ -418,7 +497,7 @@
         const cc = TestItems.capacitance({ c: C, ref: fref, lim: L.WINDING_C_DEV });
         add({ sec: 'wtgd', item: `Điện dung cuộn dây ${row.label || 'đối tượng bổ sung'}`, loc: unitLabel(main), meas: `${fmt(C, 1)} pF`, ref: ok(fref) ? `${fmt(fref, 0)} pF (XX)` : '',
           dev: sgn(cc.dev), limit: `±${L.WINDING_C_DEV}% so với giá trị khởi đầu`, status: cc.status,
-          basis: R.wtgd, note: ok(fref) ? '' : 'Không có điện dung XX cho sơ đồ đo này → lưu làm giá trị khởi đầu', keys: [`${p}.c`] });
+          basis: R.wtgd, note: ok(fref) ? '' : INIT_NOTE.cap.text, keys: [`${p}.c`] });
       }
     });
     if (k2info) notes[`${base}.k2`] = ` ${fmt(k2info.k, 3)} (Bảng 7 QĐ 1901, ∆t = ${k2info.dt} °C; ${k2info.expr}; tgδ20 = tgδ${ok(tW) && tW < 20 ? ' × ' : ' ÷ '}K2)`;
@@ -615,6 +694,61 @@
     if (exCount) add({ sec: 'bct', item: 'Đặc tính từ hóa V-A', meas: `${exCount} giá trị`, status: 'info', basis: R.bct, note: 'XX không có đặc tính V-A → lưu làm giá trị khởi đầu, so sánh các pha cùng loại' });
     if (txt('bct.polarity')) add({ sec: 'bct', item: 'Cực tính TI chân sứ', meas: txt('bct.polarity'), ref: 'Subtractive (XX)', status: /sai|ngược|không đúng/i.test(txt('bct.polarity')) ? 'fail' : 'pass', basis: R.bct, keys: ['bct.polarity'] });
 
+    // ================= Tiêu chí xu hướng QĐ 1901 theo lịch sử CSDL =================
+    // Dòng CSDL của biên bản đang nhập (cùng khóa như khi lưu) ↔ lịch sử v_trend_delta của cùng thiết bị; đại lượng có tiêu chí
+    // so với giá trị khởi đầu / lần trước → dòng "Xu hướng …" (bổ sung, không thay đánh giá so với xuất xưởng).
+    const trendFindings = () => {
+      if (!history.length || typeof TrendInline === 'undefined' || typeof MbaRows === 'undefined') return;
+      let pack;
+      // kết quả tạm cho fieldRows (chỉ cần khóa và giá trị; fieldRows còn gọi autoConclusion nên cần đủ hạng mục)
+      const blank = Object.fromEntries(schema.sections.map(s => [s.id, { status: null, text: '', counts: { pass: 0, warn: 0, fail: 0, missing: 0, info: 0 } }]));
+      try { pack = MbaRows.fieldRows(state, { calc, findings: [], sec: blank }, schema, { withKey: true }); } catch (_) { return; }
+      const serialOfRef = new Map(pack.refs.map(r => [r.key, r.serial_no]));
+      const secOf = Common.sectionOfKey(schema);
+      const rowLabelOf = new Map();
+      Common.eachGrid(schema, g => g.rows.forEach(r => g.cols.forEach(cl => rowLabelOf.set(`${g.id}.${r.k}.${cl.k}`, r.label))));
+      const hostOf = new Map();
+      findings.forEach(fd => (fd.keys || []).forEach(k => { if (!hostOf.has(k)) hostOf.set(k, fd); }));
+      const c1Lim = ok(toNum(cfg.bC1Dev)) ? toNum(cfg.bC1Dev) : L.BUSHING_C1_DEV;
+      // nhóm lịch sử theo khóa so khớp của TrendInline (item, param, config, phase, tap) — mỗi dòng chỉ quét nhóm của nó
+      const keyOf = r => TrendInline.KEY.map(k => String(r[k] ?? '')).join('|');
+      const byKey = new Map();
+      history.forEach(h => { if (!TREND_RULES[`${h.item}:${h.param}`]) return; const k = keyOf(h); (byKey.get(k) || byKey.set(k, []).get(k)).push(h); });
+      pack.rows.forEach(row => {
+        const rule = TREND_RULES[`${row.item}:${row.param}`];
+        if (!rule || !row.key) return;
+        const norm = Number.isFinite(row.value_norm) ? row.value_norm : null;
+        // tiêu chí quy về 20 °C: thiếu nhiệt độ / hệ số quy đổi → không so số thô ở nhiệt độ khác nhau
+        if (rule.norm && norm === null) return;
+        const cur = norm !== null ? norm : row.value;
+        if (!ok(cur)) return;
+        const group = byKey.get(keyOf(row));
+        if (!group) return;
+        const s = TrendInline.series(group, Object.assign({}, row, { serial_no: serialOfRef.get(row.eq), value_cmp: cur, cmp_basis: norm !== null ? 'norm' : 'raw' }),
+          { sessionId: opts.sessionId, testDate });
+        if (!s) return;
+        const j = rule.judge({ fromBase: s.fromBase, fromPrevious: s.fromPrevious, base: s.base, cur, L, isNew, layout: schema.layout, c1Lim });
+        if (!j) return;
+        const pc = d => `${sgn(d, 1)} %`, val = x => `${fmt(+x, rule.digits)} ${rule.unit}`;
+        const baseName = TrendInline.resetCovers(s.base, row.item) ? 'giá trị khởi đầu sau sửa chữa' : s.base.kind === 'FAT' ? 'xuất xưởng' : 'giá trị khởi đầu';
+        const refs = [`${baseName} ${isoToVn(s.base.test_date)}: ${val(s.base.value_cmp)} (${pc(s.fromBase)})`]
+          .concat(s.fromPrevious !== null ? [`lần trước ${isoToVn(s.previous.test_date)}: ${val(s.previous.value_cmp)} (${pc(s.fromPrevious)})`] : []);
+        const devs = (rule.both ? [s.fromBase, s.fromPrevious] : [s.fromBase]).filter(fin);
+        const worst = devs.reduce((a, b) => (Math.abs(b) > Math.abs(a) ? b : a), devs[0]);
+        const host = hostOf.get(row.key);
+        const bad = j.status === 'fail' || j.status === 'warn';
+        const lbl = rule.rowLabel && rowLabelOf.get(row.key) ? ' ' + rowLabelOf.get(row.key) : '';
+        add({ sec: secOf(row.key) || (host && host.sec), item: `Xu hướng ${rule.name}${lbl}`, loc: host ? host.loc : '',
+          meas: `${val(cur)}${norm !== null && (rule.unit === 'MΩ' || rule.unit === '%') ? ' @20 °C' : ''}`, ref: refs.join('; '),
+          dev: pc(worst), limit: j.limit, status: j.status, basis: rule.basis, trend: true, trendFail: bad || undefined,
+          note: bad ? `${rule.name} vượt tiêu chí so với ${rule.both ? 'giá trị khởi đầu / lần trước' : 'giá trị khởi đầu'}. ${j.actions}`
+            : `So với ${s.history.length} lần đo trước trong CSDL.`, keys: [row.key] });
+        // dòng so XX ghi "lưu làm giá trị khởi đầu" trong khi CSDL đã có giá trị khởi đầu → trỏ sang dòng xu hướng
+        if (host && host.note) Object.values(INIT_NOTE).forEach(n => { host.note = host.note.replace(n.text, n.withHistory); });
+      });
+    };
+    trendFindings();
+
     // ================= Tổng hợp theo hạng mục =================
     const sec = {};
     for (let i = findings.length - 1; i >= 0; i--) if (Report.isSkipped(state, findings[i].sec)) findings.splice(i, 1);
@@ -636,6 +770,15 @@
     if (!done) return '';
     const parts = [];
     if (failed.length) parts.push(`Hạng mục chưa đạt: ${failed.join('; ')}. Đề nghị kiểm tra, thí nghiệm bổ sung và báo cáo người có thẩm quyền xem xét trước khi đóng điện.`);
+    // tiêu chí xu hướng QĐ 1901 (so với giá trị khởi đầu / lần trước trong CSDL) không đạt / cần xem xét
+    const trendBad = res.findings.filter(f => f.trendFail);
+    if (trendBad.some(f => /^Xu hướng R60@20/.test(f.item))) {
+      parts.push(`R60 cách điện cuộn dây quy đổi về 20 °C giảm quá ${Criteria.limits().IR_DROP}% so với giá trị khởi đầu / lần thí nghiệm trước: `
+        + 'đề nghị kiểm tra điều kiện đo và đo lại, đo hệ số phân cực PI; nếu các hạng mục thí nghiệm khác đạt tiêu chuẩn vận hành, '
+        + 'việc đóng điện MBA do người có thẩm quyền quyết định (QĐ 1901 Điều 29 mục 3).');
+    }
+    const otherTrend = [...new Set(trendBad.filter(f => !/^Xu hướng R60@20/.test(f.item)).map(f => `${f.item.replace(/^Xu hướng /, '')} (${f.basis.replace(/^QĐ 1901 /, '')})`))];
+    if (otherTrend.length) parts.push(`Xu hướng vượt tiêu chí QĐ 1901 so với giá trị khởi đầu: ${otherTrend.join('; ')} — đề nghị kiểm tra, đo lại theo hướng dẫn và báo cáo người có thẩm quyền xem xét.`);
     if (warned.length) parts.push(`Hạng mục cần theo dõi/xem xét: ${warned.join('; ')}.`);
     if (missing.length) parts.push(`Hạng mục còn thiếu dữ liệu đánh giá: ${missing.join('; ')}.`);
     if (!failed.length && !warned.length && !missing.length) parts.push('Các hạng mục đã thí nghiệm đạt tiêu chuẩn theo QĐ 1901/QĐ-EVNNPT và phù hợp với số liệu xuất xưởng.');

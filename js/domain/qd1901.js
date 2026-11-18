@@ -116,6 +116,7 @@
       CORE_NEW: 500, CORE_OLD: 100, // Điều 9 Bảng 1 ghi chú a
       NOLOAD_1PH_NEW: 10,  // Điều 34 — MBA 1 pha ≥110 kV sau lắp đặt/sửa chữa: ±10% giá trị khởi đầu
       NOLOAD_OPER: 15,     // Điều 34 — trong vận hành: ±15%
+      NOLOAD_3PH_NEW: 5,   // Điều 34 mục 3 — MBA 3 pha ≥110 kV sau lắp đặt/sửa chữa: ±5% giá trị xuất xưởng
       BCT_IR_MIN: 200,     // Điều 39 — TI chân sứ ≥200 MΩ (khi NSX không quy định)
       BUSHING_AC_PCT: 85,  // Điều 38 — thử AC 1 phút = 85% giá trị xuất xưởng
       KHT_HEALTHY: 1.3,    // Điều 29 — MBA không ẩm: R60/R15 từ 1,3–2 (10–30 °C)
@@ -123,6 +124,7 @@
     // Mô tả từng ngưỡng cho trang Bộ tiêu chí (Admin chỉnh theo đơn vị; giá trị trong LIMITS luôn là giá trị gốc QĐ 1901)
     LIMIT_INFO: {
       NOLOAD_1PH_NEW: { sec: 'noload', label: 'Tổn hao không tải MBA 1 pha ≥110 kV — sau lắp đặt / sửa chữa, lệch tối đa so với giá trị khởi đầu', unit: '%', source: 'Điều 34' },
+      NOLOAD_3PH_NEW: { sec: 'noload', label: 'Tổn hao không tải MBA 3 pha ≥110 kV — sau lắp đặt / sửa chữa, lệch tối đa so với giá trị xuất xưởng', unit: '%', source: 'Điều 34 mục 3' },
       NOLOAD_OPER: { sec: 'noload', label: 'Tổn hao không tải — trong vận hành, lệch tối đa so với giá trị khởi đầu', unit: '%', source: 'Điều 34' },
       IR_DROP: { sec: 'ir', label: 'R60 quy về 20 °C giảm tối đa so với giá trị khởi đầu / lần trước', unit: '%', source: 'Điều 9 mục 4' },
       KHT_HEALTHY: { sec: 'ir', label: 'Hệ số hấp thụ R60/R15 tối thiểu (MBA không ẩm, 10–30 °C)', unit: '', source: 'Điều 29' },

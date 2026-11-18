@@ -512,3 +512,9 @@ button.type-opt:focus-visible { outline: 2px solid var(--accent); outline-offset
 .nav-item.skipped{opacity:.5}
 .nav-item.skipped .nav-st{font-style:italic}
 tr.sec-skipped td{color:var(--muted)}
+
+/* Cảnh báo xu hướng tại hiện trường (vd R60@20 giảm >30% — QĐ 1901 Điều 29 mục 3) */
+.callout.bad{border-color:var(--fail);background:var(--fail-bg);color:var(--fail)}
+.callout.bad ul{margin:.3rem 0 .4rem 1.1rem;padding:0}
+.callout.bad li{margin:.15rem 0;overflow-wrap:anywhere}
+.callout.bad div{color:var(--text,#1d2a36)}

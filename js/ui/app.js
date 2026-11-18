@@ -141,7 +141,8 @@
   }
 
   function recompute() {
-    res = T().evaluate(state, FX, schema);
+    // lịch sử đo của thiết bị (CSDL / bản lưu tạm) → đánh giá xu hướng so với giá trị khởi đầu / lần trước
+    res = T().evaluate(state, FX, schema, { history: TrendInlineUI.history(), sessionId: state.db && state.db.sessionId });
     const rows = Appendix.shortCircuitResults(state, FX);
     const section = res.sec.shortCircuit;
     if (section && !section.skipped) {
@@ -398,7 +399,27 @@
     const doIt = S ? `<label class="sec-do"><input type="checkbox" data-skipsec="${secId}" ${S.skipped ? '' : 'checked'}> Thực hiện</label>` : '';
     return `<div class="panel-head"><span class="secno">${esc(no)}</span><h2>${esc(title)}</h2><span class="en">${esc(en || '')}</span><span class="spacer"></span>${doIt}${secId && !(S && S.skipped) ? voiceHTML() : ''}${badge}</div>`;
   }
+  // Cảnh báo xu hướng tại hiện trường (vd R60@20 giảm >30% so với giá trị khởi đầu / lần trước — QĐ 1901 Điều 29 mục 3):
+  // hiện ngay đầu hạng mục khi vừa nhập số, kèm hướng xử lý của từng kết luận
+  function trendAlertHTML(secId) {
+    const hits = (res.findings || []).filter(f => f.sec === secId && f.trendFail);
+    if (!hits.length) return '';
+    // hướng xử lý theo từng tiêu chí (căn cứ khác nhau), mỗi loại ghi một lần
+    const actions = [...new Map(hits.map(f => [f.basis, (f.note || '').replace(/^.*?(Hướng xử lý:)/, '$1')])).entries()];
+    return `<div class="callout bad" role="alert"><b>Cảnh báo xu hướng so với số liệu quá khứ (QĐ 1901):</b><ul>${hits.map(f =>
+      `<li><b>${esc(f.item)}</b>${f.loc ? ` – ${esc(f.loc)}` : ''}: ${esc(f.meas)}, ${esc(f.dev)} — ${f.status === 'warn' ? 'cần xem xét' : 'không đạt'} (${esc(f.limit)}; ${esc(f.ref)})</li>`).join('')}</ul>`
+      + actions.map(([basis, a]) => `<div><b>${esc(basis)}:</b> ${esc(a)}</div>`).join('') + '</div>';
+  }
   // Mục 0: chọn các hạng mục thực hiện trong lần thí nghiệm này
+  // Sau sửa chữa / đại tu: chọn lấy số liệu lần này làm giá trị khởi đầu cho các lần thí nghiệm sau
+  function baselineResetHTML() {
+    if (!Schema.BASELINE_RESETS || Common.kindOf(state.v['meta.reason']) !== 'AFTER_REPAIR') return '';
+    return '<h3>Giá trị khởi đầu sau sửa chữa</h3><div class="fields">'
+      + cfgField('baselineReset', 'Lấy số liệu lần này làm giá trị khởi đầu cho các lần sau', { options: Schema.BASELINE_RESETS, wide: true,
+        note: 'Lần thí nghiệm sau so xu hướng với lần này thay cho giá trị xuất xưởng. Lần này vẫn được so với giá trị khởi đầu cũ.' })
+      + '</div>';
+  }
+
   function itemsChecklistHTML() {
     const skip = state.cfg.skip || {};
     return '<h3>Hạng mục thực hiện trong lần thí nghiệm này</h3><div class="hint-text">Bỏ tích hạng mục không thực hiện: vùng nhập liệu được ẩn, '
@@ -419,6 +440,7 @@
     h += U.generalTopology ? U.generalTopology(App) : '';
     h += `<h3>Thông tin thiết bị (điền vào đầu biên bản)</h3>${U.headTools ? U.headTools(App) : ''}${flagBannerHTML()}<div class="fields">${schema.head.filter(f => !(topology === 'bank1p' && f.k === 'meta.serial')).map(f => fieldHTML(f)).join('')}</div>`;
     h += U.unitSerialFields ? U.unitSerialFields(App) : '';
+    h += baselineResetHTML();
     h += itemsChecklistHTML();
     h += '<h3>Template & số liệu xuất xưởng</h3><div class="fields">';
     h += cfgField('template', 'Mẫu BBTN theo cấu hình', { options: templateOptions.length ? templateOptions : [[state.cfg.template, topology === 'bank1p' ? 'Mẫu chung 3 MBA một pha' : topology === 'threePhase' ? 'Mẫu MBA ba pha' : 'Mẫu MBA một pha']] });
@@ -444,7 +466,7 @@
     else if (step === 'eval') body = findingsHTML(s.id);
     else if (s.id === 'shortCircuit') body = AppendixUI.shortCircuitHTML(App) + `<div class="wf-sum" data-fsum="${s.id}"></div>`;
     else {
-      body = (U.intro ? U.intro(s.id, App) : '') + (U.sectionTools ? U.sectionTools(s.id, App) : '');
+      body = trendAlertHTML(s.id) + (U.intro ? U.intro(s.id, App) : '') + (U.sectionTools ? U.sectionTools(s.id, App) : '');
       if (s.fields) body += '<div class="fields">' + s.fields.map(f => sectionField(f)).join('') + '</div>';
       (s.grids || []).forEach(g => { body += gridHTML(g); });
       (s.groups || []).forEach(gr => {
@@ -579,7 +601,9 @@
 
   // Xu hướng tại ô: tải lịch sử đo của thiết bị trong biên bản (đã lưu CSDL, đã đăng nhập); không dựng lại trang
   function loadInlineTrend() {
-    TrendInlineUI.load({ state, schema, type: T(), res }, $('#main')).catch(e => console.warn(e));
+    // lịch sử về (hoặc đổi thiết bị) → đánh giá lại ngay để thấy vi phạm xu hướng tại hiện trường
+    TrendInlineUI.load({ state, schema, type: T(), res }, $('#main'), () => { recompute(); renderNav(); renderMain(); })
+      .catch(e => console.warn(e));
   }
 
   // Cập nhật ô tính toán, trạng thái ô, bảng so sánh mà không render lại form (giữ focus)
@@ -660,10 +684,11 @@
           state.cfg.ps.A = el.value.trim();
           onSerialChange();
           schema = T().buildSchema(state.cfg);
-          recompute(); renderMain(); persist(); return;
+          recompute(); renderMain(); persist(); loadInlineTrend(); return;
         }
         onSerialChange();
         oltcFromDb();
+        loadInlineTrend(); // lịch sử đo của máy này → đánh giá xu hướng ngay khi nhập (biên bản mới tại hiện trường)
       }
       scheduleEval();
     } else if ((el.dataset.hk || el.dataset.lbl) && e.type === 'change') {
@@ -1088,11 +1113,12 @@
     recompute();
     renderNav();
     renderMain();
+    loadInlineTrend(); // lịch sử đo (bản lưu tạm khi mất mạng; tải lại khi đã đăng nhập)
     if (restored && !new URLSearchParams(location.search).has('code')) Notify.show({ type: 'info', msg: 'Đã mở lại biên bản đang nhập dở trên máy này.' });
     // Đăng nhập / đăng xuất / đổi kết nối → làm mới dữ liệu CSDL đang hiển thị
     document.addEventListener('auth:changed', () => {
       DbUI.reset(); Catalog.reset(); KConf.reset(); CriteriaUI.reset(); StandardsUI.reset(); renderNav(); renderMain();
-      if (DB.user) loadInlineTrend(); else TrendInlineUI.reset();
+      loadInlineTrend(); // đã đăng nhập: tải mới; chưa: dùng bản lưu tạm trên máy
       // bảng hệ số quy đổi sứ trong CSDL (admin cấu hình) → dựng lại lựa chọn ở mục 5
       if (DB.user) KConf.load(true);
       // bộ tiêu chí đơn vị (admin cấu hình) → đánh giá lại biên bản đang mở

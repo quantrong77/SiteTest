@@ -123,12 +123,23 @@
     extra = Object.assign({}, extra);
     delete extra.bayId;
     const body = Object.assign({}, pack.session, extra, { equipment_id: ids[pack.mainRef] });
+    // biên bản lập trên app: luôn ghi baseline_reset (null = bỏ cờ "giá trị khởi đầu sau sửa chữa" đã lưu trước đó)
+    if (body.source === 'field_app' && !('baseline_reset' in body)) body.baseline_reset = null;
+    // CSDL chưa chạy migration 20261118000100 (chưa có cột) → ghi không kèm cột, chỉ báo lỗi khi cần lưu cờ
+    const write = async q => {
+      const r = await q(body);
+      if (r.error && /baseline_reset/.test(r.error.message || '') && body.baseline_reset == null) {
+        delete body.baseline_reset;
+        return q(body);
+      }
+      return r;
+    };
     let id = sessionId;
     if (id) {
-      const upd = chk(await need().from('test_sessions').update(body).eq('id', id).select('id'));
+      const upd = chk(await write(b => need().from('test_sessions').update(b).eq('id', id).select('id')));
       if (!upd.length) id = null; // đã bị xóa trên CSDL → tạo mới
     }
-    if (!id) id = chk(await need().from('test_sessions').insert(body).select('id').single()).id;
+    if (!id) id = chk(await write(b => need().from('test_sessions').insert(b).select('id').single())).id;
     const rows = pack.rows.map(r => { const o = Object.assign({}, r, { equipment_id: ids[r.eq] }); delete o.eq; return o; });
     const n = chk(await need().rpc('replace_session_data', { p_session_id: id, p_measurements: rows, p_findings: pack.findings || [] }));
     return { id, n, equipmentId: ids[pack.mainRef] };
