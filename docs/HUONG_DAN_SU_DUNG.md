@@ -177,7 +177,9 @@ Hãy dùng đúng nhãn hiển thị trên phiên bản đang chạy.
    - **Gán trạm / ngăn…** / **Đổi trạm / ngăn…** (quyền ghi, máy chính) — chọn trạm, ngăn trong danh mục; thiết bị ở nhóm **Chưa gắn trạm / ngăn** chuyển vào đúng ngăn, các sứ đi theo máy chính;
    - **Dùng cho biên bản đang lập** — tải file test report gốc từ CSDL và dùng làm file xuất xưởng của biên bản;
    - **Tải file test report**;
-   - với máy **Chưa lưu CSDL**: xem sheet gốc, dùng file, **Lưu lên CSDL…**.
+   - **Xóa số liệu xuất xưởng…** (chỉ **admin**) — khung xác nhận ngay dưới bảng; xóa mọi giá trị đo và file test report gốc của lần FAT đó,
+     thiết bị vẫn giữ trong danh mục. BBTN sau không còn giá trị khởi đầu để so cho tới khi nhập lại test report. Không hoàn tác được;
+   - với máy **Chưa lưu CSDL**: xem sheet gốc, dùng file, **Lưu lên CSDL…**, **Bỏ file khỏi máy này…** (không ảnh hưởng CSDL).
 6. **Nhập test report** — theo ngữ cảnh (chuột phải thiết bị → **Nhập test report (.xlsx)…**) hoặc độc lập (nút **Nhập test report (.xlsx)…** trên thanh công cụ).
    Chọn file xong (đã đăng nhập, có quyền ghi) mở khung **Lưu test report lên CSDL**:
    - danh sách máy trong file: đã có trong danh mục (trạm · ngăn) hay **Thiết bị mới**, đã có lần FAT chưa (lưu lại sẽ **ghi đè** lần FAT cũ, kể cả giá trị đã sửa tay);

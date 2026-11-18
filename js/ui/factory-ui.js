@@ -151,6 +151,7 @@
   function formHTML() {
     const f = ui.form;
     if (f.kind === 'import') return importFormHTML();
+    if (f.kind === 'delete') return deleteFormHTML();
     const e = eqById(f.eqId) || {};
     const head = `<div class="fx-detail-head"><h3>${f.kind === 'eq' ? 'Sửa thông tin thiết bị' : (e.bay_id ? 'Đổi trạm / ngăn' : 'Gán trạm / ngăn')} — ${esc(e.serial_no || '')}</h3><span class="spacer"></span>`
       + '<button class="btn primary" data-act="fxFormSave">Lưu</button><button class="btn" data-act="fxFormCancel">Hủy</button></div>';
@@ -226,6 +227,44 @@
     });
     ui.form = null;
     if (window.Catalog) Catalog.reset();
+    reset(); A.renderMain(); await load(true);
+  }
+
+  // ---------------------------------------------------------------- xóa: lần FAT trong CSDL (admin) / file .xlsx trên máy
+  function deleteFormHTML() {
+    const f = ui.form, local = f.target === 'local';
+    let lines = [];
+    if (local) {
+      const entry = (A.factories || []).find(x => x.name === f.name);
+      lines = [`File ${f.name}: ${entry ? entry.api.data.order.join(', ') : ''}`, 'Chỉ bỏ khỏi máy này (trình duyệt); số liệu đã lưu CSDL không bị ảnh hưởng.'];
+      if (entry && entry.emb) lines.push('File nhúng sẵn trong app — tải lại trang sẽ có lại.');
+    } else {
+      const s = (data.sessions || []).find(x => x.id === f.id) || {}, e = eqById(s.equipment_id) || {};
+      lines = [`${e.serial_no || s.serial_no || ''}${e.name ? ` — ${e.name}` : ''} · FAT ${vnDate(s.test_date)}${s.report_no ? ` · report ${s.report_no}` : ''} · ${s.n_values || 0} giá trị đo`,
+        'Xóa toàn bộ giá trị đo và file test report gốc của lần này khỏi CSDL. Thiết bị vẫn giữ trong danh mục.',
+        'BBTN sau sẽ không còn số liệu xuất xưởng (giá trị khởi đầu) để so sánh cho tới khi nhập lại test report. Không thể hoàn tác.'];
+    }
+    return `<div class="fx-detail fx-form" id="fxDetailBox"><div class="callout bad fx-confirm" role="alert"><b>${local ? 'Bỏ file test report khỏi máy này?' : 'Xóa số liệu xuất xưởng khỏi CSDL?'}</b>`
+      + `<ul>${lines.map(l => `<li>${esc(l)}</li>`).join('')}</ul><div class="row-actions"><button class="btn danger" data-act="fxDeleteConfirm">${local ? 'Bỏ file' : 'Xác nhận xóa'}</button>`
+      + '<button class="btn" data-act="fxFormCancel">Hủy</button></div></div></div>';
+  }
+  function openDelete(target, idOrName) {
+    ui.form = target === 'local' ? { kind: 'delete', target, name: idOrName } : { kind: 'delete', target, id: idOrName };
+    ui.detail = null;
+    refresh('detail');
+    const box = $('#fxDetailBox'); if (box) { box.scrollIntoView({ block: 'nearest' }); const b = box.querySelector('[data-act="fxFormCancel"]'); if (b) b.focus(); }
+  }
+  async function confirmDelete() {
+    const f = ui.form;
+    ui.form = null;
+    if (f.target === 'local') { A.removeFactory(f.name); return; }
+    if (DB.role !== 'admin') throw new Error('Chỉ admin xóa được số liệu xuất xưởng đã lưu');
+    await A.track('Xóa số liệu xuất xưởng', async () => {
+      const r = await DB.deleteFactory(f.id);
+      A.toast(r.fileError ? `Đã xóa số liệu; chưa xóa được file gốc trên Storage: ${r.fileError}` : `Đã xóa số liệu xuất xưởng${r.files ? ' và file test report gốc' : ''}`, !!r.fileError);
+    });
+    if (window.Catalog) Catalog.reset();
+    if (A.state.db && A.state.db.sessionId === f.id) { A.state.db = null; A.persist(); }
     reset(); A.renderMain(); await load(true);
   }
 
@@ -342,12 +381,14 @@
         ['fxView', 'Xem số liệu', ''], ['fxEdit', `Sửa giá trị đo${s && s.n_values ? ` (${s.n_values} giá trị)` : ''}…`, can ? '' : 'Tài khoản chỉ xem'],
       ].concat(equipmentItems(ctx, can)).concat([
         ['fxUse', 'Dùng cho biên bản đang lập', 'Tải file test report gốc từ CSDL'], ['fxDownload', 'Tải file test report', ''],
+        ['fxDelete', 'Xóa số liệu xuất xưởng…', DB.role === 'admin' ? '' : 'Chỉ admin xóa được số liệu đã lưu'],
       ]);
     }
     if (kind === 'nofat') return [['fxImportFor', 'Nhập test report (.xlsx)…', 'Lưu làm giá trị khởi đầu cho thiết bị này']].concat(equipmentItems(ctx, can));
     if (kind === 'local') return [
       ['fxLocalView', 'Xem sheet gốc', ''], ['fxLocalUse', 'Dùng file này cho biên bản', ''],
       ['fxLocalSave', 'Lưu lên CSDL…', signedIn() ? (can ? '' : 'Tài khoản chỉ xem') : 'Cần đăng nhập'],
+      ['fxLocalDel', 'Bỏ file khỏi máy này…', ''],
     ];
     return [];
   }
@@ -358,7 +399,7 @@
     const m = document.createElement('div');
     m.className = 'ctx-menu'; m.setAttribute('role', 'menu'); m.id = 'fxCtxMenu';
     // mục cần quyền ghi: "why" là lý do bị khóa; các mục khác: "why" là dòng gợi ý
-    const gated = act => ['fxEdit', 'fxLocalSave', 'fxEqEdit', 'fxEqBay'].includes(act);
+    const gated = act => ['fxEdit', 'fxLocalSave', 'fxEqEdit', 'fxEqBay', 'fxDelete'].includes(act);
     m.innerHTML = items.map(([act, text, why]) => `<button type="button" role="menuitem" class="ctx-item" data-act="${act}" data-ctx="${esc(ctx)}"`
       + `${gated(act) ? (why ? ` disabled title="${esc(why)}"` : '') : ''}>${esc(text)}${why && !gated(act) ? `<span class="ctx-hint">${esc(why)}</span>` : ''}</button>`).join('');
     document.body.appendChild(m);
@@ -430,6 +471,9 @@
     }
     if (act === 'fxImport' || act === 'fxImportFor') { A.pickXlsx({ page: 'factory', eqId: act === 'fxImportFor' ? eqIdOf(ctx) : '' }); return; }
     if (act === 'fxImportSave') { await saveImport(); return; }
+    if (act === 'fxDelete') { if (DB.role !== 'admin') throw new Error('Chỉ admin xóa được số liệu xuất xưởng đã lưu'); openDelete('session', p.a); return; }
+    if (act === 'fxLocalDel') { openDelete('local', p.a); return; }
+    if (act === 'fxDeleteConfirm') { await confirmDelete(); return; }
     if (act === 'fxFormSave') { await saveForm(); return; }
     if (act === 'fxFormCancel') { ui.form = null; refresh('detail'); return; }
     if (act === 'fxView' || act === 'fxEdit') {

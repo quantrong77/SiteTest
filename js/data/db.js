@@ -214,6 +214,16 @@
   }
   const loadSession = async id => chk(await need().from('test_sessions').select('*').eq('id', id).single());
   const deleteSession = async id => chk(await need().from('test_sessions').delete().eq('id', id).select('id'));
+  // Xóa một lần thí nghiệm xuất xưởng (số liệu đo, file đính kèm theo cascade) rồi xóa file gốc trên Storage (RLS: admin)
+  async function deleteFactory(sessionId) {
+    const docs = await listDocs(sessionId);
+    const del = chk(await need().from('test_sessions').delete().eq('id', sessionId).select('id'));
+    if (!del.length) throw new Error('Không có quyền xóa — chỉ admin xóa được số liệu xuất xưởng đã lưu');
+    const paths = docs.map(d => d.storage_path).filter(Boolean);
+    let fileError = '';
+    if (paths.length) { const r = await need().storage.from(BUCKET).remove(paths); if (r.error) fileError = r.error.message; }
+    return { files: paths.length, fileError };
+  }
   const listDocs = async sessionId => chk(await need().from('documents').select('*').eq('session_id', sessionId).order('created_at'));
   const listEquipment = async () => chk(await need().from('v_equipment').select('*').order('class_code').order('serial_no'));
 
@@ -259,7 +269,7 @@
 
   window.DB = {
     connect, cfgGet, checkConfig, siteCfg, refreshUser, signIn, signUp, signOut, signInWithGoogle, resetPassword, updatePassword, onAuthChange, authInit, saveField, importFactory, uploadDoc, downloadDoc,
-    listSessions, listFactorySessions, factoryMeasurements, updateFactory, loadSession, deleteSession, listDocs, listEquipment, equipmentRated, trend, trendForSerials, listSubstations, listBays, listClasses, listKTables, listCriteria, saveCriteria, deleteCriteria, listLibrary, saveLibraryDoc, deleteLibraryDoc, uploadLibraryFile, libraryFileUrl, crud,
+    listSessions, listFactorySessions, factoryMeasurements, updateFactory, deleteFactory, loadSession, deleteSession, listDocs, listEquipment, equipmentRated, trend, trendForSerials, listSubstations, listBays, listClasses, listKTables, listCriteria, saveCriteria, deleteCriteria, listLibrary, saveLibraryDoc, deleteLibraryDoc, uploadLibraryFile, libraryFileUrl, crud,
     get client() { return client; }, get user() { return user; }, get role() { return role; }, get profile() { return profile; },
     get busy() { return inflight; },
     canEdit: () => role === 'editor' || role === 'admin',

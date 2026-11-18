@@ -715,6 +715,14 @@
     if (!quiet) toast(`Đã thêm ${name}: ${D.order.length} máy (${D.order.join(', ')})${D.warnings.length ? ' — có cảnh báo, xem mục 0' : ''}`, D.warnings.length > 0);
     return entry;
   }
+  // Bỏ một file xuất xưởng khỏi danh sách trên máy (file nhúng sẵn quay lại khi tải lại trang)
+  function removeFactory(name) {
+    lsSet(LS_FACS, JSON.stringify(factoryFiles().filter(x => x.name !== name)));
+    const wasActive = FX && FXS.some(x => x.name === name && x.api === FX);
+    FXS = FXS.filter(x => x.name !== name);
+    if (wasActive) { if (!pickFactory(true) && FXS.length) setFactory(FXS[FXS.length - 1], true); if (!FXS.length) FX = null; }
+    recompute(); renderNav(); renderMain(); persist(); toast(`Đã bỏ file xuất xưởng ${name}`);
+  }
   // Chọn file test report (.xlsx) kèm mục đích: trang nhận sự kiện factory:added (FactoryUI: lưu CSDL cho thiết bị; SetupUI: trình khởi tạo)
   let xlsxPurpose = null;
   function pickXlsx(purpose) { xlsxPurpose = purpose || null; $('#fileXlsx').click(); }
@@ -1063,13 +1071,7 @@
       else if (act === 'loadXlsx') pickXlsx(null);
       else if (act === 'loadDocx') $('#fileDocx').click();
       else if (act === 'useFx') { const e = FXS.find(x => x.name === b.dataset.name); if (e) { setFactory(e); recompute(); renderNav(); renderMain(); persist(); } }
-      else if (act === 'delFx') {
-        lsSet(LS_FACS, JSON.stringify(factoryFiles().filter(x => x.name !== b.dataset.name)));
-        const wasActive = FX && FXS.some(x => x.name === b.dataset.name && x.api === FX);
-        FXS = FXS.filter(x => x.name !== b.dataset.name);
-        if (wasActive) { if (!pickFactory(true) && FXS.length) setFactory(FXS[FXS.length - 1], true); if (!FXS.length) FX = null; }
-        recompute(); renderNav(); renderMain(); persist(); toast(`Đã bỏ file xuất xưởng ${b.dataset.name}`);
-      }
+      else if (act === 'delFx') removeFactory(b.dataset.name);
       else if (act === 'docx') await exportDocx();
       else if (act === 'xlsx') exportXlsx();
       else if (act === 'flagsDone') { if (state.att) delete state.att.ocr; renderMain(); persist(); toast('Đã bỏ tô nền các ô đọc từ ảnh'); }
@@ -1391,7 +1393,7 @@
   // API cho các trang khác (js/ui/*.js) và phần giao diện riêng của loại thiết bị (TypeUI)
   const App = window.App = {
     get state() { return state; }, get res() { return res; }, get schema() { return schema; }, get FX() { return FX; }, get type() { return T(); }, EMB,
-    get factories() { return FXS; }, addFactoryFile, factoryFileB64, factoryBlob, pickXlsx, localFactoryHTML,
+    get factories() { return FXS; }, addFactoryFile, factoryFileB64, factoryBlob, pickXlsx, removeFactory, localFactoryHTML,
     applyTemplate, applyHeadFills, setupGo, pickFactory: quiet => pickFactory(quiet),
     useFactory(name) { const e = FXS.find(x => x.name === name); if (e) { setFactory(e); recompute(); renderNav(); renderMain(); persist(); } return e; },
     exportDocx, exportXlsx, toast, esc, download, safeName, persist, recompute, renderMain, fieldHTML, cfgField, readFile, lsGet, lsSet, abToB64, track,
