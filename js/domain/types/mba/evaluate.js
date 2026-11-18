@@ -14,6 +14,11 @@
     + '(4) Nếu các hạng mục khác đạt tiêu chuẩn vận hành: báo cáo người có thẩm quyền quyết định đóng điện MBA (Điều 29 mục 3).';
   const IR_DROP_BASIS = 'QĐ 1901 Điều 29 mục 3 (Điều 9 mục 4)';
   const REPORT_UP = 'Báo cáo người có thẩm quyền xem xét.';
+  // Ghi chú dòng so XX khi chưa có giá trị khởi đầu (text); CSDL đã có giá trị khởi đầu → đổi sang withHistory (trỏ dòng xu hướng)
+  const INIT_NOTE = {
+    r60: { text: ' XX không có R60 tuyệt đối → chưa áp tiêu chí “giảm ≤30%”; lần đo này là giá trị khởi đầu.', withHistory: ' Đã có giá trị khởi đầu trong CSDL: xem dòng xu hướng.' },
+    cap: { text: 'Không có điện dung XX cho sơ đồ đo này → lưu làm giá trị khởi đầu', withHistory: 'Không có điện dung XX; đã có giá trị khởi đầu trong CSDL: xem dòng xu hướng' },
+  };
 
   // Tiêu chí xu hướng QĐ 1901 (so với giá trị khởi đầu / lần trước, theo lịch sử CSDL) — khóa "ITEM:PARAM" của dòng CSDL.
   // judge(ctx) → { status, limit, actions } hoặc null (không áp dụng). ctx: { fromBase, fromPrevious, base, cur, L, isNew, layout, c1Lim }
@@ -208,7 +213,7 @@
           note: `K1 theo Bảng 4 với ∆t = ${cv.dt} °C (${cv.expr}).`
             + (cv.dt > 30 ? ' ∆t > 30 °C: vượt Bảng 4, QĐ 1901 không quy định cách tách hệ số — kết quả quy đổi chỉ để tham khảo.' : '')
             + (tIR < 10 || tIR > 40 ? ' Khuyến cáo đo khi nhiệt độ dầu 10–40 °C (Điều 9 mục 4).' : '')
-            + ' XX không có R60 tuyệt đối → chưa áp tiêu chí “giảm ≤30%”; lần đo này là giá trị khởi đầu.', keys: [`${p}.r60`] });
+            + INIT_NOTE.r60.text, keys: [`${p}.r60`] });
       } else {
         add({ sec: 'ir', item: `R60 ${row.label}`, meas: `${fmt(r60, 0)} MΩ`, status: 'missing', basis: R.ir, note: 'Thiếu nhiệt độ đo → chưa quy đổi/so Bảng 5', keys: [`${base}.t`] });
       }
@@ -489,7 +494,7 @@
         const cc = TestItems.capacitance({ c: C, ref: fref, lim: L.WINDING_C_DEV });
         add({ sec: 'wtgd', item: `Điện dung cuộn dây ${row.label || 'đối tượng bổ sung'}`, loc: unitLabel(main), meas: `${fmt(C, 1)} pF`, ref: ok(fref) ? `${fmt(fref, 0)} pF (XX)` : '',
           dev: sgn(cc.dev), limit: `±${L.WINDING_C_DEV}% so với giá trị khởi đầu`, status: cc.status,
-          basis: R.wtgd, note: ok(fref) ? '' : 'Không có điện dung XX cho sơ đồ đo này → lưu làm giá trị khởi đầu', keys: [`${p}.c`] });
+          basis: R.wtgd, note: ok(fref) ? '' : INIT_NOTE.cap.text, keys: [`${p}.c`] });
       }
     });
     if (k2info) notes[`${base}.k2`] = ` ${fmt(k2info.k, 3)} (Bảng 7 QĐ 1901, ∆t = ${k2info.dt} °C; ${k2info.expr}; tgδ20 = tgδ${ok(tW) && tW < 20 ? ' × ' : ' ÷ '}K2)`;
@@ -702,13 +707,19 @@
       const hostOf = new Map();
       findings.forEach(fd => (fd.keys || []).forEach(k => { if (!hostOf.has(k)) hostOf.set(k, fd); }));
       const c1Lim = ok(toNum(cfg.bC1Dev)) ? toNum(cfg.bC1Dev) : L.BUSHING_C1_DEV;
+      // nhóm lịch sử theo khóa so khớp của TrendInline (item, param, config, phase, tap) — mỗi dòng chỉ quét nhóm của nó
+      const keyOf = r => TrendInline.KEY.map(k => String(r[k] ?? '')).join('|');
+      const byKey = new Map();
+      history.forEach(h => { if (!TREND_RULES[`${h.item}:${h.param}`]) return; const k = keyOf(h); (byKey.get(k) || byKey.set(k, []).get(k)).push(h); });
       pack.rows.forEach(row => {
         const rule = TREND_RULES[`${row.item}:${row.param}`];
         if (!rule || !row.key) return;
         const norm = Number.isFinite(row.value_norm) ? row.value_norm : null;
         const cur = norm !== null ? norm : row.value;
         if (!ok(cur)) return;
-        const s = TrendInline.series(history, Object.assign({}, row, { serial_no: serialOfRef.get(row.eq), value_cmp: cur, cmp_basis: norm !== null ? 'norm' : 'raw' }),
+        const group = byKey.get(keyOf(row));
+        if (!group) return;
+        const s = TrendInline.series(group, Object.assign({}, row, { serial_no: serialOfRef.get(row.eq), value_cmp: cur, cmp_basis: norm !== null ? 'norm' : 'raw' }),
           { sessionId: opts.sessionId, testDate });
         if (!s) return;
         const j = rule.judge({ fromBase: s.fromBase, fromPrevious: s.fromPrevious, base: s.base, cur, L, isNew, layout: schema.layout, c1Lim });
@@ -727,10 +738,7 @@
           note: bad ? `${rule.name} vượt tiêu chí so với ${rule.both ? 'giá trị khởi đầu / lần trước' : 'giá trị khởi đầu'}. ${j.actions}`
             : `So với ${s.history.length} lần đo trước trong CSDL.`, keys: [row.key] });
         // dòng so XX ghi "lưu làm giá trị khởi đầu" trong khi CSDL đã có giá trị khởi đầu → trỏ sang dòng xu hướng
-        if (host && host.note) {
-          host.note = host.note.replace(' XX không có R60 tuyệt đối → chưa áp tiêu chí “giảm ≤30%”; lần đo này là giá trị khởi đầu.', ' Đã có giá trị khởi đầu trong CSDL: xem dòng xu hướng.')
-            .replace('Không có điện dung XX cho sơ đồ đo này → lưu làm giá trị khởi đầu', 'Không có điện dung XX; đã có giá trị khởi đầu trong CSDL: xem dòng xu hướng');
-        }
+        if (host && host.note) Object.values(INIT_NOTE).forEach(n => { host.note = host.note.replace(n.text, n.withHistory); });
       });
     };
     trendFindings();
