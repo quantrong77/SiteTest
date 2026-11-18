@@ -16,10 +16,14 @@
   }
 
   // File Test report xuất xưởng → mỗi máy một lần thí nghiệm FAT
-  async function importFactory(state, FX, fileBlob, bayId) {
+  // serials (tùy chọn): chỉ lưu các máy này (file có nhiều máy của các ngăn khác nhau)
+  async function importFactory(state, FX, fileBlob, bayId, serials) {
     const T = typeOf(state);
     if (!T.toRows.factorySessions) throw new Error(`${T.label}: chưa hỗ trợ nhập Test report xuất xưởng vào CSDL`);
-    return need().importFactory(T.toRows.factorySessions(FX), FX.data.fileName, fileBlob, bayId);
+    const want = serials && serials.length ? new Set(serials.map(s => String(s).trim().toUpperCase())) : null;
+    const packs = T.toRows.factorySessions(FX).filter(p => !want || want.has(String(p.serial).trim().toUpperCase()));
+    if (!packs.length) throw new Error('Không có máy nào được chọn để lưu');
+    return need().importFactory(packs, FX.data.fileName, fileBlob, bayId);
   }
 
   window.Records = { setRepo, saveField, importFactory };

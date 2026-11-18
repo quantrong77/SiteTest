@@ -569,7 +569,7 @@ tr.sec-skipped td{color:var(--muted)}
 .fx-label { overflow-wrap: anywhere; }
 .fx-sub { color: var(--faint); font-size: 11.5px; font-weight: 400; overflow-wrap: anywhere; }
 .fx-list-head, .fx-detail-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 12px; margin: 0 0 8px; }
-.fx-list-head h3, .fx-detail-head h3 { margin: 0; }
+.fx-list-head h3, .fx-detail-head h3 { margin: 0; min-width: 0; overflow-wrap: anywhere; }
 .fx-detail-head .spacer { flex: 1; }
 .fx-table tr.fx-item { cursor: context-menu; }
 .fx-table tr.fx-item:hover > *, .fx-table tr.fx-item.on > * { background: #eef5fb; }

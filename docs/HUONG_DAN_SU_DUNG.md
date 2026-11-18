@@ -62,14 +62,20 @@ Khi xuất Word, cuối BBTN có phụ lục bảng tra theo từng hạng mục
       (BBTN riêng máy pha A / B / C, hoặc **Cả tổ A+B+C** — mẫu chung 3 pha); thiết bị chưa có trong danh mục chọn **＋ Thiết bị mới trong ngăn này** rồi nhập số chế tạo.
       Bấm **Chọn thiết bị này →**: app gắn ngăn (lưu CSDL ghi thiết bị vào ngăn), chọn mẫu BBTN theo pha / cấu hình, điền số chế tạo các máy của tổ.
       Chưa đăng nhập: chọn cấu hình và nhập số chế tạo như trước.
+      Khối **Test report xuất xưởng** (bước ① và ②): nút **Nhập Test Report (.xlsx)…** nạp file test report của thiết bị — chưa có số chế tạo thì
+      file một máy (hoặc tổ 3 máy pha A / B / C) tự điền số chế tạo; sau đó app tự điền thông số kỹ thuật và chuyển sang bước ②.
    2. **Thông số kỹ thuật** — app tự điền tên trạm, vị trí lắp đặt, hãng, kiểu, năm sản xuất, công suất, điện áp, dòng, tổ đấu dây theo thứ tự:
       thông số đã lưu của thiết bị trong **CSDL** → **test report** (file .xlsx trên máy có số chế tạo này, hoặc file test report gốc lưu trong CSDL — tự tải về) → **nhập tay**.
       Ô tự điền tô vàng "Tự điền từ … — kiểm tra lại"; ô chưa có nguồn nào tô đỏ "nhập tay" (giá trị mẫu của template được xóa để khỏi ghi nhầm).
       Sửa ô là bỏ tô nền; ô đã nhập tay không bị ghi đè. Nút **Điền lại từ CSDL / test report** chạy lại theo số chế tạo đang nhập; vẫn dùng được **Nhập ảnh nameplate…**.
+      Test report đang dùng mà CSDL chưa có số liệu xuất xưởng của máy: bấm **Lưu test report lên CSDL** để lưu làm **giá trị khởi đầu**
+      (chỉ lưu máy của biên bản; thiết bị mới gắn vào ngăn đã chọn ở bước ①). Đã có thì app ghi "Đã có số liệu xuất xưởng trong CSDL — FAT ngày …".
    3. **Lần thí nghiệm** — lý do, ngày, nhiệt độ, độ ẩm; giá trị khởi đầu sau sửa chữa; hạng mục thực hiện.
    4. **Mẫu & cấu hình** — template, file xuất xưởng đang dùng, phạm vi xuất BBTN, phụ lục, thông số tính toán. Bấm **Bắt đầu nhập số liệu →** sang hạng mục đầu.
-9. Trang này không còn trên thanh điều hướng. Muốn sửa lại thông tin chung, bấm **thanh thông tin biên bản** (Máy biến áp · S/N · ngày · lý do ✎) ở đầu trang.
-10. Bảng **Các máy trong file xuất xưởng** (Job No., P0, nhiệt độ đo, độ ẩm DFR) chuyển sang mục **XX** (khối File .xlsx trên máy này).
+9. **Thiết bị mới, chưa vận hành:** nhập test report trước (mục **XX** hoặc nút trên), lưu lên CSDL làm giá trị khởi đầu. Khi lắp đặt xong, khởi tạo BBTN,
+   chọn thiết bị ở bước ①: app tự tải test report đã lưu, lấy thông số kỹ thuật và dùng số liệu xuất xưởng để so sánh, đánh giá xu hướng.
+10. Trang này không còn trên thanh điều hướng. Muốn sửa lại thông tin chung, bấm **thanh thông tin biên bản** (Máy biến áp · S/N · ngày · lý do ✎) ở đầu trang.
+11. Bảng **Các máy trong file xuất xưởng** (Job No., P0, nhiệt độ đo, độ ẩm DFR) chuyển sang mục **XX** (khối File .xlsx trên máy này).
 
 ## 2. Mục 0: Thông tin chung và cấu hình
 
@@ -159,7 +165,7 @@ Hãy dùng đúng nhãn hiển thị trên phiên bản đang chạy.
 ### Tra cứu và sửa số liệu xuất xưởng (mục XX)
 
 1. Mở **XX Số liệu xuất xưởng** (nhóm Biên bản). Đăng nhập để xem số liệu đã lưu CSDL; chưa đăng nhập chỉ thấy file .xlsx trên máy.
-2. Cây bên trái: **Trạm → Ngăn → Thiết bị → Số chế tạo** (máy chính và các sứ) theo **toàn bộ danh mục** — ngăn chưa có thiết bị, thiết bị **chưa có test report** vẫn hiện (chuột phải → **Thêm file test report (.xlsx)…**, nạp xong lưu lên CSDL ở nhóm Chưa lưu CSDL). Thiết bị chưa gắn trạm / ngăn nằm ở nhóm **Chưa gắn trạm / ngăn**;
+2. Cây bên trái: **Trạm → Ngăn → Thiết bị → Số chế tạo** (máy chính và các sứ) theo **toàn bộ danh mục** — ngăn chưa có thiết bị, thiết bị **chưa có test report** vẫn hiện (chuột phải → **Nhập test report (.xlsx)…**). Thiết bị chưa gắn trạm / ngăn nằm ở nhóm **Chưa gắn trạm / ngăn**;
    máy trong file .xlsx trên máy mà CSDL chưa có nằm ở nhóm **Chưa lưu CSDL**. Bàn phím: ↑ ↓ di chuyển, → mở nhánh, ← đóng nhánh.
 3. Bấm một nút trên cây để lọc danh sách bên phải; bấm lại hoặc **Bỏ lọc** để xem tất cả.
 4. Ô **Tìm** lọc ngay theo trạm, ngăn, tên thiết bị, số chế tạo (kể cả số chế tạo sứ), số report — không cần gõ dấu.
@@ -171,8 +177,15 @@ Hãy dùng đúng nhãn hiển thị trên phiên bản đang chạy.
    - **Gán trạm / ngăn…** / **Đổi trạm / ngăn…** (quyền ghi, máy chính) — chọn trạm, ngăn trong danh mục; thiết bị ở nhóm **Chưa gắn trạm / ngăn** chuyển vào đúng ngăn, các sứ đi theo máy chính;
    - **Dùng cho biên bản đang lập** — tải file test report gốc từ CSDL và dùng làm file xuất xưởng của biên bản;
    - **Tải file test report**;
-   - với máy **Chưa lưu CSDL**: xem sheet gốc, dùng file, **Lưu lên CSDL**.
-6. Đánh giá "so xuất xưởng" trong biên bản dùng file .xlsx đang dùng; số liệu sửa trong CSDL dùng cho **xu hướng** các lần thí nghiệm sau.
+   - với máy **Chưa lưu CSDL**: xem sheet gốc, dùng file, **Lưu lên CSDL…**.
+6. **Nhập test report** — theo ngữ cảnh (chuột phải thiết bị → **Nhập test report (.xlsx)…**) hoặc độc lập (nút **Nhập test report (.xlsx)…** trên thanh công cụ).
+   Chọn file xong (đã đăng nhập, có quyền ghi) mở khung **Lưu test report lên CSDL**:
+   - danh sách máy trong file: đã có trong danh mục (trạm · ngăn) hay **Thiết bị mới**, đã có lần FAT chưa (lưu lại sẽ **ghi đè** lần FAT cũ, kể cả giá trị đã sửa tay);
+     mặc định chọn máy chưa có FAT và máy của thiết bị đang chuột phải; bỏ tích máy thuộc ngăn khác;
+   - **Trạm / Ngăn** cho thiết bị mới hoặc chưa gắn — mặc định ngăn của thiết bị đang chuột phải, hoặc ngăn của máy đã có trong file; thiết bị đã gắn ngăn giữ nguyên;
+   - **Lưu N máy** — mỗi máy một lần FAT kèm file gốc; dùng làm giá trị khởi đầu cho các BBTN sau.
+   Nhập theo ngữ cảnh mà file không có số chế tạo của thiết bị: app cảnh báo.
+7. Đánh giá "so xuất xưởng" trong biên bản dùng file .xlsx đang dùng; số liệu sửa trong CSDL dùng cho **xu hướng** các lần thí nghiệm sau.
 
 ### Test report sứ Hitachi
 
@@ -610,6 +623,9 @@ Thí nghiệm ngắn mạch không còn là phụ lục: số liệu nằm trong
 7. Tính năng không thay đổi kết quả evaluate của biên bản.
 
 ### Nhập Test report xuất xưởng vào CSDL
+
+Cách thường dùng: mục **XX** → **Nhập test report (.xlsx)…** (chọn máy và trạm / ngăn), hoặc nút **Lưu test report lên CSDL** ở bước ② trình khởi tạo.
+Cách cũ ở trang CSDL vẫn dùng được (ghi mọi máy trong file vào ngăn của biên bản đang mở):
 
 1. Nạp file xuất xưởng trong mục 0.
 2. Tại trang CSDL, chọn Trạm và Ngăn nếu cần gắn thiết bị.

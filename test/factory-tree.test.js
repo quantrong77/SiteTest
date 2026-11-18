@@ -84,3 +84,24 @@ test('sửa tay: bỏ dòng không đổi, co giãn value_norm, ghi chú ngườ
   const r2 = FT.editDiff([{ id: 9, value: 10, note: 'Nhãn sứ' }], { 9: '11' }, { who: 'a', date: '2026-01-02' }).updates[0];
   assert.equal(r2.note, 'Nhãn sứ; Sửa tay 02/01/2026 – a: 10 → 11');
 });
+
+test('lưu test report: máy mới / đã có FAT, ngăn đề xuất theo ngữ cảnh hoặc máy đã gắn', () => {
+  const eq = [
+    { id: 'x1', serial_no: 'SN-1', name: 'AT1', bay_id: 'B1', substation_name: 'Trạm Thử', bay_code: 'AT1' },
+    { id: 'x2', serial_no: 'sn-2', bay_id: '' },
+    { id: 'x2s', serial_no: 'SN-3', parent_id: 'x1' },
+  ];
+  const ses = [{ id: 's1', equipment_id: 'x1', serial_no: 'SN-1', test_date: '2019-01-01' }, { id: 's2', equipment_id: 'x1', test_date: '2020-05-01' }];
+  const units = [{ serial: 'SN-1', phase: 'A' }, { serial: 'SN-2', phase: 'B' }, { serial: 'SN-3' }];
+  let r = J(FT.importPlan(units, eq, ses));
+  assert.deepEqual(r.rows.map(x => [x.serial, x.eqId, x.hasFat, x.fatDate, x.pick]), [
+    ['SN-1', 'x1', true, '2020-05-01', false], ['SN-2', 'x2', false, '', true], ['SN-3', '', false, '', true]]);
+  assert.equal(r.rows[0].where, 'Trạm Thử · AT1');
+  assert.equal(r.bayId, 'B1', 'ngăn của máy đã gắn trong file');
+  assert.equal(r.missingTarget, false);
+  r = J(FT.importPlan(units, eq, ses, { bayId: 'B9', target: 'sn-1' }));
+  assert.equal(r.bayId, 'B9', 'ngăn của ngữ cảnh trước');
+  assert.equal(r.rows[0].pick, true, 'máy đang nhập cho ngữ cảnh được chọn dù đã có FAT');
+  assert.equal(J(FT.importPlan(units, eq, ses, { target: 'SN-X' })).missingTarget, true);
+  assert.equal(J(FT.importPlan(units.slice(1), [], [])).bayId, '');
+});

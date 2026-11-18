@@ -10,6 +10,22 @@
   const signedIn = () => !!(window.DB && DB.client && DB.user);
   const classCode = () => EquipmentTypes.codeOf(A.state);
   const PH = EquipmentSpecs.PHASES;
+  const up = x => String(x || '').trim().toUpperCase();
+  const vnDate = d => { const m = String(d || '').match(/^(\d{4})-(\d{2})-(\d{2})/); return m ? `${m[3]}/${m[2]}/${m[1]}` : String(d || ''); };
+  // các lần FAT đã lưu CSDL (biết số chế tạo nào đã có giá trị khởi đầu)
+  const fat = { list: null, forUser: null, loading: false };
+  async function loadFat(force) {
+    if (!signedIn() || fat.loading || (!force && fat.list && fat.forUser === DB.user.id)) return false;
+    fat.loading = true;
+    try { fat.list = await DB.listFactorySessions(); fat.forUser = DB.user.id; } catch (err) { fat.list = null; } finally { fat.loading = false; }
+    return true;
+  }
+  // số chế tạo của biên bản: tổ 3 máy 1 pha → các pha; còn lại → máy chính
+  const recordSerials = () => {
+    const st = A.state;
+    return (st.cfg.topology === 'bank1p' ? PH.map(p => st.cfg.ps[p]) : [st.v['meta.serial']]).map(x => String(x || '').trim()).filter(Boolean);
+  };
+  const activeFile = () => (A.factories || []).find(x => x.api === A.FX) || null;
 
   function pickerHTML() {
     const c = C(), cfg = A.state.cfg;
@@ -37,7 +53,7 @@
     }
     const ready = bayId && eqVal && (eqVal !== 'bank' || units.bank);
     h += `<div class="field"><label>&nbsp;</label><button class="btn primary" data-act="suApply" ${ready ? '' : 'disabled'}>Chọn thiết bị này →</button></div></div>`;
-    if (eqVal === 'new') h += '<div class="hint-text">Thiết bị mới: nhập số chế tạo bên dưới. Có test report (file .xlsx trên máy hoặc trong CSDL) thì thông số kỹ thuật được tự nạp; chưa có thì nhập tay ở bước ②.</div>';
+    if (eqVal === 'new') h += '<div class="hint-text">Thiết bị mới: nhập số chế tạo bên dưới, hoặc bấm <b>Nhập Test Report (.xlsx)…</b> (file một máy: số chế tạo tự điền). Có test report thì thông số kỹ thuật được tự nạp; chưa có thì nhập tay ở bước ②.</div>';
     const applied = bayOf(cfg.bayId);
     if (applied) {
       const s = (c.subs || []).find(x => x.id === applied.substation_id);
@@ -57,9 +73,68 @@
 
   async function afterRender(App) {
     A = App;
-    if (!signedIn() || C().subs || C().loading) return;
-    await Catalog.load();
-    if (A.currentSection() === 'general') A.renderMain();
+    if (!signedIn()) return;
+    const tasks = [loadFat()];
+    if (!C().subs && !C().loading) tasks.push(Catalog.load().then(() => true));
+    const changed = (await Promise.all(tasks)).some(Boolean);
+    if (changed && A.currentSection() === 'general') A.renderMain();
+  }
+
+  // Khối "Test report xuất xưởng" (bước ① và ②): nhập file, tình trạng, lưu CSDL làm giá trị khởi đầu
+  function reportHTML(App) {
+    A = App;
+    const sns = recordSerials(), FX = A.FX, file = activeFile();
+    const inFile = FX ? sns.filter(sn => FX.has(sn)) : [];
+    let h = '<h3>Test report xuất xưởng</h3><div class="row-actions"><button class="btn" data-act="suImport" '
+      + 'title="Nạp file test report (.xlsx) của thiết bị: tự điền số chế tạo (file một máy), thông số kỹ thuật và dùng làm số liệu so sánh">Nhập Test Report (.xlsx)…</button></div>';
+    if (!sns.length) return h + '<div class="hint-text">Chưa có số chế tạo. Nhập test report: file chỉ có một máy (hoặc tổ 3 máy pha A / B / C) thì số chế tạo được điền tự động.</div>';
+    h += inFile.length
+      ? `<div class="hint-text">Đang dùng <b>${esc(file ? file.name : FX.data.fileName)}</b> cho ${esc(inFile.join(', '))}: thông số kỹ thuật và số liệu xuất xưởng để so sánh.</div>`
+      : `<div class="callout">Chưa có test report của ${esc(sns.join(', '))} trên máy này — thông số kỹ thuật nhập tay, các hạng mục không so được với số liệu xuất xưởng.</div>`;
+    if (!signedIn() || !fat.list) return h;
+    const fatOf = sn => fat.list.filter(x => up(x.serial_no) === up(sn)).sort((a, b) => String(b.test_date || '').localeCompare(String(a.test_date || '')))[0];
+    const saved = sns.filter(fatOf), unsaved = inFile.filter(sn => !fatOf(sn));
+    if (saved.length) h += `<div class="hint-text">Đã có số liệu xuất xưởng trong CSDL (giá trị khởi đầu): ${saved.map(sn => `${esc(sn)} — FAT ${esc(vnDate(fatOf(sn).test_date))}`).join('; ')}.</div>`;
+    if (unsaved.length) {
+      const bay = ((C().bays || []).find(b => b.id === A.state.cfg.bayId));
+      const can = DB.canEdit();
+      h += `<div class="callout warn"><b>Test report của ${esc(unsaved.join(', '))} chưa lưu CSDL.</b> Lưu để làm <b>giá trị khởi đầu</b> (thiết bị mới, chưa vận hành): `
+        + 'lần sau khởi tạo BBTN (sau lắp đặt, định kỳ) chọn thiết bị ở bước ① là tự lấy thông số và so sánh.'
+        + `${bay ? ` Thiết bị mới được gắn vào ngăn <b>${esc(bay.code)}</b>.` : ' Biên bản chưa gắn ngăn — thiết bị mới nằm ở nhóm “Chưa gắn trạm / ngăn”.'}`
+        + `<div class="row-actions"><button class="btn primary" data-act="suSaveReport" ${can ? '' : 'disabled title="Tài khoản chỉ xem"'}>Lưu test report lên CSDL</button></div></div>`;
+    }
+    return h;
+  }
+
+  // file vừa nạp từ nút "Nhập Test Report": điền số chế tạo (nếu chưa có), rồi thông số kỹ thuật
+  async function afterImport(entry) {
+    const st = A.state, cfg = st.cfg, D = entry.api.data;
+    if (!recordSerials().length) {
+      if (cfg.topology === 'bank1p') {
+        D.order.forEach(sn => { const p = up((D.units[sn] || {}).phase); if (PH.includes(p) && !cfg.ps[p]) cfg.ps[p] = sn; });
+        st.v['meta.serial'] = cfg.ps.A || '';
+      } else if (D.order.length === 1) st.v['meta.serial'] = D.order[0];
+      if (!recordSerials().length) { A.persist(); A.setupGo('device'); A.toast(`File có ${D.order.length} máy (${D.order.join(', ')}) — nhập số chế tạo của thiết bị ở bước ①`, true); return; }
+    } else if (!recordSerials().some(sn => entry.api.has(sn))) {
+      A.toast(`File ${entry.name} không có số chế tạo ${recordSerials().join(', ')} (file có: ${D.order.join(', ')})`, true);
+      return;
+    }
+    await refill();
+    if (A.currentSection() === 'general') A.setupGo('specs');
+  }
+
+  async function saveReport() {
+    if (!DB.canEdit()) throw new Error('Cần đăng nhập tài khoản có quyền ghi');
+    const FX = A.FX, file = activeFile();
+    if (!FX || !file) throw new Error('Chưa nạp test report');
+    const sns = recordSerials().filter(sn => FX.has(sn));
+    if (!sns.length) throw new Error('File test report đang dùng không có số chế tạo của biên bản');
+    const out = await Records.importFactory(A.state, FX, A.factoryBlob(file.name), A.state.cfg.bayId || null, sns);
+    if (window.Catalog) Catalog.reset();
+    if (window.FactoryUI) FactoryUI.reset();
+    await loadFat(true);
+    A.renderMain();
+    A.toast(`Đã lưu test report lên CSDL: ${out.map(o => `${o.serial} (${o.n} giá trị)`).join(', ')} — dùng làm giá trị khởi đầu`);
   }
 
   // test report của thiết bị trong CSDL (lần FAT mới nhất có file gốc) → nạp làm file xuất xưởng (lặng)
@@ -139,6 +214,8 @@
   async function action(act) {
     if (act === 'suApply') await apply();
     else if (act === 'suFill') await refill();
+    else if (act === 'suImport') A.pickXlsx({ page: 'setup' });
+    else if (act === 'suSaveReport') await saveReport();
   }
 
   document.addEventListener('change', e => {
@@ -154,5 +231,12 @@
     if (w) { w.innerHTML = pickerHTML(); const again = $(`[data-su="${k}"]`); if (again) again.focus(); }
   });
 
-  window.SetupUI = { deviceHTML, afterRender, action };
+  document.addEventListener('factory:added', e => {
+    const d = e.detail || {};
+    if (!A || !d.purpose || d.purpose.page !== 'setup' || !d.entry) return;
+    afterImport(d.entry).catch(err => A.toast('Lỗi: ' + err.message, true));
+  });
+  document.addEventListener('auth:changed', () => { fat.list = null; fat.forUser = null; });
+
+  window.SetupUI = { deviceHTML, reportHTML, afterRender, action };
 })();

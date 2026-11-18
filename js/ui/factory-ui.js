@@ -46,7 +46,7 @@
       + 'số liệu sửa trong CSDL dùng cho <b>xu hướng</b> các lần thí nghiệm sau.</div>';
     const tools = `<div class="fx-tools"><label class="fx-search"><span class="sr-only">Tìm số liệu xuất xưởng</span>`
       + `<input id="fxSearch" type="search" autocomplete="off" placeholder="Tìm trạm, ngăn, tên thiết bị, số chế tạo, số report…" value="${esc(ui.query)}"></label>`
-      + `<button class="btn" data-act="loadXlsx">Thêm file .xlsx…</button>${signedIn() ? '<button class="btn" data-act="fxRefresh" title="Tải lại từ CSDL">Tải lại</button>' : ''}</div>`;
+      + `<button class="btn" data-act="fxImport" title="Nạp file test report (.xlsx); đã đăng nhập: chọn máy, trạm / ngăn rồi lưu lên CSDL">Nhập test report (.xlsx)…</button>${signedIn() ? '<button class="btn" data-act="fxRefresh" title="Tải lại từ CSDL">Tải lại</button>' : ''}</div>`;
     return intro + tools
       + `<div class="fx-layout"><nav class="fx-tree" aria-label="Cây số liệu xuất xưởng" id="fxTreeWrap">${treeHTML()}</nav>`
       + `<div class="fx-body"><div id="fxList">${listHTML()}</div><div id="fxDetail">${detailHTML()}</div></div></div>`
@@ -123,8 +123,9 @@
     const head = `<div class="fx-list-head"><h3>Số liệu xuất xưởng${sel ? ` — ${esc(sel.label)}` : ''}</h3><span class="muted">${rows.length} dòng</span>`
       + (sel ? '<button class="btn small" data-act="fxSel" data-node="">Bỏ lọc</button>' : '') + '</div>';
     if (!rows.length && sel && sel.noFat) {
-      return head + '<div class="callout">Thiết bị này <b>chưa có số liệu xuất xưởng</b> trong CSDL. Nạp file test report (.xlsx), sau đó chuột phải máy ở nhóm '
-        + '<b>Chưa lưu CSDL</b> → <b>Lưu lên CSDL</b>.<div class="row-actions"><button class="btn" data-act="loadXlsx">Thêm file test report (.xlsx)…</button></div></div>';
+      return head + '<div class="callout">Thiết bị này <b>chưa có số liệu xuất xưởng</b> trong CSDL. Nhập file test report (.xlsx) để lưu làm '
+        + '<b>giá trị khởi đầu</b> — BBTN sau lắp đặt, định kỳ sẽ lấy thông số và so sánh với số liệu này.'
+        + `<div class="row-actions"><button class="btn" data-act="fxImportFor" data-ctx="nofat:${esc(sel.equipmentId)}">Nhập test report cho thiết bị này (.xlsx)…</button></div></div>`;
     }
     if (!rows.length) return head + '<div class="empty">Không có số liệu xuất xưởng phù hợp.</div>';
     return head + '<div class="grid-wrap"><table class="grid fx-table"><thead><tr><th>Số chế tạo</th><th>Thiết bị</th><th>Trạm · Ngăn</th><th>Ngày TN</th>'
@@ -140,7 +141,9 @@
   // ---------------------------------------------------------------- sửa thông tin thiết bị / gán trạm, ngăn (bảng equipment)
   const eqById = id => (data.equipment || []).find(e => e.id === id) || null;
   function formHTML() {
-    const f = ui.form, e = eqById(f.eqId) || {};
+    const f = ui.form;
+    if (f.kind === 'import') return importFormHTML();
+    const e = eqById(f.eqId) || {};
     const head = `<div class="fx-detail-head"><h3>${f.kind === 'eq' ? 'Sửa thông tin thiết bị' : (e.bay_id ? 'Đổi trạm / ngăn' : 'Gán trạm / ngăn')} — ${esc(e.serial_no || '')}</h3><span class="spacer"></span>`
       + '<button class="btn primary" data-act="fxFormSave">Lưu</button><button class="btn" data-act="fxFormCancel">Hủy</button></div>';
     let body = '';
@@ -150,17 +153,67 @@
         + `<div class="field"><label for="fxEqName">Tên thiết bị</label><input id="fxEqName" data-fxform="name" value="${esc(f.values.name)}" placeholder="vd AT1 pha A"></div></div>`
         + '<div class="hint-text">Số chế tạo dùng để tra xu hướng và chọn file xuất xưởng — chỉ sửa khi nhập sai. Mọi lần thí nghiệm của thiết bị đi theo số mới.</div>';
     } else {
-      const subs = data.subs || [], bays = (data.bays || []).filter(b => b.substation_id === f.values.sub);
-      const opt = (v, t, s) => `<option value="${esc(v)}" ${s ? 'selected' : ''}>${esc(t)}</option>`;
-      body = '<div class="fields">'
-        + `<div class="field"><label for="fxEqSub">Trạm</label><select id="fxEqSub" data-fxform="sub">${opt('', '— Chọn trạm —', !f.values.sub)}${subs.map(s => opt(s.id, s.name, s.id === f.values.sub)).join('')}</select></div>`
-        + `<div class="field"><label for="fxEqBay">Ngăn</label><select id="fxEqBay" data-fxform="bay_id" ${f.values.sub ? '' : 'disabled'}>${opt('', f.values.sub && !bays.length ? 'Trạm chưa có ngăn' : '— Chọn ngăn —', !f.values.bay_id)}`
-        + `${bays.map(b => opt(b.id, `${b.code}${b.name ? ` — ${b.name}` : ''}`, b.id === f.values.bay_id)).join('')}</select></div></div>`
+      body = `<div class="fields">${bayFields(f.values)}</div>`
         + `<div class="hint-text">Các thành phần (sứ, TI chân sứ) tự đi theo ngăn của máy chính. Chưa có trạm / ngăn: thêm ở <button class="btn small" data-nav="catalog">Trạm – Ngăn – Thiết bị</button>.`
         + `${e.bay_id ? ' Bỏ gán: chọn “— Chọn ngăn —” rồi Lưu.' : ''}</div>`;
     }
     return `<div class="fx-detail fx-form" id="fxDetailBox">${head}${body}</div>`;
   }
+  // ---------------------------------------------------------------- lưu test report (.xlsx) lên CSDL: chọn máy, trạm / ngăn
+  const opt = (v, t, s) => `<option value="${esc(v)}" ${s ? 'selected' : ''}>${esc(t)}</option>`;
+  function bayFields(values) {
+    const subs = data.subs || [], bays = (data.bays || []).filter(b => b.substation_id === values.sub);
+    return `<div class="field"><label for="fxEqSub">Trạm</label><select id="fxEqSub" data-fxform="sub">${opt('', '— Chọn trạm —', !values.sub)}${subs.map(s => opt(s.id, s.name, s.id === values.sub)).join('')}</select></div>`
+      + `<div class="field"><label for="fxEqBay">Ngăn</label><select id="fxEqBay" data-fxform="bay_id" ${values.sub ? '' : 'disabled'}>${opt('', values.sub && !bays.length ? 'Trạm chưa có ngăn' : '— Chọn ngăn —', !values.bay_id)}`
+      + `${bays.map(b => opt(b.id, `${b.code}${b.name ? ` — ${b.name}` : ''}`, b.id === values.bay_id)).join('')}</select></div>`;
+  }
+  function importFormHTML() {
+    const f = ui.form, rows = f.plan.rows;
+    const n = rows.filter(r => f.values.pick[r.serial]).length;
+    let h = `<div class="fx-detail-head"><h3>Lưu test report lên CSDL — ${esc(f.file)}</h3><span class="spacer"></span>`
+      + `<button class="btn primary" data-act="fxImportSave" ${n ? '' : 'disabled'}>Lưu ${n} máy</button><button class="btn" data-act="fxFormCancel">Hủy</button></div>`;
+    if (f.plan.missingTarget) h += `<div class="callout warn" role="alert">File không có số chế tạo <b>${esc(f.target)}</b> của thiết bị đã chọn — kiểm tra lại file.</div>`;
+    h += '<div class="grid-wrap"><table class="grid fx-table"><thead><tr><th>Lưu</th><th>Số chế tạo</th><th>Pha</th><th>Trong danh mục</th><th>Số liệu xuất xưởng</th></tr></thead><tbody>'
+      + rows.map(r => `<tr><td><input type="checkbox" data-fximp="${esc(r.serial)}" ${f.values.pick[r.serial] ? 'checked' : ''} aria-label="Lưu máy ${esc(r.serial)}"></td>`
+        + `<th>${esc(r.serial)}</th><td>${esc(r.phase)}</td>`
+        + `<td>${r.eqId ? `${esc(r.name || 'Đã có')}${r.where ? ` · ${esc(r.where)}` : ' · <span class="muted">chưa gắn ngăn</span>'}` : '<span class="badge st-warn">Thiết bị mới</span>'}</td>`
+        + `<td>${r.hasFat ? `<span class="badge st-warn" title="Lưu lại sẽ ghi đè lần FAT này, kể cả giá trị đã sửa tay">Đã có FAT ${esc(vnDate(r.fatDate))} — ghi đè</span>` : 'Chưa có'}</td></tr>`).join('')
+      + '</tbody></table></div>';
+    h += `<h4>Trạm / ngăn (vị trí lắp đặt) cho thiết bị mới hoặc chưa gắn</h4><div class="fields">${bayFields(f.values)}</div>`
+      + '<div class="hint-text">Thiết bị đã gắn ngăn giữ nguyên ngăn. Để trống: thiết bị nằm ở nhóm “Chưa gắn trạm / ngăn”, gán sau bằng menu chuột phải. '
+      + 'Thiết bị chưa vận hành: số liệu lưu làm <b>giá trị khởi đầu</b> — khi khởi tạo BBTN (sau lắp đặt, định kỳ), chọn thiết bị ở bước ① để tự lấy thông số và so sánh.</div>';
+    return `<div class="fx-detail fx-form" id="fxDetailBox">${h}</div>`;
+  }
+  function openImport(fileName, ctx) {
+    const entry = (A.factories || []).find(x => x.name === fileName);
+    if (!entry) throw new Error('Không còn file này trên máy');
+    const D = entry.api.data;
+    const units = D.order.map(sn => ({ serial: sn, phase: (D.units[sn] || {}).phase || '' }));
+    const tgt = ctx && ctx.eqId ? eqById(ctx.eqId) : null;
+    const plan = FactoryTree.importPlan(units, data.equipment || [], data.sessions || [], { bayId: tgt ? tgt.bay_id || '' : '', target: tgt ? tgt.serial_no : '' });
+    const bay = (data.bays || []).find(b => b.id === plan.bayId);
+    ui.form = { kind: 'import', file: fileName, target: tgt ? tgt.serial_no : '', plan,
+      values: { sub: bay ? bay.substation_id : '', bay_id: plan.bayId, pick: Object.fromEntries(plan.rows.map(r => [r.serial, r.pick])) } };
+    ui.detail = null;
+    refresh('detail');
+    const box = $('#fxDetailBox'); if (box) { box.scrollIntoView({ block: 'nearest' }); const b = box.querySelector('[data-act="fxImportSave"]:not([disabled]), select'); if (b) b.focus(); }
+  }
+  async function saveImport() {
+    const f = ui.form;
+    if (!DB.canEdit()) throw new Error('Cần đăng nhập tài khoản có quyền ghi');
+    const entry = (A.factories || []).find(x => x.name === f.file);
+    if (!entry) throw new Error('Không còn file này trên máy');
+    const serials = f.plan.rows.filter(r => f.values.pick[r.serial]).map(r => r.serial);
+    if (!serials.length) throw new Error('Chọn ít nhất một máy để lưu');
+    await A.track('Lưu test report lên CSDL', async () => {
+      const out = await Records.importFactory(A.state, entry.api, A.factoryBlob(f.file), f.values.bay_id || null, serials);
+      A.toast(`Đã lưu lên CSDL: ${out.map(o => `${o.serial} (${o.n} giá trị)`).join(', ')}`);
+    });
+    ui.form = null;
+    if (window.Catalog) Catalog.reset();
+    reset(); A.renderMain(); await load(true);
+  }
+
   function openForm(kind, eqId) {
     const e = eqById(eqId);
     if (!e) throw new Error('Không tìm thấy thiết bị trong danh mục (tải lại trang)');
@@ -276,10 +329,10 @@
         ['fxUse', 'Dùng cho biên bản đang lập', 'Tải file test report gốc từ CSDL'], ['fxDownload', 'Tải file test report', ''],
       ]);
     }
-    if (kind === 'nofat') return [['loadXlsx', 'Thêm file test report (.xlsx)…', 'Nạp xong: chuột phải máy ở nhóm “Chưa lưu CSDL” → Lưu lên CSDL']].concat(equipmentItems(ctx, can));
+    if (kind === 'nofat') return [['fxImportFor', 'Nhập test report (.xlsx)…', 'Lưu làm giá trị khởi đầu cho thiết bị này']].concat(equipmentItems(ctx, can));
     if (kind === 'local') return [
       ['fxLocalView', 'Xem sheet gốc', ''], ['fxLocalUse', 'Dùng file này cho biên bản', ''],
-      ['fxLocalSave', 'Lưu lên CSDL', signedIn() ? (can ? '' : 'Tài khoản chỉ xem') : 'Cần đăng nhập'],
+      ['fxLocalSave', 'Lưu lên CSDL…', signedIn() ? (can ? '' : 'Tài khoản chỉ xem') : 'Cần đăng nhập'],
     ];
     return [];
   }
@@ -360,6 +413,8 @@
       if (!DB.canEdit()) throw new Error('Tài khoản chỉ xem — không sửa được thiết bị');
       openForm(act === 'fxEqEdit' ? 'eq' : 'bay', eqIdOf(ctx)); return;
     }
+    if (act === 'fxImport' || act === 'fxImportFor') { A.pickXlsx({ page: 'factory', eqId: act === 'fxImportFor' ? eqIdOf(ctx) : '' }); return; }
+    if (act === 'fxImportSave') { await saveImport(); return; }
     if (act === 'fxFormSave') { await saveForm(); return; }
     if (act === 'fxFormCancel') { ui.form = null; refresh('detail'); return; }
     if (act === 'fxView' || act === 'fxEdit') {
@@ -400,16 +455,8 @@
     }
     if (act === 'fxLocalSave') {
       if (!signedIn() || !DB.canEdit()) throw new Error('Cần đăng nhập tài khoản có quyền ghi');
-      const e = (A.factories || []).find(x => x.name === p.a);
-      if (!e) throw new Error('Không còn file này trên máy');
-      const b64 = A.factoryFileB64(p.a);
-      const blob = b64 ? new Blob([Uint8Array.from(atob(b64), ch => ch.charCodeAt(0))], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }) : null;
-      await A.track('Lưu số liệu xuất xưởng lên CSDL', async () => {
-        const out = await Records.importFactory(A.state, e.api, blob, A.state.cfg.bayId || null);
-        A.toast(`Đã lưu lên CSDL: ${out.map(o => `${o.serial} (${o.n} giá trị)`).join(', ')}`);
-      });
-      if (window.Catalog) Catalog.reset();
-      reset(); A.renderMain(); await load(true);
+      if (!data.sessions) await load(true);
+      openImport(p.a, null);
     }
   }
 
@@ -432,6 +479,7 @@
   });
   document.addEventListener('change', e => {
     const t = e.target;
+    if (t.dataset && t.dataset.fximp !== undefined && ui.form && ui.form.kind === 'import') { ui.form.values.pick[t.dataset.fximp] = t.checked; refresh('detail'); const c = $(`[data-fximp="${CSS.escape(t.dataset.fximp)}"]`); if (c) c.focus(); return; }
     if (t.dataset && t.dataset.fxfilter && ui.detail) { ui.detail[t.dataset.fxfilter] = t.value; refresh('detail'); const s = $(`[data-fxfilter="${t.dataset.fxfilter}"]`); if (s) s.focus(); }
     if (t.dataset && t.dataset.fxform && ui.form && t.tagName === 'SELECT') {
       ui.form.values[t.dataset.fxform] = t.value;
@@ -481,6 +529,13 @@
   document.addEventListener('click', e => { if (ui.menu && e.target.closest && e.target.closest('.ctx-item')) setTimeout(() => closeMenu(), 0); });
   window.addEventListener('scroll', () => closeMenu(), true);
   window.addEventListener('resize', () => closeMenu());
+  // file test report vừa nạp từ trang XX (nút Nhập test report / menu thiết bị) → mở khung lưu CSDL
+  document.addEventListener('factory:added', e => {
+    const d = e.detail || {}, pur = d.purpose;
+    if (!A || !pur || pur.page !== 'factory' || A.currentSection() !== 'factory') return;
+    if (!signedIn() || !DB.canEdit()) { A.toast(signedIn() ? 'Tài khoản chỉ xem — file chỉ dùng trên máy này' : 'Đăng nhập để lưu test report lên CSDL; file chỉ dùng trên máy này'); return; }
+    (data.sessions ? Promise.resolve() : load(true)).then(() => openImport(d.name, { eqId: pur.eqId })).catch(err => A.toast('Lỗi: ' + err.message, true));
+  });
   document.addEventListener('auth:changed', () => { reset(); if (A && A.currentSection() === 'factory') { A.renderMain(); load(true); } });
 
   window.FactoryUI = { render, afterRender, action, reset };

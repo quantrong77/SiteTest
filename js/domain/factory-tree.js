@@ -141,5 +141,25 @@
     return { updates, errors };
   }
 
-  window.FactoryTree = { build, filter, leaves, editDiff, fold, UNASSIGNED };
+  // Lưu test report (.xlsx) lên CSDL: tình trạng từng máy trong file so với danh mục và các lần FAT đã lưu.
+  // units: [{ serial, phase }]; equipment: danh mục (máy chính); sessions: các lần FAT; opts: { bayId (ngăn của ngữ cảnh), target (số chế tạo cần nhập) }
+  // → { rows: [{ serial, phase, eqId, name, bayId, where, hasFat, fatDate, pick }], bayId (ngăn đề xuất cho máy mới / chưa gắn), missingTarget }
+  // Mặc định chọn máy chưa có FAT (máy đã có: lưu lại sẽ ghi đè lần FAT cũ, kể cả giá trị đã sửa tay) và máy đang nhập cho ngữ cảnh.
+  function importPlan(units, equipment, sessions, opts) {
+    opts = opts || {};
+    const up = s => String(s || '').trim().toUpperCase();
+    const target = up(opts.target);
+    const rows = (units || []).map(u => {
+      const e = (equipment || []).find(x => !x.parent_id && up(x.serial_no) === up(u.serial)) || null;
+      const fats = (sessions || []).filter(s => (e && s.equipment_id === e.id) || up(s.serial_no) === up(u.serial))
+        .sort((a, b) => String(b.test_date || '').localeCompare(String(a.test_date || '')));
+      const where = e ? [e.substation_name, e.bay_code].filter(Boolean).join(' · ') : '';
+      return { serial: u.serial, phase: u.phase || '', eqId: e ? e.id : '', name: e ? e.name || '' : '', bayId: e ? e.bay_id || '' : '', where,
+        hasFat: fats.length > 0, fatDate: fats.length ? fats[0].test_date || '' : '', pick: !fats.length || (!!target && up(u.serial) === target) };
+    });
+    const known = rows.find(r => r.bayId);
+    return { rows, bayId: opts.bayId || (known ? known.bayId : ''), missingTarget: !!target && !rows.some(r => up(r.serial) === target) };
+  }
+
+  window.FactoryTree = { build, filter, leaves, editDiff, fold, importPlan, UNASSIGNED };
 })();

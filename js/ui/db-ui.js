@@ -265,9 +265,9 @@
       } else if (act === 'dbImportFactory') {
         const FX = App.FX;
         if (!FX) throw new Error('Chưa nạp file số liệu xuất xưởng (.xlsx) — nạp ở mục 0');
-        const emb = App.EMB.factory;
-        const blob = emb && FX.data.fileName === emb.name
-          ? new Blob([Uint8Array.from(atob(emb.b64), ch => ch.charCodeAt(0))], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }) : null;
+        // file gốc đang dùng (nhúng hoặc nạp trên máy) lưu kèm số liệu
+        const cur = (App.factories || []).find(x => x.api === FX);
+        const blob = cur ? App.factoryBlob(cur.name) : null;
         const out = await Records.importFactory(App.state, FX, blob, App.state.cfg.bayId || null);
         Catalog.reset();
         sessions = null; T.loadedFor = ''; T.equipment = null;
