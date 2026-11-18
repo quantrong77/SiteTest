@@ -40,11 +40,13 @@ test('js/data/: không quyết định Đạt/Không đạt', () => {
   assert.deepEqual(bad, []);
 });
 
-test('index.html nạp đủ các file của ba lớp, nghiệp vụ trước dữ liệu trước giao diện', () => {
-  const html = fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8');
-  const order = [...html.matchAll(/<script src="(js\/(?:domain|data|ui)\/[^"]+)"/g)].map(m => m[1]);
+test('vỏ React (src/main.jsx) nạp đủ các file của ba lớp, nghiệp vụ trước dữ liệu trước giao diện', () => {
+  // index.html chỉ có #app-root; danh sách script cổ điển nằm trong src/main.jsx (nạp tuần tự sau khi vỏ React dựng xong)
+  const src = fs.readFileSync(path.join(ROOT, 'src/main.jsx'), 'utf8');
+  const order = [...src.matchAll(/'(js\/(?:domain|data|ui)\/[^']+)'/g)].map(m => m[1]);
+  assert.ok(order.length > 0, 'không đọc được danh sách script trong src/main.jsx');
   const all = files('js/domain').concat(files('js/data'), files('js/ui'));
-  assert.deepEqual(all.filter(f => !order.includes(f)), [], 'file chưa được nạp trong index.html');
+  assert.deepEqual(all.filter(f => !order.includes(f)), [], 'file chưa được nạp trong src/main.jsx');
   const layer = f => ['domain', 'data', 'ui'].indexOf(f.split('/')[1]);
   order.forEach((f, i) => { if (i) assert.ok(layer(f) >= layer(order[i - 1]), `${f} nạp trước lớp dưới`); });
 });

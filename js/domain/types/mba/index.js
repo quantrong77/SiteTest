@@ -12,6 +12,8 @@
       oltcWinding: 'HV',
       // hạng mục KHÔNG thực hiện trong lần thí nghiệm này ({ id hạng mục: true }); mặc định thực hiện tất cả
       skip: {},
+      // kèm phụ lục "Bảng tra cứu tiêu chuẩn" cuối BBTN ('on') hay không ('off', mặc định)
+      stdAppendix: 'off',
       iLV: '', sLV: '', sR: '', i0Ref: '', bC1Dev: '', bTgdMax: '', bctCores: { hv: 4, mv: 4, lv: 4 },
       ctNo: { hv: '1,2,3,4,5,6', mv: '4,5,6,7,8', n: '8,9,10', lv: '11,12,13,14' }, bctErrLimit: '', decSep: ',',
       hdr: {}, wtgdLabels: {}, wtgdRows: [], oltcCharts: 'all',
@@ -29,6 +31,7 @@
     cfg.reportScope = ['combined', 'separate'].includes(cfg.reportScope) ? cfg.reportScope : 'combined';
     if (cfg.topology !== 'bank1p') cfg.reportScope = 'combined';
     cfg.oltcWinding = cfg.oltcWinding === 'MV' ? 'MV' : 'HV';
+    cfg.stdAppendix = cfg.stdAppendix === 'on' ? 'on' : 'off';
     // hạng mục KHÔNG thực hiện ({ id: true }); biên bản cũ: mọi hạng mục thực hiện
     cfg.skip = cfg.skip && typeof cfg.skip === 'object' ? Object.fromEntries(Object.entries(cfg.skip).filter(([, x]) => x === true)) : {};
     cfg.reportPhases = Array.isArray(cfg.reportPhases)

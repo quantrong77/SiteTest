@@ -39,7 +39,7 @@
     });
     const unitRef = ph => {
       const p = String(ph || '').toUpperCase();
-      const s = p === 'N' ? main : (str(cfg.ps[p]) || main);
+      const s = p === 'N' || schema.layout === Schema.LAYOUT_110 ? main : (str(cfg.ps[p]) || main);
       return s === main ? mainRef : addRef('MBA', s, { phase: p });
     };
     const put = (eq, item, param, o) => {
