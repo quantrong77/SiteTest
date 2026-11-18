@@ -406,8 +406,9 @@
       // số liệu theo nấc của cuộn đó (không so mọi nấc với một giá trị)
       dcr(winding, tap, s, opts) {
         const rows = F.dcr.rows.filter(r => r.winding === winding);
+        // cuộn nối tiếp không có nấc (OLTC ở cuộn trung áp, cuộn cao áp một giá trị): dùng khi file XX chỉ có một hàng
         const r = opts && opts.byTap ? (rows.length > 1 ? matchTap(rows, tap) : null)
-          : winding === 'SER' ? matchTap(rows, tap) : rows[0];
+          : winding === 'SER' ? (tap ? matchTap(rows, tap) : (rows.length === 1 ? rows[0] : null)) : rows[0];
         if (!r || r.r75[s] == null) return null;
         return { r75: r.r75[s], meas: r.meas[s], tap: r.tap, refT: F.dcr.refT, measT: (F.conditions[s] || {}).dcr };
       },

@@ -162,3 +162,36 @@ test('nhập BBTN .docx cũ: nhận OLTC trung áp theo đề mục trước b�
   assert.equal(ctx.MbaImportReport.detectOltcWinding(hv, schema), 'HV');
   assert.equal(ctx.MbaImportReport.detectOltcWinding({}, schema), 'HV');
 });
+
+// Bảng tra xuất xưởng giả cùng giao diện Factory api(): U cao áp không đổi theo nấc (OLTC trung áp), R cuộn chung một hàng
+function fakeFactoryMV() {
+  const taps = Array.from({ length: 19 }, (_, i) => ({ tap: String(i + 1), hvKV: 230, mvKV: 121 - i, nominal: 230 / (121 - i), err: {} }));
+  const rows = { SER: [{ r75: 0.7, meas: 0.65, tap: '', refT: 75 }], COM: [{ r75: 0.3, meas: 0.28, tap: '', refT: 75 }] };
+  return {
+    data: { ratio: { taps, mvlv: { mvKV: 115, lvKV: 11, nominal: 115 / 11, err: {} } }, specs: {}, units: {}, order: [] },
+    has: () => false, unit: () => null,
+    ratioTap: tap => taps.find(x => x.tap === String(tap)) || null,
+    // cùng quy tắc với Factory.dcr: byTap chỉ trả khi có nhiều hàng theo nấc; cuộn nối tiếp không nấc dùng hàng duy nhất
+    dcr: (w, tap, s, opts) => {
+      const list = rows[w] || [];
+      const r = opts && opts.byTap ? (list.length > 1 ? list.find(x => x.tap === tap) : null) : w === 'SER' ? (tap ? null : (list.length === 1 ? list[0] : null)) : list[0];
+      return r ? { r75: r.r75, meas: r.meas, tap: r.tap, refT: 75 } : null;
+    },
+    ins: () => null, insT: () => null, bushingBySerial: () => null, bushingByUnit: () => null, bushingSpec: () => null, bct: () => null, moisture: () => null,
+  };
+}
+
+test('OLTC trung áp có file xuất xưởng: cuộn cao áp và HV:LV một hàng vẫn có tham chiếu; trung áp không so mọi nấc với một giá trị', () => {
+  const { ctx, schema, state } = mvState();
+  const res = ctx.Evaluate.evaluate(state, fakeFactoryMV(), schema);
+  const hvDcr = res.findings.filter(f => f.item === 'R một chiều Cuộn cao áp');
+  assert.equal(hvDcr.length, 3);
+  assert.ok(hvDcr.every(f => f.ref), 'R cuộn cao áp có tham chiếu xuất xưởng');
+  const mvDcr = res.findings.filter(f => f.item === 'R một chiều Cuộn trung áp (OLTC)');
+  assert.ok(mvDcr.every(f => !f.ref), 'file XX chỉ có một hàng cuộn chung → không so theo nấc');
+  const hl = res.findings.filter(f => f.item === 'Tỷ số biến HV:LV');
+  assert.equal(hl.length, 3);
+  assert.ok(hl.every(f => /Kđm/.test(f.ref)), 'HV:LV có tỷ số định mức');
+  const ml = res.findings.filter(f => f.item === 'Tỷ số biến MV:LV' && /^Nấc 5 /.test(f.loc));
+  assert.ok(ml.length && ml.every(f => /Kđm/.test(f.ref)), 'MV:LV định mức theo U trung áp của nấc');
+});

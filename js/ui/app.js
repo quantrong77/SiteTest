@@ -699,8 +699,8 @@
       if (el.dataset.cfg === 'oltcWinding') {
         // đổi cuộn đặt OLTC: số liệu đã nhập theo cấu hình cũ vẫn giữ trong biên bản (khóa ô khác nhau), chỉ ẩn khỏi biểu mẫu
         toast(state.cfg.oltcWinding === 'MV'
-          ? 'OLTC ở cuộn trung áp: R một chiều cuộn trung áp và tỷ số MV:LV nhập theo nấc. Số liệu theo nấc cuộn cao áp đã nhập vẫn được giữ.'
-          : 'OLTC ở cuộn cao áp: R một chiều cuộn cao áp và tỷ số HV:LV nhập theo nấc. Số liệu theo nấc cuộn trung áp đã nhập vẫn được giữ.');
+          ? 'OLTC ở cuộn trung áp: R một chiều cuộn trung áp và tỷ số MV:LV nhập theo nấc. Số liệu đã nhập theo cấu hình cũ (nấc cuộn cao áp, HV:LV theo nấc) vẫn lưu trong biên bản nhưng không hiện, không đánh giá và không xuất BBTN — đổi lại cấu hình cũ để xem.'
+          : 'OLTC ở cuộn cao áp: R một chiều cuộn cao áp và tỷ số HV:LV nhập theo nấc. Số liệu đã nhập theo cấu hình cũ (nấc cuộn trung áp, MV:LV theo nấc) vẫn lưu trong biên bản nhưng không hiện, không đánh giá và không xuất BBTN — đổi lại cấu hình cũ để xem.');
       }
       if (/^(taps|bctCores|hvMeas|oltcWinding|template|topology|reportScope|ps\.)/.test(el.dataset.cfg)) {
         if (el.dataset.cfg === 'taps' && state.cfg.taps.length !== 19) toast(`Cần đúng 19 nhãn nấc (đang có ${state.cfg.taps.length}) — tạm dùng mặc định`, true);
