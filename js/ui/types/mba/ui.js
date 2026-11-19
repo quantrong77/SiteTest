@@ -425,6 +425,8 @@
       const list = hitFiles(A).filter(x => x.name !== f.name).concat([{ name: f.name, b64: A.abToB64(buf) }]);
       if (!A.lsSet(LS_HITS, JSON.stringify(list))) A.toast('File lớn — chỉ dùng trong phiên này', true);
       A.recompute(); A.renderMain(); A.toast(`Đã thêm test report sứ ${f.name}: ${info.count} sứ (tổng ${info.total} sứ)`);
+      // trang XX (đã đăng nhập): mở khung lưu lên CSDL
+      document.dispatchEvent(new CustomEvent('bushingtr:added', { detail: { name: f.name, count: info.count } }));
     }));
   }
 

@@ -31,5 +31,12 @@
     return need().importFactory(packs, FX.data.fileName, fileBlob, bayId);
   }
 
-  window.Records = { setRepo, saveField, importFactory };
+  // Gói lần thí nghiệm FAT dựng sẵn (vd test report sứ — HitachiBushing.factoryPacks) → lưu như test report xuất xưởng
+  async function importPacks(packs, fileName, fileBlob) {
+    if (!packs || !packs.length) throw new Error('Không có thiết bị nào được chọn để lưu');
+    if (packs.some(p => !p.session.test_date)) throw new Error('Thiếu ngày thí nghiệm — nhập tay ngày thí nghiệm rồi lưu');
+    return need().importFactory(packs, fileName, fileBlob, null);
+  }
+
+  window.Records = { setRepo, saveField, importFactory, importPacks };
 })();

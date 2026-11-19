@@ -63,7 +63,8 @@
     if (C.loading || (!force && C.subs)) return;
     C.loading = true;
     try {
-      [C.subs, C.bays, C.eqs, C.classes] = await Promise.all([DB.listSubstations(), DB.listBays(), DB.listEquipment(), DB.listClasses()]);
+      [C.subs, C.bays, C.eqs, C.classes, C.groups] = await Promise.all([DB.listSubstations(), DB.listBays(), DB.listEquipment(), DB.listClasses(),
+        DB.listGroups ? DB.listGroups().catch(() => []) : []]);
       if (C.selSub && !C.subs.some(s => s.id === C.selSub)) C.selSub = '';
       if (!C.selSub && C.subs.length) C.selSub = C.subs[0].id;
       if (C.selBay && !C.bays.some(b => b.id === C.selBay)) C.selBay = '';

@@ -189,7 +189,16 @@ Hãy dùng đúng nhãn hiển thị trên phiên bản đang chạy.
    - **Ngày thí nghiệm**, **Số test report** — lấy từ file; file không ghi / không đọc được ngày thì ô ngày tô đỏ, **nhập tay** để lưu
      (cũng có ở nút **Lưu test report lên CSDL** của trình khởi tạo). Các mục khác không đọc được thì bỏ trống; sửa sau bằng chuột phải → **Sửa giá trị đo**.
    Nhập theo ngữ cảnh mà file không có số chế tạo của thiết bị: app cảnh báo.
-7. Đánh giá "so xuất xưởng" trong biên bản dùng file .xlsx đang dùng; số liệu sửa trong CSDL dùng cho **xu hướng** các lần thí nghiệm sau.
+7. **Dữ liệu thiết bị (cần migration G2)** — chuột phải trên cây:
+   - ngăn → **Khai tổ máy 3 pha…** / **Tổ máy 3 pha: …** — tổ 3 MBA 1 pha rời: chọn máy pha A, B, C (gợi ý theo pha trong ngăn). Thay máy một pha (vd lắp máy dự phòng):
+     chọn máy mới cho pha đó, ngày thay, ghi chú → máy cũ rời tổ, xem **Lịch sử thành viên**. Trình khởi tạo BBTN (bước ①) lấy các pha theo tổ này;
+   - máy chính → **Lịch sử vị trí lắp đặt…** — các ngăn đã lắp, từ ngày / đến ngày; đổi ngăn (cùng hoặc khác trạm) bằng **Đổi trạm / ngăn…** thì lịch sử tự ghi
+     (ngày hôm nay — sửa lại ngày thực tế ở đây). Mỗi lần thí nghiệm ghi ngăn tại thời điểm thí nghiệm;
+   - sứ / OLTC / TI chân sứ đang lắp → **Thay sứ này…** — số chế tạo mới, ngày thay, cái cũ thanh lý hay dự phòng. Cái cũ hiện "đã tháo" trên cây (giữ lịch sử);
+     cái mới có giá trị khởi đầu riêng;
+   - **Nhập test report sứ (.xlsx)…** (thanh công cụ, hoặc chuột phải sứ chưa có số liệu) → khung **Lưu test report sứ lên CSDL**: mỗi sứ đã có trong danh mục
+     một lần thí nghiệm xuất xưởng (C1, tanδ1, C2, tanδ2 quy về 20 °C như số đo hiện trường) — giá trị khởi đầu cho xu hướng sứ. File không ghi ngày: nhập tay.
+8. Đánh giá "so xuất xưởng" trong biên bản dùng file .xlsx đang dùng; số liệu sửa trong CSDL dùng cho **xu hướng** các lần thí nghiệm sau.
 
 ### Test report sứ Hitachi
 

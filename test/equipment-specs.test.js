@@ -61,3 +61,19 @@ test('ô thông số không có nguồn nào mà còn giá trị mẫu của tem
   const fills = { 'meta.power': { value: '100', src: 'CSDL' } };
   assert.deepEqual(J(ES.staleKeys(v, fills, tpl)), ['meta.voltage'], 'giữ ô người dùng đã nhập, ô trống; không đụng số chế tạo');
 });
+
+test('tổ máy khai trong CSDL (equipment_groups) được ưu tiên; máy thanh lý không tính', () => {
+  const list = [
+    { id: 'a', bay_id: 'b1', class_code: 'MBA', phase: 'A', serial_no: 'SN-A' },
+    { id: 'b', bay_id: 'b1', class_code: 'MBA', phase: 'B', serial_no: 'SN-B' },
+    { id: 'b2', bay_id: 'b1', class_code: 'MBA', phase: 'B', serial_no: 'SN-B-DP', name: 'Máy dự phòng' },
+    { id: 'c', bay_id: 'b1', class_code: 'MBA', phase: 'C', serial_no: 'SN-C' },
+    { id: 'x', bay_id: 'b1', class_code: 'MBA', serial_no: 'SN-OLD', status: 'retired' },
+  ];
+  const groups = [{ id: 'g1', bay_id: 'b1', class_code: 'MBA', name: 'Tổ MBA AT1', eq_a: 'a', eq_b: 'b2', eq_c: 'c' }];
+  const r = J(ES.bayUnits(list, 'b1', 'MBA', groups));
+  assert.equal(r.bank.B.serial_no, 'SN-B-DP', 'pha B theo tổ máy (máy dự phòng đã thay)');
+  assert.deepEqual(r.bank.group, { id: 'g1', name: 'Tổ MBA AT1' });
+  assert.deepEqual(r.singles.map(e => e.serial_no), ['SN-B'], 'máy cũ pha B là máy đơn; máy thanh lý không hiện');
+  assert.equal(J(ES.bayUnits(list, 'b1', 'MBA')).bank.B.serial_no, 'SN-B', 'không có tổ trong CSDL: suy theo pha như cũ');
+});

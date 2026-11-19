@@ -11,7 +11,7 @@
   const num = x => (x === null || x === undefined || x === '' || !Number.isFinite(Number(x)) ? '' : String(+Number(x).toPrecision(10)).replace('.', ','));
   const vnDate = d => { const m = String(d || '').match(/^(\d{4})-(\d{2})-(\d{2})/); return m ? `${m[3]}/${m[2]}/${m[1]}` : String(d || ''); };
 
-  const data = { equipment: null, sessions: null, subs: null, bays: null, loading: false, error: '', forUser: null };
+  const data = { equipment: null, sessions: null, subs: null, bays: null, groups: null, loading: false, error: '', forUser: null };
   const ui = { query: '', selected: '', open: new Set(), detail: null, menu: null, form: null };
 
   const signedIn = () => !!(window.DB && DB.client && DB.user);
@@ -30,8 +30,9 @@
     if (data.loading || (!force && data.sessions && data.forUser === DB.user.id)) return;
     data.loading = true; data.error = '';
     try {
-      const [equipment, sessions, subs, bays] = await Promise.all([DB.listEquipment(), DB.listFactorySessions(), DB.listSubstations(), DB.listBays()]);
-      Object.assign(data, { equipment, sessions, subs, bays, forUser: DB.user.id });
+      const [equipment, sessions, subs, bays, groups] = await Promise.all([DB.listEquipment(), DB.listFactorySessions(), DB.listSubstations(), DB.listBays(),
+        DB.listGroups ? DB.listGroups().catch(() => []) : []]);
+      Object.assign(data, { equipment, sessions, subs, bays, groups, forUser: DB.user.id });
     } catch (err) { data.error = err.message; }
     data.loading = false;
     if (A.currentSection() === 'factory') A.renderMain();
@@ -59,7 +60,8 @@
     const U = window.TypeUI && TypeUI[EquipmentTypes.codeOf(A.state)];
     if (!U || !U.actions || !U.actions.loadHitachi) return '';
     const HB = window.HitachiBushing, n = HB && HB.reports ? HB.reports.length : 0;
-    return `<button class="btn" data-act="loadHitachi" title="Test report sứ xuyên của hãng (.xlsx, sheet TestReport + TraCuu) — đang có ${n} sứ; dùng để so C1, tanδ ở mục 5">Nhập test report sứ (.xlsx)…</button>`;
+    return `<button class="btn" data-act="loadHitachi" title="Test report sứ xuyên của hãng (.xlsx, sheet TestReport + TraCuu) — đang có ${n} sứ; dùng để so C1, tanδ ở mục 5">Nhập test report sứ (.xlsx)…</button>`
+      + (n && signedIn() ? `<button class="btn" data-act="fxBushingDb" title="Lưu số liệu test report sứ (${n} sứ đã nạp) làm giá trị khởi đầu trong CSDL">Lưu test report sứ lên CSDL…</button>` : '');
   }
 
   function statusHTML() {
@@ -79,7 +81,8 @@
       const kids = n.children || [];
       const exp = kids.length ? isOpen(n) : null;
       const ctx = (n.type === 'serial' || n.type === 'equipment') && n.noFat ? `nofat:${n.equipmentId}`
-        : n.type === 'serial' ? `session:${n.sessionId}|${n.equipmentId}` : n.type === 'localunit' ? `local:${n.file}|${n.serial}` : n.type === 'equipment' ? `session:${n.sessionId}|` : '';
+        : n.type === 'serial' ? `session:${n.sessionId}|${n.equipmentId}` : n.type === 'localunit' ? `local:${n.file}|${n.serial}` : n.type === 'equipment' ? `session:${n.sessionId}|`
+          : n.type === 'bay' && n.bayId ? `bay:${n.bayId}` : '';
       return `<li role="none"><div class="fx-row${ui.selected === n.id ? ' on' : ''}" style="--lvl:${level}">`
         + (kids.length ? `<button type="button" class="fx-caret" data-act="fxTog" data-node="${esc(n.id)}" tabindex="-1" aria-hidden="true">${exp ? '▾' : '▸'}</button>` : '<span class="fx-caret" aria-hidden="true"></span>')
         + `<button type="button" class="fx-node t-${n.type}" role="treeitem" data-act="fxSel" data-node="${esc(n.id)}" aria-level="${level}" `
@@ -151,6 +154,10 @@
   function formHTML() {
     const f = ui.form;
     if (f.kind === 'import') return importFormHTML();
+    if (f.kind === 'replace') return replaceFormHTML();
+    if (f.kind === 'bushing') return bushingHTML();
+    if (f.kind === 'loc') return locationsHTML();
+    if (f.kind === 'group') return groupHTML();
     if (f.kind === 'delete') return deleteFormHTML();
     const e = eqById(f.eqId) || {};
     const head = `<div class="fx-detail-head"><h3>${f.kind === 'eq' ? 'Sửa thông tin thiết bị' : (e.bay_id ? 'Đổi trạm / ngăn' : 'Gán trạm / ngăn')} — ${esc(e.serial_no || '')}</h3><span class="spacer"></span>`
@@ -268,6 +275,173 @@
     reset(); A.renderMain(); await load(true);
   }
 
+  // ---------------------------------------------------------------- G2: thay thiết bị con, lịch sử vị trí, tổ máy
+  const today = () => new Date().toISOString().slice(0, 10);
+  const vn = d => (d ? String(d).slice(0, 10).split('-').reverse().join('/') : '');
+  const formHead = (title, canSave, saveText) => `<div class="fx-detail-head"><h3>${title}</h3><span class="spacer"></span>`
+    + (canSave ? `<button class="btn primary" data-act="fxFormSave">${saveText || 'Lưu'}</button>` : '') + `<button class="btn" data-act="fxFormCancel">${canSave ? 'Hủy' : 'Đóng'}</button></div>`;
+  const showForm = () => { ui.detail = null; refresh('detail'); const box = $('#fxDetailBox'); if (box) { box.scrollIntoView({ block: 'nearest' }); const first = box.querySelector('input, select'); if (first) first.focus(); } };
+  const afterSave = async msg => { A.toast(msg); ui.form = null; if (window.Catalog) Catalog.reset(); data.sessions = null; await load(true); };
+  const groupOfBay = bayId => (data.groups || []).find(g => g.bay_id === bayId) || null;
+
+  // Thay sứ / OLTC / TI chân sứ (replace_component): tháo cái cũ (giữ lịch sử thí nghiệm), lắp cái mới cùng vị trí
+  function openReplace(eqId) {
+    const e = eqById(eqId);
+    if (!e || !e.parent_id) throw new Error('Chỉ thay được thiết bị con (sứ, OLTC, TI chân sứ)');
+    ui.form = { kind: 'replace', eqId, values: { serial: '', date: today(), oldStatus: 'retired', model: e.model || '', manufacturer: e.manufacturer || '', note: '' } };
+    showForm();
+  }
+  function replaceFormHTML() {
+    const f = ui.form, e = eqById(f.eqId) || {}, v = f.values;
+    const opt = (val, t) => `<option value="${val}" ${v.oldStatus === val ? 'selected' : ''}>${t}</option>`;
+    return `<div class="fx-detail fx-form" id="fxDetailBox">${formHead(`Thay ${e.class_code === 'SU' ? 'sứ' : 'thiết bị'} ${esc(e.serial_no || '')}${e.position ? ` — đầu ${esc(e.position)}` : ''} của ${esc(e.parent_serial || '')}`, true, 'Thay')}`
+      + '<div class="fields">'
+      + `<div class="field"><label for="fxRpSerial">Số chế tạo ${e.class_code === 'SU' ? 'sứ' : 'thiết bị'} mới</label><input id="fxRpSerial" data-fxform="serial" value="${esc(v.serial)}" required></div>`
+      + `<div class="field"><label for="fxRpDate">Ngày thay</label><input id="fxRpDate" type="date" data-fxform="date" value="${esc(v.date)}"></div>`
+      + `<div class="field"><label for="fxRpOld">Cái cũ sau khi tháo</label><select id="fxRpOld" data-fxform="oldStatus">${opt('retired', 'Thanh lý')}${opt('spare', 'Dự phòng (dùng lại sau)')}</select></div>`
+      + `<div class="field"><label for="fxRpModel">Kiểu loại</label><input id="fxRpModel" data-fxform="model" value="${esc(v.model)}"></div>`
+      + `<div class="field"><label for="fxRpMfr">Hãng sản xuất</label><input id="fxRpMfr" data-fxform="manufacturer" value="${esc(v.manufacturer)}"></div>`
+      + `<div class="field wide"><label for="fxRpNote">Ghi chú</label><input id="fxRpNote" data-fxform="note" value="${esc(v.note)}" placeholder="vd sứ nứt, rò dầu"></div></div>`
+      + '<div class="hint-text">Cái cũ ghi ngày tháo, vẫn hiện trên cây (đã tháo) để tra lịch sử thí nghiệm. Cái mới lắp cùng vị trí, có giá trị khởi đầu riêng: '
+      + 'nhập test report của nó (sứ Hitachi: nút <b>Nhập test report sứ</b>) hoặc lấy lần thí nghiệm sau lắp đặt. Số chế tạo đã có trong danh mục (dự phòng) thì dùng lại bản ghi đó.</div></div>';
+  }
+  async function saveReplace() {
+    const f = ui.form, v = f.values, e = eqById(f.eqId) || {};
+    if (!String(v.serial || '').trim()) { const i = $('#fxRpSerial'); if (i) i.focus(); throw new Error('Nhập số chế tạo thiết bị mới'); }
+    await A.track('Thay thiết bị', () => DB.replaceComponent(f.eqId, { serial: String(v.serial).trim(), date: v.date || today(), oldStatus: v.oldStatus,
+      model: v.model, manufacturer: v.manufacturer, note: v.note }));
+    await afterSave(`Đã thay ${e.serial_no} bằng ${String(v.serial).trim()}`);
+  }
+
+  // Test report sứ của hãng (Hitachi) → lần FAT của từng sứ trong CSDL (giá trị khởi đầu cho xu hướng C1, tgδ sứ)
+  function openBushing(fileName) {
+    const H = window.HitachiBushing;
+    if (!H || !H.reports.length) throw new Error('Chưa nạp test report sứ — bấm Nhập test report sứ (.xlsx)');
+    const plan = H.dbPlan(data.equipment || [], data.sessions || []);
+    ui.form = { kind: 'bushing', fileName: fileName || H.source || '', plan, values: { date: '', pick: Object.fromEntries(plan.map(r => [r.serial, r.pick])) } };
+    showForm();
+  }
+  function bushingHTML() {
+    const f = ui.form, v = f.values, can = DB.canEdit();
+    const picked = f.plan.filter(r => v.pick[r.serial]);
+    const noDate = picked.some(r => !r.date);
+    let h = formHead(`Lưu test report sứ lên CSDL — ${esc(f.fileName)}`, can && picked.length, `Lưu ${picked.length} sứ`);
+    h += '<div class="grid-wrap"><table class="grid fx-table"><thead><tr><th>Lưu</th><th>S/N sứ</th><th>Ngày TN</th><th>Trong danh mục</th><th>Số liệu xuất xưởng</th></tr></thead><tbody>'
+      + f.plan.map(r => `<tr><td><input type="checkbox" data-fxbu="${esc(r.serial)}" ${v.pick[r.serial] ? 'checked' : ''} ${r.reason || !can ? 'disabled' : ''} aria-label="Lưu sứ ${esc(r.serial)}"></td>`
+        + `<th>${esc(r.serial)}</th><td>${esc(vn(r.date)) || '<span class="muted">không ghi</span>'}</td>`
+        + `<td>${r.eq ? esc(r.where || 'Đã có') : `<span class="badge st-warn" title="${esc(r.reason)}">Chưa có</span>`}${r.eq && r.reason ? ` <span class="muted">${esc(r.reason)}</span>` : ''}</td>`
+        + `<td>${r.hasFat ? '<span class="badge st-warn" title="Lưu lại sẽ ghi đè lần FAT này, kể cả giá trị đã sửa tay">Đã có — ghi đè</span>' : 'Chưa có'}</td></tr>`).join('')
+      + '</tbody></table></div>';
+    if (noDate) h += `<div class="fields"><div class="field flag-missing"><label for="fxBuDate">Ngày thí nghiệm (nhập tay — file không ghi ngày)</label><input id="fxBuDate" type="date" data-fxform="date" value="${esc(v.date)}"></div></div>`;
+    h += '<div class="hint-text">Chỉ lưu được sứ <b>đã có trong danh mục</b> (gắn vào MBA, có vị trí đầu sứ) để chuỗi xu hướng khớp số đo hiện trường. '
+      + 'Mỗi sứ một lần thí nghiệm xuất xưởng: C1, tanδ1, C2, tanδ2 (quy về 20 °C theo HD Hitachi, như số đo hiện trường) — làm <b>giá trị khởi đầu</b> cho xu hướng sứ.</div>';
+    return `<div class="fx-detail fx-form" id="fxDetailBox">${h}</div>`;
+  }
+  async function saveBushing() {
+    const f = ui.form, v = f.values;
+    const serials = f.plan.filter(r => v.pick[r.serial]).map(r => r.serial);
+    if (!serials.length) throw new Error('Chọn ít nhất một sứ');
+    if (f.plan.some(r => v.pick[r.serial] && !r.date) && !v.date) { const d = $('#fxBuDate'); if (d) d.focus(); throw new Error('Nhập ngày thí nghiệm (file không ghi ngày)'); }
+    const packs = HitachiBushing.factoryPacks(serials, { equipment: data.equipment || [], fileName: f.fileName, date: v.date });
+    await A.track('Lưu test report sứ', async () => {
+      const out = await Records.importPacks(packs, f.fileName, null);
+      A.toast(`Đã lưu test report ${out.length} sứ: ${out.map(o => `${o.serial} (${o.n} giá trị)`).join(', ')}`);
+    });
+    ui.form = null; data.sessions = null; await load(true);
+  }
+
+  // Lịch sử vị trí lắp đặt (equipment_location): ghi tự động khi đổi ngăn; sửa ngày / ghi chú
+  async function openLocations(eqId) {
+    const e = eqById(eqId);
+    if (!e) throw new Error('Không tìm thấy thiết bị');
+    ui.form = { kind: 'loc', eqId, rows: null, edits: {} };
+    showForm();
+    ui.form.rows = await DB.listLocations(eqId);
+    refresh('detail');
+  }
+  function locationsHTML() {
+    const f = ui.form, e = eqById(f.eqId) || {}, can = DB.canEdit();
+    let h = formHead(`Lịch sử vị trí lắp đặt — ${esc(e.serial_no || '')}${e.name ? ` (${esc(e.name)})` : ''}`, can && f.rows && f.rows.length, 'Lưu thay đổi');
+    if (!f.rows) return `<div class="fx-detail fx-form" id="fxDetailBox">${h}<div class="empty">Đang tải…</div></div>`;
+    if (!f.rows.length) h += '<div class="callout">Chưa có lịch sử vị trí (CSDL chưa chạy migration G2, hoặc thiết bị chưa gắn ngăn).</div>';
+    else {
+      const val = (r, k) => (Object.prototype.hasOwnProperty.call(f.edits, `${r.id}|${k}`) ? f.edits[`${r.id}|${k}`] : (r[k] || ''));
+      const inp = (r, k, type) => (can ? `<input ${type ? `type="${type}"` : ''} data-fxloc="${esc(r.id)}|${k}" value="${esc(String(val(r, k)).slice(0, type ? 10 : 500))}" aria-label="${k}">` : esc(type ? vn(r[k]) : r[k] || ''));
+      h += '<div class="grid-wrap"><table class="grid fx-table"><thead><tr><th>Trạm</th><th>Ngăn</th><th>Từ ngày</th><th>Đến ngày</th><th>Ghi chú</th></tr></thead><tbody>'
+        + f.rows.map(r => `<tr><td>${esc(r.substation_name)}</td><th>${esc(r.bay_code)}${r.to_date ? '' : ' <span class="badge st-pass">đang lắp</span>'}</th>`
+          + `<td>${inp(r, 'from_date', 'date')}</td><td>${r.to_date ? inp(r, 'to_date', 'date') : '—'}</td><td>${inp(r, 'note')}</td></tr>`).join('')
+        + '</tbody></table></div>';
+    }
+    h += '<div class="hint-text">Đổi ngăn (cùng trạm hoặc khác trạm) bằng menu <b>Đổi trạm / ngăn…</b>: vị trí cũ đóng, vị trí mới mở với ngày hôm nay — sửa lại ngày thực tế ở đây. '
+      + 'Mỗi lần thí nghiệm ghi ngăn tại thời điểm thí nghiệm; xu hướng vẫn theo số chế tạo.</div>';
+    return `<div class="fx-detail fx-form" id="fxDetailBox">${h}</div>`;
+  }
+  async function saveLocations() {
+    const f = ui.form, by = {};
+    Object.entries(f.edits).forEach(([k, v]) => { const [id, col] = k.split('|'); (by[id] = by[id] || {})[col] = v === '' ? null : v; });
+    const ids = Object.keys(by).filter(id => { const r = f.rows.find(x => String(x.id) === id); return r && Object.entries(by[id]).some(([c, v]) => (r[c] || null) !== v); });
+    if (!ids.length) { A.toast('Không có thay đổi'); return; }
+    for (const id of ids) {
+      const p = by[id];
+      if (p.from_date === null) throw new Error('Không để trống ngày bắt đầu');
+      await A.track('Lưu lịch sử vị trí', () => DB.updateLocation(id, p));
+    }
+    A.toast(`Đã lưu ${ids.length} dòng lịch sử vị trí`);
+    f.edits = {}; f.rows = await DB.listLocations(f.eqId); refresh('detail');
+  }
+
+  // Tổ máy 3 pha (equipment_groups): khai tổ cho ngăn, thay máy một pha (replace_group_member — giữ lịch sử thành viên)
+  const mbaRoots = cls => (data.equipment || []).filter(e => !e.parent_id && e.class_code === cls && e.status !== 'retired');
+  async function openGroup(bayId) {
+    const g = groupOfBay(bayId), bay = (data.bays || []).find(b => b.id === bayId) || {};
+    const roots = mbaRoots(g ? g.class_code || 'MBA' : 'MBA');
+    const cur = g ? { A: g.eq_a || '', B: g.eq_b || '', C: g.eq_c || '' }
+      : Object.fromEntries(['A', 'B', 'C'].map(p => [p, (roots.find(e => e.bay_id === bayId && String(e.phase || '').toUpperCase() === p) || {}).id || '']));
+    ui.form = { kind: 'group', bayId, groupId: g ? g.id : '', cur, history: null,
+      values: Object.assign({ name: g ? g.name : `Tổ MBA ${bay.code || ''}`.trim(), date: today(), note: '' }, Object.fromEntries(['A', 'B', 'C'].map(p => [`m_${p}`, cur[p]]))) };
+    showForm();
+    if (g) { ui.form.history = await DB.listGroupMembers(g.id); refresh('detail'); }
+  }
+  function groupHTML() {
+    const f = ui.form, v = f.values, can = DB.canEdit(), bay = (data.bays || []).find(b => b.id === f.bayId) || {};
+    const roots = mbaRoots('MBA').sort((a, b) => ((b.bay_id === f.bayId) - (a.bay_id === f.bayId)) || String(a.serial_no).localeCompare(String(b.serial_no)));
+    const label = e => `${e.serial_no}${e.name ? ` — ${e.name}` : ''}${e.phase ? ` (pha ${e.phase})` : ''}${e.bay_id === f.bayId ? '' : e.bay_code ? ` · ${e.bay_code}` : ' · chưa gắn ngăn'}${e.status === 'spare' ? ' · dự phòng' : ''}`;
+    let h = formHead(f.groupId ? `Tổ máy 3 pha — ${esc(v.name)}` : `Khai tổ máy 3 pha — ngăn ${esc(bay.code || '')}`, can, f.groupId ? 'Lưu thay đổi' : 'Tạo tổ');
+    h += '<div class="fields">';
+    if (!f.groupId) h += `<div class="field wide"><label for="fxGrName">Tên tổ</label><input id="fxGrName" data-fxform="name" value="${esc(v.name)}"></div>`;
+    ['A', 'B', 'C'].forEach(p => {
+      h += `<div class="field"><label for="fxGr${p}">Máy pha ${p}</label><select id="fxGr${p}" data-fxform="m_${p}" ${can ? '' : 'disabled'}>`
+        + `<option value="">— Chưa có —</option>${roots.map(e => `<option value="${esc(e.id)}" ${v[`m_${p}`] === e.id ? 'selected' : ''}>${esc(label(e))}</option>`).join('')}</select></div>`;
+    });
+    if (f.groupId) h += `<div class="field"><label for="fxGrDate">Ngày thay máy</label><input id="fxGrDate" type="date" data-fxform="date" value="${esc(v.date)}"></div>`
+      + `<div class="field wide"><label for="fxGrNote">Ghi chú thay máy</label><input id="fxGrNote" data-fxform="note" value="${esc(v.note)}" placeholder="vd máy pha B sự cố, lắp máy dự phòng"></div>`;
+    h += '</div>';
+    if (f.history && f.history.length) {
+      h += '<h4>Lịch sử thành viên</h4><div class="grid-wrap"><table class="grid fx-table"><thead><tr><th>Pha</th><th>Số chế tạo</th><th>Từ ngày</th><th>Đến ngày</th><th>Ghi chú</th></tr></thead><tbody>'
+        + f.history.map(m => `<tr><th>${esc(m.phase)}</th><td>${esc(m.serial_no)}${m.to_date ? '' : ' <span class="badge st-pass">đang lắp</span>'}</td><td>${esc(vn(m.from_date))}</td><td>${esc(vn(m.to_date))}</td><td>${esc(m.note || '')}</td></tr>`).join('')
+        + '</tbody></table></div>';
+    }
+    h += '<div class="hint-text">Tổ 3 MBA 1 pha rời: trình khởi tạo BBTN lấy máy các pha theo tổ này (không đoán theo ngăn). '
+      + 'Thay máy một pha (vd lắp máy dự phòng): chọn máy mới cho pha đó, nhập ngày → máy cũ rời tổ, lịch sử thí nghiệm giữ theo số chế tạo. Nhớ đổi ngăn của máy mới / máy cũ nếu cần.</div>';
+    return `<div class="fx-detail fx-form" id="fxDetailBox">${h}</div>`;
+  }
+  async function saveGroup() {
+    const f = ui.form, v = f.values;
+    const picked = ['A', 'B', 'C'].filter(p => v[`m_${p}`]);
+    const ids = picked.map(p => v[`m_${p}`]);
+    if (new Set(ids).size !== ids.length) throw new Error('Một máy không thể ở hai pha');
+    if (!f.groupId) {
+      if (picked.length < 2) throw new Error('Tổ máy cần ít nhất 2 pha');
+      await A.track('Tạo tổ máy', () => DB.createGroup({ kind: 'BANK_1P', class_code: 'MBA', name: String(v.name || '').trim() || 'Tổ MBA', bay_id: f.bayId },
+        Object.fromEntries(picked.map(p => [p, v[`m_${p}`]]))));
+      await afterSave(`Đã tạo ${v.name}`); return;
+    }
+    const changed = ['A', 'B', 'C'].filter(p => v[`m_${p}`] && v[`m_${p}`] !== f.cur[p]);
+    if (!changed.length) { A.toast('Không có thay đổi (bỏ chọn một pha không xóa máy khỏi tổ)'); return; }
+    for (const p of changed) await A.track(`Thay máy pha ${p}`, () => DB.replaceGroupMember(f.groupId, p, v[`m_${p}`], v.date || today(), v.note));
+    await afterSave(`Đã thay máy pha ${changed.join(', ')}`);
+  }
+
   function openForm(kind, eqId) {
     const e = eqById(eqId);
     if (!e) throw new Error('Không tìm thấy thiết bị trong danh mục (tải lại trang)');
@@ -369,7 +543,9 @@
     const why = can ? '' : 'Tài khoản chỉ xem';
     const items = [['fxEqEdit', 'Sửa số chế tạo, tên thiết bị…', why]];
     // thành phần (sứ…) đi theo ngăn của máy chính
-    if (!e.parent_id) items.push(['fxEqBay', e.bay_id ? 'Đổi trạm / ngăn…' : 'Gán trạm / ngăn…', why]);
+    if (!e.parent_id) items.push(['fxEqBay', e.bay_id ? 'Đổi trạm / ngăn…' : 'Gán trạm / ngăn…', why], ['fxLocHist', 'Lịch sử vị trí lắp đặt…', '']);
+    // thiết bị con đang lắp (sứ, OLTC, TI chân sứ): thay bằng thiết bị khác, giữ lịch sử cái cũ
+    else if (!e.removed_on) items.push(['fxReplace', `Thay ${e.class_code === 'SU' ? 'sứ' : 'thiết bị'} này…`, why]);
     return items;
   }
   function menuItems(ctx) {
@@ -384,7 +560,17 @@
         ['fxDelete', 'Xóa số liệu xuất xưởng…', DB.role === 'admin' ? '' : 'Chỉ admin xóa được số liệu đã lưu'],
       ]);
     }
-    if (kind === 'nofat') return [['fxImportFor', 'Nhập test report (.xlsx)…', 'Lưu làm giá trị khởi đầu cho thiết bị này']].concat(equipmentItems(ctx, can));
+    if (kind === 'nofat') {
+      const e = eqById(eqIdOf(ctx));
+      // sứ: test report sứ của hãng (file riêng); máy chính: test report MBA
+      const first = e && e.parent_id && e.class_code === 'SU' ? ['loadHitachi', 'Nhập test report sứ (.xlsx)…', 'Lưu làm giá trị khởi đầu cho sứ']
+        : ['fxImportFor', 'Nhập test report (.xlsx)…', 'Lưu làm giá trị khởi đầu cho thiết bị này'];
+      return [first].concat(equipmentItems(ctx, can));
+    }
+    if (kind === 'bay') {
+      const g = groupOfBay(ctxParts(ctx).a);
+      return [['fxGroup', g ? `Tổ máy 3 pha: ${g.name}…` : 'Khai tổ máy 3 pha (máy pha A, B, C rời)…', g ? 'Xem thành viên, thay máy một pha' : '']];
+    }
     if (kind === 'local') return [
       ['fxLocalView', 'Xem sheet gốc', ''], ['fxLocalUse', 'Dùng file này cho biên bản', ''],
       ['fxLocalSave', 'Lưu lên CSDL…', signedIn() ? (can ? '' : 'Tài khoản chỉ xem') : 'Cần đăng nhập'],
@@ -399,7 +585,7 @@
     const m = document.createElement('div');
     m.className = 'ctx-menu'; m.setAttribute('role', 'menu'); m.id = 'fxCtxMenu';
     // mục cần quyền ghi: "why" là lý do bị khóa; các mục khác: "why" là dòng gợi ý
-    const gated = act => ['fxEdit', 'fxLocalSave', 'fxEqEdit', 'fxEqBay', 'fxDelete'].includes(act);
+    const gated = act => ['fxEdit', 'fxLocalSave', 'fxEqEdit', 'fxEqBay', 'fxDelete', 'fxReplace'].includes(act);
     m.innerHTML = items.map(([act, text, why]) => `<button type="button" role="menuitem" class="ctx-item" data-act="${act}" data-ctx="${esc(ctx)}"`
       + `${gated(act) ? (why ? ` disabled title="${esc(why)}"` : '') : ''}>${esc(text)}${why && !gated(act) ? `<span class="ctx-hint">${esc(why)}</span>` : ''}</button>`).join('');
     document.body.appendChild(m);
@@ -474,6 +660,14 @@
     if (act === 'fxDelete') { if (DB.role !== 'admin') throw new Error('Chỉ admin xóa được số liệu xuất xưởng đã lưu'); openDelete('session', p.a); return; }
     if (act === 'fxLocalDel') { openDelete('local', p.a); return; }
     if (act === 'fxDeleteConfirm') { await confirmDelete(); return; }
+    if (act === 'fxReplace') { if (!DB.canEdit()) throw new Error('Tài khoản chỉ xem'); openReplace(eqIdOf(ctx)); return; }
+    if (act === 'fxLocHist') { await openLocations(eqIdOf(ctx)); return; }
+    if (act === 'fxGroup') { await openGroup(p.a); return; }
+    if (act === 'fxFormSave' && ui.form && ui.form.kind === 'replace') { await saveReplace(); return; }
+    if (act === 'fxFormSave' && ui.form && ui.form.kind === 'bushing') { await saveBushing(); return; }
+    if (act === 'fxBushingDb') { if (!data.sessions) await load(true); openBushing(''); return; }
+    if (act === 'fxFormSave' && ui.form && ui.form.kind === 'loc') { await saveLocations(); return; }
+    if (act === 'fxFormSave' && ui.form && ui.form.kind === 'group') { await saveGroup(); return; }
     if (act === 'fxFormSave') { await saveForm(); return; }
     if (act === 'fxFormCancel') { ui.form = null; refresh('detail'); return; }
     if (act === 'fxView' || act === 'fxEdit') {
@@ -535,14 +729,16 @@
     }
     if (t.dataset && t.dataset.fxmeta && ui.detail) { ui.detail.meta[t.dataset.fxmeta] = t.value; ui.detail.confirm = null; }
     if (t.dataset && t.dataset.fxform && ui.form && t.tagName === 'INPUT') ui.form.values[t.dataset.fxform] = t.value;
+    if (t.dataset && t.dataset.fxloc && ui.form && ui.form.kind === 'loc') ui.form.edits[t.dataset.fxloc] = t.value;
   });
   document.addEventListener('change', e => {
     const t = e.target;
+    if (t.dataset && t.dataset.fxbu !== undefined && ui.form && ui.form.kind === 'bushing') { ui.form.values.pick[t.dataset.fxbu] = t.checked; refresh('detail'); const c = $(`[data-fxbu="${CSS.escape(t.dataset.fxbu)}"]`); if (c) c.focus(); return; }
     if (t.dataset && t.dataset.fximp !== undefined && ui.form && ui.form.kind === 'import') { ui.form.values.pick[t.dataset.fximp] = t.checked; refresh('detail'); const c = $(`[data-fximp="${CSS.escape(t.dataset.fximp)}"]`); if (c) c.focus(); return; }
     if (t.dataset && t.dataset.fxfilter && ui.detail) { ui.detail[t.dataset.fxfilter] = t.value; refresh('detail'); const s = $(`[data-fxfilter="${t.dataset.fxfilter}"]`); if (s) s.focus(); }
     if (t.dataset && t.dataset.fxform && ui.form && t.tagName === 'SELECT') {
       ui.form.values[t.dataset.fxform] = t.value;
-      if (t.dataset.fxform === 'sub') { ui.form.values.bay_id = ''; refresh('detail'); const s = $('#fxEqSub'); if (s) s.focus(); }
+      if (t.dataset.fxform === 'sub' && ui.form.values.bay_id !== undefined) { ui.form.values.bay_id = ''; refresh('detail'); const s = $('#fxEqSub'); if (s) s.focus(); }
     }
   });
   document.addEventListener('contextmenu', e => {
@@ -588,6 +784,11 @@
   document.addEventListener('click', e => { if (ui.menu && e.target.closest && e.target.closest('.ctx-item')) setTimeout(() => closeMenu(), 0); });
   window.addEventListener('scroll', () => closeMenu(), true);
   window.addEventListener('resize', () => closeMenu());
+  // test report sứ vừa nạp khi đang ở trang XX → khung lưu lên CSDL (đăng nhập, quyền ghi)
+  document.addEventListener('bushingtr:added', e => {
+    if (!A || A.currentSection() !== 'factory' || !signedIn() || !DB.canEdit()) return;
+    (data.sessions ? Promise.resolve() : load(true)).then(() => openBushing((e.detail || {}).name)).catch(err => A.toast('Lỗi: ' + err.message, true));
+  });
   // file test report vừa nạp từ trang XX (nút Nhập test report / menu thiết bị) → mở khung lưu CSDL
   document.addEventListener('factory:added', e => {
     const d = e.detail || {}, pur = d.purpose;

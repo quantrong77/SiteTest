@@ -31,19 +31,20 @@
       if (!stations.has(key)) stations.set(key, { id: `st:${key || '-'}`, type: 'station', label: name || UNASSIGNED, unassigned: !name, children: [], bays: new Map() });
       return stations.get(key);
     };
-    const bayNode = (st, code, name) => {
+    const bayNode = (st, code, name, bayId) => {
       if (!st.bays.has(code)) {
-        const bay = { id: `bay:${st.label}|${code}`, type: 'bay', label: code, sub: name || '', children: [] };
+        const bay = { id: `bay:${st.label}|${code}`, type: 'bay', label: code, sub: name || '', bayId: bayId || '', children: [] };
         st.bays.set(code, bay); st.children.push(bay);
       }
       const b = st.bays.get(code);
       if (!b.sub && name) b.sub = name;
+      if (!b.bayId && bayId) b.bayId = bayId;
       return b;
     };
     // khung danh mục: mọi trạm, ngăn (kể cả chưa có thiết bị)
     const subName = new Map((cat.substations || []).map(s => [s.id, s.name]));
     (cat.substations || []).forEach(s => stationNode(s.name));
-    (cat.bays || []).forEach(b => { const n = b.substation_name || subName.get(b.substation_id); if (n) bayNode(stationNode(n), b.code, b.name); });
+    (cat.bays || []).forEach(b => { const n = b.substation_name || subName.get(b.substation_id); if (n) bayNode(stationNode(n), b.code, b.name, b.id); });
     const fatSerials = new Set();
     // thiết bị gốc: trong danh mục (không có parent_id) + thiết bị có lần FAT mà danh sách thiết bị chưa có
     const rootIds = [...new Set(equipment.filter(e => !e.parent_id).map(e => e.id).concat([...fatOf.keys()]))];
@@ -54,7 +55,7 @@
       if (s) fatSerials.add(serialKey(serial));
       const st = stationNode(e.substation_name || (s && s.substation_name) || '');
       const bayCode = e.bay_code || (s && s.bay_code) || '';
-      const parent = bayCode ? bayNode(st, bayCode, e.bay_name) : st;
+      const parent = bayCode ? bayNode(st, bayCode, e.bay_name, e.bay_id) : st;
       const name = e.name || (s && s.equipment_name) || '';
       const sid = s ? s.id : '';
       const eqNode = {
@@ -63,9 +64,13 @@
         equipmentId: eqId, sessionId: sid, noFat: !s, children: [],
       };
       eqNode.children.push({ id: `sn:${eqId}`, type: 'serial', label: serial, sub: 'Máy chính', equipmentId: eqId, rootId: eqId, sessionId: sid, noFat: !s, children: [] });
-      (childrenOf.get(eqId) || []).slice().sort((a, b) => String(a.position || a.serial_no).localeCompare(String(b.position || b.serial_no), 'vi', { numeric: true }))
+      // thiết bị con đang lắp trước, đã tháo (thay sứ…) sau — vẫn hiện để tra lịch sử
+      (childrenOf.get(eqId) || []).slice().sort((a, b) => (!!a.removed_on - !!b.removed_on)
+        || String(a.position || a.serial_no).localeCompare(String(b.position || b.serial_no), 'vi', { numeric: true }))
         .forEach(c => eqNode.children.push({
-          id: `sn:${c.id}`, type: 'serial', label: c.serial_no, sub: [c.class_name || c.class_code, c.position ? `đầu ${c.position}` : '', c.phase ? `pha ${c.phase}` : ''].filter(Boolean).join(' · '),
+          id: `sn:${c.id}`, type: 'serial', label: c.serial_no, removed: !!c.removed_on,
+          sub: [c.class_name || c.class_code, c.position ? `đầu ${c.position}` : '', c.phase ? `pha ${c.phase}` : '',
+            c.removed_on ? `đã tháo ${String(c.removed_on).slice(0, 10).split('-').reverse().join('/')}` : ''].filter(Boolean).join(' · '),
           equipmentId: c.id, rootId: eqId, sessionId: sid, noFat: !s, children: [],
         }));
       parent.children.push(eqNode);
