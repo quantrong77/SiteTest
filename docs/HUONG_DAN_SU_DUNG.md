@@ -290,6 +290,11 @@ Chỉnh nội dung cho đơn vị (Admin):
 16. Nếu quyền micro bị từ chối, cho phép micro trong biểu tượng ổ khóa của thanh địa chỉ.
 17. Nếu báo lỗi mạng, kiểm tra kết nối rồi bấm **Đọc số** lại.
 18. Micro chỉ dùng được khi app mở qua **https** (hoặc localhost).
+19. **Biết đã nhập xong một ô** (không cần nhìn màn hình):
+    - nhận số: **một tiếng bíp cao**, điện thoại Android **rung ngắn**, ô vừa nhập **nháy xanh**;
+    - không hiểu: **hai tiếng bíp thấp**, rung kép, ô giữ nguyên — đọc lại;
+    - dòng **Nghe: “…” → giá trị** cạnh nút Đọc số (trang đầy đủ) hoặc dưới ô (trang HT) cho biết app nghe và hiểu thành số nào;
+    - tích **Đọc lại** (mặc định tắt, nhớ trên máy): máy đọc lại “tên ô: số”, vd “R60: 4500”; micro tạm dừng trong lúc máy nói rồi nghe tiếp.
 
 ### Nhập hiện trường (điện thoại, máy tính bảng)
 
