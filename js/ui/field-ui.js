@@ -71,7 +71,7 @@
       <div class="fe-heard" aria-live="polite" data-fe-heard></div>
     </div>`;
     h += `<div class="fe-nav"><button type="button" class="btn fe-big" data-fe-act="prev" aria-label="Ô trước">◀ Trước</button>`
-      + (voice ? `<button type="button" class="btn fe-big${on ? ' primary' : ''}" data-voice="continuous" aria-pressed="${on}" aria-label="Đọc số bằng giọng nói, tự sang ô kế">${on ? '■ Dừng đọc' : '🎙 Đọc số'}</button>` : '')
+      + (voice ? `<button type="button" class="btn fe-big${on ? ' primary' : ''}" data-voice="continuous" aria-pressed="${on}" aria-label="Đọc số bằng giọng nói, tự sang ô kế">${VoiceInput.label(on)}</button>` : '')
       + `<button type="button" class="btn fe-big primary" data-fe-act="next" aria-label="Ô tiếp">Tiếp ▶</button></div>`;
     h += `<div class="fe-aux"><button type="button" class="btn small" data-fe-act="empty">Ô trống kế tiếp</button><button type="button" class="btn small" data-fe-act="clear">Xóa ô</button>`
       + (c.kind === 'cell' ? `<button type="button" class="btn small" data-fe-act="order" title="Đổi thứ tự đi ô của bảng này">Thứ tự: ${(F.order[c.grid] || 'auto') === 'auto' ? 'tự động' : F.order[c.grid] === 'row' ? 'theo hàng' : 'theo cột'}</button>` : '')
