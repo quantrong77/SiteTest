@@ -654,3 +654,41 @@ table.grid.fx-table td.fx-act { padding: 3px 6px; width: 1%; white-space: nowrap
 /* Ô tích nhỏ: vùng bấm gồm cả chữ, cao ≥ 24 px */
 .sec-do, .voice-cont { min-height: 24px; display: inline-flex; align-items: center; gap: 6px; cursor: pointer; }
 .sec-do input[type=checkbox], .voice-cont input[type=checkbox] { width: 18px; height: 18px; margin: 0; }
+
+/* Nhập hiện trường (FieldUI): ô lớn, nút lớn (≥ 48 px), dùng một tay trên điện thoại */
+.fe-top { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 10px; }
+.fe-top select { min-height: 44px; font-size: 15px; }
+.fe-progress { display: flex; align-items: center; gap: 10px; margin: 10px 0; font-size: 13px; }
+.fe-progress .wf-meter { flex: 1; }
+.fe-card { padding: 14px; border: 1px solid var(--line, #d6dbe0); border-radius: 12px; background: var(--panel, #fff); }
+.fe-pos { display: flex; flex-wrap: wrap; gap: 8px; align-items: baseline; font-size: 13px; color: var(--muted); }
+.fe-crumb { color: var(--muted); overflow-wrap: anywhere; }
+.fe-label { margin: 8px 0 10px; display: flex; flex-direction: column; gap: 2px; }
+.fe-row { font-size: 15px; color: var(--ink); overflow-wrap: anywhere; }
+.fe-col { font-size: 20px; font-weight: 700; color: var(--ink); overflow-wrap: anywhere; }
+.fe-input { width: 100%; box-sizing: border-box; min-height: 64px; padding: 8px 14px; font: 600 30px/1.2 var(--num, inherit); text-align: right;
+  border: 2px solid var(--line, #c7ced5); border-radius: 10px; background: #fff; }
+.fe-input:focus { outline: 3px solid var(--accent, #1663a6); outline-offset: 1px; }
+.fe-input.st-pass { border-color: var(--pass); } .fe-input.st-warn { border-color: #c58508; } .fe-input.st-fail { border-color: var(--fail); background: var(--fail-bg); }
+.fe-status { margin-top: 8px; min-height: 26px; font-size: 13px; }
+.fe-status .badge { font-size: 13px; }
+.fe-conv { color: var(--muted); }
+.fe-limit { margin-top: 4px; color: var(--muted); font-size: 12.5px; }
+.fe-heard { min-height: 18px; font-size: 13px; color: var(--muted); }
+.fe-heard.bad { color: var(--fail); }
+.fe-nav { display: grid; grid-template-columns: 1fr 1.2fr 1fr; gap: 8px; margin: 12px 0 8px; }
+.fe-nav:not(:has([data-voice])) { grid-template-columns: 1fr 1fr; }
+.fe-big { min-height: 56px; font-size: 16px; font-weight: 600; justify-content: center; }
+.fe-aux { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+.fe-aux .btn { min-height: 40px; }
+.fe-mapbox summary { cursor: pointer; padding: 8px 0; font-weight: 600; }
+.fe-map-t { margin: 8px 0 4px; font-size: 12px; color: var(--muted); }
+.fe-map-g { display: flex; flex-wrap: wrap; gap: 4px; }
+.fe-chip { min-width: 36px; height: 36px; border: 1px solid var(--line, #c7ced5); border-radius: 8px; background: #fff; font: 600 12px var(--num, inherit); color: var(--muted); cursor: pointer; }
+.fe-chip.on { background: #eaf2f8; color: var(--ink); }
+.fe-chip.st-pass { border-color: var(--pass); } .fe-chip.st-warn { border-color: #c58508; }
+.fe-chip.st-fail { border-color: var(--fail); background: var(--fail-bg); color: var(--fail); }
+.fe-chip.st-fail::after { content: "✕"; margin-left: 2px; }
+.fe-chip.cur { outline: 3px solid var(--accent, #1663a6); outline-offset: 1px; }
+@media (max-width: 600px) { .fe-top { grid-template-columns: minmax(0, 1fr); } .fe-nav { position: sticky; bottom: 0; z-index: 5; padding: 8px 0; background: var(--bg, #f3f4f1); margin: 8px 0; } }
+@media (min-width: 1101px) { .fe-open { display: none; } }

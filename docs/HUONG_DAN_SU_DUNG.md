@@ -273,14 +273,28 @@ Chỉnh nội dung cho đơn vị (Admin):
 7. Có thể đọc hàng nghìn, hàng triệu, “lẻ/linh”, “mươi/mười”.
 8. Các cách đọc “mốt”, “tư”, “lăm”, “nhăm” được parser hỗ trợ trong ngữ cảnh số.
 9. Có thể đọc chữ số thập phân từng chữ số, ví dụ “không phẩy không bốn”.
-10. Bật **Liên tục** để sau mỗi kết quả app chuyển xuống ô tiếp theo trong cùng cột.
+   App cũng hiểu kết quả nhận dạng dạng chữ số trộn chữ (“2 phẩy 5”), có dấu tách nghìn (“1.234,5”, “4 500”), “tỷ”, và bỏ đơn vị đọc kèm ở cuối (“34 độ”, “4500 mê ga”, “0,5 phần trăm”, “25 kV”, “mΩ”).
+10. Bật **Liên tục** để sau mỗi kết quả app chuyển xuống ô tiếp theo trong cùng cột (bỏ qua ô không áp dụng; hết cột thì báo).
 11. Nói **lùi** hoặc **quay lại** để chuyển lên ô trước.
 12. Nói **xóa** hoặc **xóa ô** để xóa nội dung ô đang chọn.
-13. Nói **dừng** hoặc **dừng lại** để dừng nhận dạng.
+13. Nói **dừng** hoặc **dừng lại** để dừng nhận dạng. Nói **bỏ qua** hoặc **tiếp** để sang ô kế mà không ghi.
 14. Nút đổi thành **Dừng đọc** trong lúc micro đang hoạt động.
 15. Web Speech API cần trình duyệt hỗ trợ và thường cần mạng.
 16. Nếu quyền micro bị từ chối, cho phép micro trong biểu tượng ổ khóa của thanh địa chỉ.
 17. Nếu báo lỗi mạng, kiểm tra kết nối rồi bấm **Đọc số** lại.
+18. Micro chỉ dùng được khi app mở qua **https** (hoặc localhost).
+
+### Nhập hiện trường (điện thoại, máy tính bảng)
+
+Trang **HT Nhập hiện trường** (nhóm Biên bản trên menu; hoặc nút **📱 Nhập từng ô** ở đầu hạng mục khi màn hình nhỏ) hiện **một ô lớn mỗi lần**, dùng một tay ngoài hiện trường.
+
+1. Chọn **Hạng mục** và **Bảng** (hoặc Tất cả bảng). Danh sách chỉ gồm ô số cần nhập: nhiệt độ đo, số liệu đo; bỏ ô tự tính và ô chữ (nhập ở trang đầy đủ).
+2. Gõ số rồi **Enter** (phím *Tiếp* trên bàn phím số) để sang ô kế; **Shift+Enter** hoặc nút **◀ Trước** để lùi.
+3. Dưới ô hiện ngay **đánh giá** (Đạt / ✕ Không đạt / ! Cần xem xét, giá trị quy đổi, giới hạn) và tiến độ *x/y ô đã nhập*.
+4. **🎙 Đọc số**: đọc liên tục, mỗi số tự sang ô kế; bàn phím ảo tự ẩn trong lúc nghe; dòng *Nghe: “…” → giá trị* cho biết app đã hiểu gì. Lệnh: **bỏ qua**, **lùi**, **xóa**, **dừng**.
+5. **Ô trống kế tiếp** nhảy tới ô chưa nhập; **Bản đồ ô** — chạm số ô để nhảy; ô đã nhập tô nền, ô không đạt viền đỏ có ✕.
+6. **Thứ tự**: *tự động* (bảng theo pha đi hết cột — vd các nấc pha A rồi pha B; bảng khác đi theo hàng), *theo hàng*, *theo cột*.
+7. Số liệu ghi thẳng vào biên bản đang mở như nhập ở trang đầy đủ (hoàn tác, lưu, đánh giá như thường); **Trang đầy đủ** mở hạng mục để xem bảng.
 
 ## 4. Mục 1: Kiểm tra bên ngoài
 
