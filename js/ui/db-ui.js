@@ -13,7 +13,7 @@
   const COLORS = ['#0d5aa7', '#c2410c', '#15803d', '#7c3aed', '#b91c1c', '#0e7490', '#a16207', '#be185d'];
 
   let sessions = null, docs = {}, busy = false;
-  const T = { equipment: null, eqId: '', withChildren: true, data: null, series: '', loadedFor: '' };
+  const T = { equipment: null, eqId: '', withChildren: true, data: null, series: '', loadedFor: '', fcYears: 3 };
 
   // ------------------------------------------------------------------ trang CSDL
   function renderDb() {
@@ -91,8 +91,10 @@
     h += '<div class="fields">';
     h += `<div class="field"><label for="trEq">Thiết bị</label><select id="trEq">${eqOptions()}</select></div>`;
     h += `<div class="field"><label><input type="checkbox" id="trKids" ${T.withChildren ? 'checked' : ''}> Gồm sứ / OLTC của MBA</label></div>`;
-    h += `<div class="field wide"><label for="trSeries">Chuỗi số liệu (hạng mục · đại lượng · sơ đồ/cuộn · nấc)</label><select id="trSeries">${seriesOptions()}</select></div></div>`;
-    h += '<div class="callout">So sánh theo giá trị quy đổi chuẩn khi có (R cách điện, tgδ @20 °C; R một chiều @75 °C). % thay đổi tính so với giá trị khởi đầu: lần FAT nếu có, nếu không là lần đo sớm nhất. Đánh giá cuối cùng vẫn phải xét tổng thể theo Điều 3 QĐ 1901.</div>';
+    h += `<div class="field wide"><label for="trSeries">Chuỗi số liệu (hạng mục · đại lượng · sơ đồ/cuộn · nấc)</label><select id="trSeries">${seriesOptions()}</select></div>`;
+    h += `<div class="field"><label for="trYears">Dự báo</label><select id="trYears">${[[0, 'Không dự báo'], [1, '1 năm'], [3, '3 năm'], [5, '5 năm'], [10, '10 năm']].map(([v, t]) => `<option value="${v}" ${v === T.fcYears ? 'selected' : ''}>${t}</option>`).join('')}</select></div></div>`;
+    h += '<div class="callout">So sánh theo giá trị quy đổi chuẩn khi có (R cách điện, tgδ @20 °C; R một chiều @75 °C). % thay đổi tính so với giá trị khởi đầu: '
+      + 'lần sau sửa chữa được lấy làm khởi đầu mới → xuất xưởng → sau lắp đặt → lần đo sớm nhất. Đánh giá cuối cùng vẫn phải xét tổng thể theo Điều 3 QĐ 1901.</div>';
     h += `<div id="trChart">${chartHTML()}</div><div id="trTop">${topChangesHTML()}</div>`;
     return `<section class="panel">${h}</section>`;
   }
@@ -128,7 +130,16 @@
     pts.forEach(r => { const k = `${r.serial_no}${r.phase ? ' · pha ' + r.phase : ''}`; (lines[k] = lines[k] || []).push(r); });
     const names = Object.keys(lines).sort();
     const t = s => new Date(s + 'T00:00:00').getTime();
+    const fcs = forecastsOf(lines, names);
     const xs = pts.map(r => t(r.test_date)), ys = pts.map(r => Number(r.value_cmp));
+    // trục mở rộng tới cuối khoảng dự báo, gồm ngưỡng và dải dự báo
+    Object.values(fcs).forEach(f => {
+      if (!f.fc.ok) return;
+      xs.push(t(f.fc.methods.ols ? f.fc.methods.ols.forecastDate : f.fc.lastDate));
+      const m = f.fc.methods.ols; if (m && m.interval) ys.push(m.interval.lower, m.interval.upper);
+      if (f.fc.methods.sen) ys.push(f.fc.methods.sen.forecastValue);
+      (f.fc.limits || []).forEach(l => ys.push(Number(l.value)));
+    });
     let x0 = Math.min(...xs), x1 = Math.max(...xs), y0 = Math.min(...ys), y1 = Math.max(...ys);
     if (x0 === x1) { x0 -= 86400e3 * 30; x1 += 86400e3 * 30; }
     const pad = (y1 - y0) * 0.15 || Math.abs(y1) * 0.02 || 1; y0 -= pad; y1 += pad;
@@ -145,6 +156,28 @@
       svg += `<line x1="${px}" x2="${px}" y1="${Tp}" y2="${H - B}" stroke="#f0f2f4"/><text x="${px}" y="${H - B + 16}" text-anchor="middle" font-size="11" fill="#5d6874">${esc(d.split('-').reverse().join('/'))}</text>`;
     });
     svg += `<text x="12" y="${Tp + 4}" font-size="11" fill="#5d6874" transform="rotate(-90 12 ${Tp + 4})" text-anchor="end">${esc(unit)}</text>`;
+    // dự báo (tham khảo): dải khoảng dự báo 95% (OLS), đường Sen (khớp: liền mảnh; dự báo: nét đứt), ngưỡng QĐ 1901 (nét đứt đỏ), mốc khởi đầu sau sửa chữa
+    const day = 86400e3;
+    names.forEach((n, i) => {
+      const f = fcs[n], col = COLORS[i % COLORS.length];
+      if (!f || !f.fc.ok) return;
+      const fc = f.fc, t0 = t(fc.firstDate), tl = t(fc.lastDate), m = fc.methods.sen || fc.methods.ols, o = fc.methods.ols;
+      if (o && o.reg && o.reg.s !== null) {
+        const xsBand = Array.from({ length: 13 }, (_, k) => tl + (t(o.forecastDate) - tl) * k / 12);
+        const band = xsBand.map(x => [x, TrendForecast.olsPredictionInterval(o.reg, (x - t0) / day)]).filter(([, pi]) => pi);
+        if (band.length) svg += `<polygon fill="${col}" fill-opacity="0.10" stroke="none" points="${band.map(([x, pi]) => `${sx(x)},${sy(pi.upper)}`).concat(band.slice().reverse().map(([x, pi]) => `${sx(x)},${sy(pi.lower)}`)).join(' ')}"><title>Khoảng dự báo 95% (hồi quy tuyến tính)</title></polygon>`;
+      }
+      if (m) {
+        const yAt = x => m.intercept + m.slopePerDay * (x - t0) / day;
+        svg += `<line x1="${sx(t0)}" y1="${sy(yAt(t0))}" x2="${sx(tl)}" y2="${sy(yAt(tl))}" stroke="${col}" stroke-width="1" stroke-opacity="0.6"/>`;
+        svg += `<line x1="${sx(tl)}" y1="${sy(yAt(tl))}" x2="${sx(t(m.forecastDate))}" y2="${sy(m.forecastValue)}" stroke="${col}" stroke-width="2" stroke-dasharray="6 4"><title>${esc(m.label)}: ${esc(fmt(m.ratePerYear))} ${esc(pts[0].unit || '')}/năm</title></line>`;
+      }
+      if (names.length <= 3) (fc.limits || []).forEach(l => {
+        svg += `<line x1="${L}" x2="${W - R}" y1="${sy(Number(l.value))}" y2="${sy(Number(l.value))}" stroke="#b91c1c" stroke-width="1" stroke-dasharray="3 3"/>`
+          + `<text x="${W - R - 4}" y="${sy(Number(l.value)) - 4}" text-anchor="end" font-size="10" fill="#b91c1c">${esc(`${l.pct > 0 ? '+' : ''}${fmt(l.pct, 0)}% khởi đầu${names.length > 1 ? ` (${n})` : ''}`)}</text>`;
+      });
+      if (f.reset) svg += `<line x1="${sx(t(f.reset))}" x2="${sx(t(f.reset))}" y1="${Tp}" y2="${H - B}" stroke="#a16207" stroke-dasharray="4 3"><title>Giá trị khởi đầu sau sửa chữa ${esc(f.reset)}</title></line>`;
+    });
     names.forEach((n, i) => {
       const col = COLORS[i % COLORS.length];
       const s = lines[n].sort((a, b) => a.test_date.localeCompare(b.test_date));
@@ -155,7 +188,9 @@
       });
     });
     svg += '</svg>';
-    const legend = `<div class="legend">${names.map((n, i) => `<span><i style="background:${COLORS[i % COLORS.length]}"></i>${esc(n)}</span>`).join('')}<span><i class="hollow"></i>Xuất xưởng (FAT)</span></div>`;
+    const hasFc = Object.values(fcs).some(f => f.fc.ok);
+    const legend = `<div class="legend">${names.map((n, i) => `<span><i style="background:${COLORS[i % COLORS.length]}"></i>${esc(n)}</span>`).join('')}<span><i class="hollow"></i>Xuất xưởng (FAT)</span>`
+      + (hasFc ? '<span>— — dự báo (độ dốc Sen) · vùng mờ: khoảng dự báo 95% · <span style="color:#b91c1c">- - ngưỡng QĐ 1901</span></span>' : '') + '</div>';
     let tbl = '<div style="overflow-x:auto"><table class="ftable"><thead><tr><th>Ngày</th><th>Lần TN</th><th>Thiết bị / pha</th><th>Giá trị đo</th><th>Nhiệt độ</th><th>Giá trị so sánh</th><th>Khởi đầu</th><th>% thay đổi</th><th>Đánh giá lúc đo</th></tr></thead><tbody>';
     pts.slice().sort((a, b) => a.test_date.localeCompare(b.test_date) || a.serial_no.localeCompare(b.serial_no)).forEach(r => {
       tbl += `<tr><td class="num">${esc(r.test_date)}</td><td>${esc(Common.KIND_LABEL[r.kind] || r.kind)}</td><td>${esc(r.serial_no)}${r.phase ? ' · ' + esc(r.phase) : ''}</td>
@@ -164,7 +199,48 @@
         <td class="num">${esc(fmt(r.base_value))}</td><td class="num">${r.change_pct !== null ? esc(fmt(r.change_pct, 2)) + ' %' : ''}</td>
         <td>${r.status ? `<span class="badge st-${r.status}">${ST[r.status]}</span>` : ''}</td></tr>`;
     });
-    return svg + legend + tbl + '</tbody></table></div>';
+    return svg + legend + forecastTableHTML(fcs, names, pts[0]) + tbl + '</tbody></table></div>';
+  }
+
+  // Dự báo từng đường (máy · pha): từ mốc khởi đầu (base_date của v_trend_delta), cùng cơ sở so sánh (quy đổi / thô) với lần đo mới nhất
+  function forecastsOf(lines, names) {
+    const out = {};
+    if (!T.fcYears || !window.TrendForecast) return out;
+    const L = window.Criteria ? Criteria.limits() : null;
+    names.forEach(n => {
+      const s = lines[n].slice().sort((a, b) => a.test_date.localeCompare(b.test_date));
+      const last = s[s.length - 1];
+      const same = s.filter(r => (r.cmp_basis || 'raw') === (last.cmp_basis || 'raw'));
+      const since = last.base_date ? String(last.base_date).slice(0, 10) : null;
+      const reset = same.find(r => r.test_date === since && r.baseline_reset) ? since : null;
+      const limits = TrendForecast.limitsFor(last.item, last.param, last.base_value, L);
+      out[n] = { fc: TrendForecast.forecast(same.map(r => ({ date: r.test_date, value: r.value_cmp })), T.fcYears, limits, { sinceDate: since }), reset, base: last.base_value, baseDate: since, baseKind: last.base_kind };
+    });
+    return out;
+  }
+  function forecastTableHTML(fcs, names, r0) {
+    if (!T.fcYears) return '';
+    const unit = r0.unit || '', vn = d => (d ? String(d).slice(0, 10).split('-').reverse().join('/') : '');
+    const rows = names.filter(n => fcs[n]).map(n => {
+      const { fc, baseDate, baseKind } = fcs[n];
+      if (!fc.ok) return `<tr><td>${esc(n)}</td><td colspan="6" class="muted">Chưa đủ số liệu từ mốc khởi đầu (cần ≥ 2 lần đo khác ngày; kiểm định xu hướng cần ≥ 4).</td></tr>`;
+      const mk = fc.trend, sen = fc.methods.sen, ols = fc.methods.ols;
+      const dir = mk.direction === 'increasing' ? 'Tăng' : mk.direction === 'decreasing' ? 'Giảm' : mk.direction === 'insufficient' ? 'Chưa đủ số liệu' : 'Không rõ xu hướng';
+      const w = TrendForecast.warning(fc);
+      const c = (sen && sen.crossing) || (ols && ols.crossing);
+      const cross = !c ? '<span class="muted">Không có ngưỡng</span>' : c.status === 'already_exceeded' ? '<b>Đã vượt</b>'
+        : c.status === 'not_toward' ? 'Không đi về phía ngưỡng' : `${vn(c.date)} (~${fmt(c.yearsFromLast, 1)} năm)${c.significant ? '' : ' <span class="muted">— xu hướng chưa có ý nghĩa</span>'}`;
+      return `<tr><td>${esc(n)}</td><td class="num">${fc.n}${fc.nBefore ? ` <span class="muted">(từ ${esc(vn(baseDate))}${baseKind ? ` · ${esc(Common.KIND_LABEL[baseKind] || baseKind)}` : ''})</span>` : ''}</td>`
+        + `<td>${esc(dir)}${mk.direction !== 'insufficient' ? ` <span class="muted">p = ${esc(fmt(mk.p, 3))}</span>` : ''}</td>`
+        + `<td class="num">${sen ? `${esc(fmt(sen.ratePerYear))}${sen.interval ? ` <span class="muted">[${esc(fmt(sen.interval.lower))}; ${esc(fmt(sen.interval.upper))}]</span>` : ''}` : ''}${fc.rateChange === 'faster' ? ' <span class="badge st-warn">gần đây nhanh hơn</span>' : ''}</td>`
+        + `<td class="num">${ols ? `${esc(fmt(ols.forecastValue))}${ols.interval ? ` <span class="muted">[${esc(fmt(ols.interval.lower))}; ${esc(fmt(ols.interval.upper))}]</span>` : ''}` : ''}</td>`
+        + `<td>${cross}</td><td>${w ? `<span class="badge st-${w.status === 'exceeded' ? 'fail' : 'warn'}">${w.status === 'exceeded' ? 'Đã vượt ngưỡng' : `Dự báo chạm ngưỡng ${esc(vn(w.date))}`}</span>` : ''}</td></tr>`;
+    }).join('');
+    return `<h3>Dự báo xu hướng ${T.fcYears} năm (tham khảo)</h3><div style="overflow-x:auto"><table class="ftable"><thead><tr><th>Thiết bị / pha</th><th>Số lần đo</th><th>Xu hướng (Mann–Kendall)</th>`
+      + `<th>Tốc độ Sen (${esc(unit)}/năm) [KTC 95%]</th><th>Dự báo sau ${T.fcYears} năm [khoảng 95%]</th><th>Chạm ngưỡng QĐ 1901</th><th>Cảnh báo</th></tr></thead><tbody>${rows}</tbody></table></div>`
+      + '<div class="hint-text">Dự báo dùng các lần đo từ <b>mốc khởi đầu</b> (lần sau sửa chữa được lấy làm khởi đầu mới → xuất xưởng → sau lắp đặt → lần sớm nhất). '
+      + 'Ngưỡng tính từ giá trị khởi đầu theo tiêu chí xu hướng QĐ 1901 (R60 giảm, tgδ tăng, C / R một chiều / P0 lệch). Chỉ cảnh báo khi xu hướng có ý nghĩa thống kê (p < 0,05) '
+      + 'và mốc chạm ngưỡng nằm trong số năm dự báo. Đây là công cụ <b>tham khảo</b> (giả định tốc độ thay đổi không đổi), không thay đánh giá tổng hợp theo Điều 3 QĐ 1901.</div>';
   }
 
   // Các chuỗi có % thay đổi lớn nhất ở lần đo mới nhất — gợi ý chỗ cần xem kỹ
@@ -222,6 +298,7 @@
       $('#trEq').onchange = e => { T.eqId = e.target.value; loadTrend(); };
       $('#trKids').onchange = e => { T.withChildren = e.target.checked; loadTrend(); };
       $('#trSeries').onchange = e => { T.series = e.target.value; refreshTrend(); };
+      $('#trYears').onchange = e => { T.fcYears = Number(e.target.value) || 0; refreshTrend(); };
       loadTrend();
     }
   }

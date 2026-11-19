@@ -15,6 +15,7 @@ const legacyScripts = [
   'js/domain/criteria.js',
   'js/domain/test-items.js',
   'js/domain/trend-inline.js',
+  'js/domain/trend-forecast.js',
   'js/domain/bushing-hitachi.js',
   'js/domain/bushing-k.js',
   'js/domain/equipment-types.js',
