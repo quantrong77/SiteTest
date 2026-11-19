@@ -369,19 +369,22 @@
           + (r.extra && g.addRow ? `<button class="row-del" data-act="${g.addRow.del}" data-rk="${r.k}" title="Xóa dòng" aria-label="Xóa dòng">×</button>` : '') + '</th>';
       } else if (g.mirrorLabels) h += `<tr><th data-lblm="${r.k}">${esc(r.label)}</th>`;
       else h += `<tr><th>${esc(typeLbl || r.label)}</th>`;
+      // tên ô cho trình đọc màn hình: "bảng: hàng – cột" (không hiện ra giao diện)
+      const rowName = String(typeLbl || r.label || r.defLabel || r.k).replace(/<[^>]*>/g, '').trim();
       g.cols.forEach((c, ci) => {
         const key = `${g.id}.${r.k}.${c.k}`;
+        const aria = ` aria-label="${esc(`${g.title ? g.title + ': ' : ''}${rowName} – ${String(c.label || c.defLabel || c.k).replace(/<[^>]*>/g, '').trim()}`)}"`;
         if (g.skip && g.skip(r.k, c.k)) { h += '<td class="na"></td>'; return; }
         if (ro || c.calc) { h += `<td class="calc"><span class="cv" data-c="${key}"></span></td>`; return; }
         const val = esc(state.v[key] ?? '');
         if (c.options) {
           const cur = state.v[key] ?? '';
           const opts = [''].concat(c.options, cur && !c.options.includes(cur) ? [cur] : []);
-          h += `<td><select data-k="${key}" data-g="${g.id}" data-r="${ri}" data-col="${ci}">${opts.map(o => `<option ${o === cur ? 'selected' : ''}>${esc(o)}</option>`).join('')}</select></td>`;
+          h += `<td><select data-k="${key}" data-g="${g.id}" data-r="${ri}" data-col="${ci}"${aria}>${opts.map(o => `<option ${o === cur ? 'selected' : ''}>${esc(o)}</option>`).join('')}</select></td>`;
           return;
         }
         if (r.select) {
-          h += `<td><select data-k="${key}" data-g="${g.id}" data-r="${ri}" data-col="${ci}">${r.select.map(o => `<option ${o === state.v[key] ? 'selected' : ''}>${esc(o)}</option>`).join('')}</select></td>`;
+          h += `<td><select data-k="${key}" data-g="${g.id}" data-r="${ri}" data-col="${ci}"${aria}>${r.select.map(o => `<option ${o === state.v[key] ? 'selected' : ''}>${esc(o)}</option>`).join('')}</select></td>`;
           return;
         }
         const text = r.text || c.text;
@@ -390,7 +393,7 @@
         const hint = hasDevCol || c.auto || r.auto ? '' : `<span class="hint" data-h="${key}"></span>`;
         const fl = flagOf(key);
         const flAttr = fl && fl.src ? ` class="flag-check" title="${esc(`Tự điền từ ${fl.src}${fl.why ? ` (${fl.why})` : ''} — kiểm tra lại; sửa ô là bỏ tô nền`)}"` : '';
-        h += `<td${flAttr}><input data-k="${key}" data-g="${g.id}" data-r="${ri}" data-col="${ci}" class="${text ? 'text' : ''} ${c.auto || r.text || r.auto ? 'auto' : ''}" value="${val}" ${text ? '' : 'inputmode="decimal"'} autocomplete="off">${hint}</td>`;
+        h += `<td${flAttr}><input data-k="${key}" data-g="${g.id}" data-r="${ri}" data-col="${ci}" class="${text ? 'text' : ''} ${c.auto || r.text || r.auto ? 'auto' : ''}" value="${val}" ${text ? '' : 'inputmode="decimal"'}${aria} autocomplete="off">${hint}</td>`;
       });
       h += '</tr>';
     });
@@ -831,6 +834,8 @@
       el.classList.remove('st-pass', 'st-warn', 'st-fail', 'st-missing', 'st-info');
       const f = byKey[el.dataset.k];
       if (f && f.status !== 'info') el.classList.add('st-' + f.status);
+      // Không đạt: báo cho trình đọc màn hình (kèm dấu ✕ ở góc ô — CSS), không chỉ bằng màu viền
+      if (f && f.status === 'fail') el.setAttribute('aria-invalid', 'true'); else el.removeAttribute('aria-invalid');
       el.title = f ? `${ST_TEXT[f.status]} — ${f.item}${f.loc ? ' · ' + f.loc : ''}\nĐo: ${f.meas || ''}${f.conv ? '\nQuy đổi: ' + f.conv : ''}${f.ref ? '\nTham chiếu: ' + f.ref : ''}${f.dev ? '\nĐộ lệch: ' + f.dev : ''}${f.limit ? '\nGiới hạn: ' + f.limit : ''}${f.note ? '\n' + f.note : ''}\n(${f.basis || ''}${QD.stdOf(f) ? ' · ' + QD.stdOf(f) : ''})` : '';
     });
     $$('[data-h]', main).forEach(el => {

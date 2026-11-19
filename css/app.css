@@ -4,7 +4,7 @@
   --panel: #ffffff;
   --ink: #17222d;
   --muted: #56636f;
-  --faint: #85909a;
+  --faint: #5f6b76;            /* chữ phụ: tương phản ≥ 4,5:1 trên nền trắng và nền xám */
   --line: #d3d8db;
   --line-soft: #e6e9eb;
   --calc: #f1f3f4;
@@ -135,7 +135,7 @@ h4 { font-size: 13px; margin: 14px 0 6px; color: var(--muted); font-weight: 600;
 
 /* ---------- status badges ---------- */
 .badge { display: inline-block; padding: 2px 9px; border-radius: 99px; font-size: 12px; font-weight: 600; white-space: nowrap; }
-.badge.st-pass { background: var(--pass-bg); color: var(--pass); }
+.badge.st-pass { background: var(--pass-bg); color: #16703f; }
 .badge.st-warn { background: var(--warn-bg); color: var(--warn); }
 .badge.st-fail { background: var(--fail-bg); color: var(--fail); }
 .badge.st-missing { background: var(--missing-bg); color: var(--missing); }
@@ -642,3 +642,15 @@ table.grid.fx-table td.fx-act { padding: 3px 6px; width: 1%; white-space: nowrap
 .gd-body ol { list-style: decimal; padding-left: 24px; margin: 4px 0 8px; }
 .gd-body li + li { margin-top: 3px; }
 .gd-img img { max-height: 480px; width: auto; }
+
+/* Accessibility ô nhập: trạng thái không chỉ bằng màu — ô Không đạt / Cần xem xét có dấu ở góc (không đổi kích thước ô) */
+.grid td:has(> [data-k].st-fail)::after, .grid td:has(> [data-k].st-warn)::after {
+  position: absolute; top: 1px; right: 3px; font: 700 10px/1 var(--num, inherit); pointer-events: none;
+}
+.grid td:has(> [data-k].st-fail)::after { content: "✕"; color: var(--fail); }
+.grid td:has(> [data-k].st-warn)::after { content: "!"; color: var(--warn); }
+.field:has([data-k].st-fail) > label::after { content: " ✕"; color: var(--fail); font-weight: 700; }
+.field:has([data-k].st-warn) > label::after { content: " !"; color: var(--warn); font-weight: 700; }
+/* Ô tích nhỏ: vùng bấm gồm cả chữ, cao ≥ 24 px */
+.sec-do, .voice-cont { min-height: 24px; display: inline-flex; align-items: center; gap: 6px; cursor: pointer; }
+.sec-do input[type=checkbox], .voice-cont input[type=checkbox] { width: 18px; height: 18px; margin: 0; }

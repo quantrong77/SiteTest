@@ -234,7 +234,7 @@ Hãy dùng đúng nhãn hiển thị trên phiên bản đang chạy.
 4. Nhập số liệu bằng bàn phím hoặc dán bảng từ Excel vào ô đầu.
 5. Phím Enter đi xuống hàng trong cùng cột theo bảng.
 6. Ô màu xám thường là tự tính.
-7. Ô được viền xanh, đỏ hoặc vàng phản ánh kết quả Đạt, Không đạt hoặc Cần xem xét.
+7. Ô được viền xanh, đỏ hoặc vàng phản ánh kết quả Đạt, Không đạt hoặc Cần xem xét; ô Không đạt có thêm dấu **✕**, Cần xem xét dấu **!** ở góc trên (không chỉ dựa vào màu). Trình đọc màn hình đọc tên ô theo bảng – hàng – cột và báo ô không đạt.
 8. Rê chuột hoặc mở phần đánh giá để xem căn cứ/chi tiết khi giao diện hỗ trợ.
 9. Nút **Hoàn tác** đảo thao tác thuộc hạng mục hiện tại.
 10. **Ctrl+Z** hoặc **Cmd+Z** ngoài ô nhập cũng hoàn tác theo hạng mục.
