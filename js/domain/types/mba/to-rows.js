@@ -42,7 +42,10 @@
       const s = p === 'N' || schema.layout === Schema.LAYOUT_110 ? main : (str(cfg.ps[p]) || main);
       return s === main ? mainRef : addRef('MBA', s, { phase: p });
     };
+    const pf = (state.att && state.att.phaseFill) || {};
     const put = (eq, item, param, o) => {
+      // ô bổ sung từ BBTN máy pha khác (MbaPhaseFill): chỉ để so sánh giữa các pha, không ghi trùng vào lần thí nghiệm này
+      if (o.key && (pf[o.key] || pf[String(o.key).replace(/\.d([ABC])$/, '.$1')])) return;
       const value = toNum(o.value);
       const text = str(o.value);
       if (!text && !ok(o.norm)) return;

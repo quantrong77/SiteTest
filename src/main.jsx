@@ -33,6 +33,7 @@ const legacyScripts = [
   'js/domain/types/mba/model3d-map.js',
   'js/domain/types/mba/evaluate.js',
   'js/domain/types/mba/to-rows.js',
+  'js/domain/types/mba/phase-fill.js',
   'js/domain/types/mba/report.js',
   'js/domain/types/mba/import-2293.js',
   'js/domain/types/mba/nameplate.js',

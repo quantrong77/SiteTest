@@ -99,7 +99,8 @@
   async function load(c, root, onChange) {
     ctx = c;
     const my = ++seq; // lượt tải mới nhất (mở biên bản khác trong lúc chờ thì bỏ kết quả cũ)
-    const pack = rowsOf(c, false);
+    // ô trống cũng tính (điền tạm): tải cả lịch sử máy các pha khác của tổ (BBTN riêng từng pha cần số liệu 2 pha còn lại)
+    const pack = rowsOf(c, true);
     const serials = pack ? serialsOf(pack) : [];
     const key = serials.join('|');
     if (!key) { const had = hist.length; reset(); if (had && onChange) onChange(); return; }
@@ -123,5 +124,7 @@
   function reset() { hist = []; loadedFor = ''; cells = new Map(); seq++; }
   const history = () => hist;
 
-  window.TrendInlineUI = { prepare, decorate, load, reset, has, history };
+  const cellMap = () => cells;
+
+  window.TrendInlineUI = { prepare, decorate, load, reset, has, history, cellMap };
 })();
