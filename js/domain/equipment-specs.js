@@ -33,25 +33,30 @@
   };
 
   // eq: dòng v_equipment (có thể null — thiết bị mới); fx: FX.data.specs của test report (có thể null);
-  // ctx: { substation, bay } (tên trạm, ngăn để điền "Tên dự án / tên trạm", "Vị trí lắp đặt")
-  // → { khóa ô: { value, src: 'CSDL' | 'Test report' } } — chỉ các ô có giá trị
-  function headFrom(eq, fx, ctx) {
+  // ctx: { substation, bay } (tên trạm, ngăn để điền "Tên dự án / tên trạm", "Vị trí lắp đặt");
+  // hist (tùy chọn): BBTN gần nhất của thiết bị trong CSDL { v: app_state.v, date } — nguồn cuối khi CSDL / test report không có
+  // → { khóa ô: { value, src: 'CSDL' | 'Test report' | 'BBTN dd/mm/yyyy' } } — chỉ các ô có giá trị
+  function headFrom(eq, fx, ctx, hist) {
     eq = eq || {}; fx = fx || {}; ctx = ctx || {};
+    const hv = (hist && hist.v) || {};
+    const HB = hist ? `BBTN ${String(hist.date || '').slice(0, 10).split('-').reverse().join('/')}`.trim() : '';
     const rated = eq.rated || {};
     const out = {};
     const put = (k, ...cands) => {
       for (const [v, src] of cands) { const s = str(v); if (s) { out[k] = { value: s, src }; return; } }
     };
     const DB = 'CSDL', TR = 'Test report';
-    put('meta.project', [ctx.substation, DB]);
-    put('meta.site', [eq.name, DB], [ctx.bay, DB]);
-    put('meta.manuf', [eq.manufacturer, DB], [fx.manufacturer, TR]);
-    put('meta.type', [eq.model, DB], [fx.type, TR]);
-    put('meta.year', [eq.year_made, DB], [fx.year, TR]);
-    put('meta.power', [rated.power_mva, DB], [joinSides(fx.power), TR]);
-    put('meta.voltage', [rated.voltage, DB], [joinSides(fx.voltage), TR]);
-    put('meta.current', [rated.current_a, DB], [joinSides(fx.current), TR]);
-    put('meta.vector', [rated.vector_group, DB], [fx.vector, TR]);
+    const H = k => [hv[k], HB];
+    put('meta.project', [ctx.substation, DB], H('meta.project'));
+    put('meta.site', [eq.name, DB], [ctx.bay, DB], H('meta.site'));
+    put('meta.manuf', [eq.manufacturer, DB], [fx.manufacturer, TR], H('meta.manuf'));
+    put('meta.type', [eq.model, DB], [fx.type, TR], H('meta.type'));
+    put('meta.year', [eq.year_made, DB], [fx.year, TR], H('meta.year'));
+    put('meta.power', [rated.power_mva, DB], [joinSides(fx.power), TR], H('meta.power'));
+    // điện áp, dòng định mức: CSDL chỉ giữ một phần (vd chỉ cuộn cao áp) → test report (đủ HV/MV/LV) trước, rồi BBTN cũ, cuối cùng CSDL
+    put('meta.voltage', [joinSides(fx.voltage), TR], H('meta.voltage'), [rated.voltage, DB]);
+    put('meta.current', [joinSides(fx.current), TR], H('meta.current'), [rated.current_a, DB]);
+    put('meta.vector', [rated.vector_group, DB], [fx.vector, TR], H('meta.vector'));
     return out;
   }
 
