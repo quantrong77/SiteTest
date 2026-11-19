@@ -101,7 +101,85 @@
     return (max - min) / avg * 100;
   }
 
+  // ===== Bảng tra tiêu chuẩn IEC/IEEE mà QĐ 1901 dẫn chiếu (G5) =====
+  // Chỉ ghi số hiệu tiêu chuẩn và nơi QĐ 1901 nhắc tới — KHÔNG đưa ngưỡng nào từ tiêu chuẩn vào đánh giá.
+  // ok: true  = QĐ 1901 dẫn chiếu ngay trong điều khoản của hạng mục (ghi ở `where`);
+  // ok: false = chỉ có trong danh mục tài liệu áp dụng (Phụ lục, mục III) → "cần xác nhận" khả năng áp dụng cho hạng mục.
+  const PL3 = 'Phụ lục — III. Các tài liệu liên quan áp dụng';
+  const S = (code, scope, where, ok) => ({ code, scope, where, ok: !!ok });
+  const IEC60076 = S('bộ IEC 60076', 'MBA điện lực (yêu cầu chung, phương pháp thử)', `${PL3}, mục 18`, false);
+  const C57_152 = S('IEEE C57.152', 'hướng dẫn thử nghiệm hiện trường MBA ngâm dầu', `${PL3}, mục 19`, false);
+  const STANDARDS = {
+    visual: [],
+    noload: [S('IEC 60076-1', 'phương pháp đo, độ không đảm bảo đo; yêu cầu thiết bị đo', 'Điều 34 mục 2, 3', true),
+      S('IEC 60076-19', 'độ không đảm bảo đo tổn hao', 'Điều 34 mục 2, 3', true)],
+    ir: [C57_152, IEC60076],
+    core: [C57_152],
+    pi: [S('IEEE C57.152', 'đánh giá hệ số phân cực PI', 'Điều 9 Bảng 1 ghi chú d', true)],
+    vector: [IEC60076],
+    bushing: [S('IEC 60137', 'thí nghiệm tgδ sứ ở nhiệt độ môi trường 10–40 °C', 'Điều 38 mục 2', true),
+      S('IEEE C57.12.200', 'đo đáp ứng điện môi DFR sứ có test tap', 'Điều 38 mục 2', true),
+      S('bộ IEEE C57.19', 'sứ xuyên', `${PL3}, mục 19`, false)],
+    bushingAC: [S('IEC 60137', 'sứ xuyên điện áp trên 1 kV', `${PL3}, mục 18 (Điều 38 chỉ dẫn cho thí nghiệm tgδ)`, false),
+      S('bộ IEEE C57.19', 'sứ xuyên', `${PL3}, mục 19`, false)],
+    wtgd: [C57_152, IEC60076],
+    dcr: [IEC60076, C57_152],
+    ratio: [IEC60076, C57_152],
+    oltc: [],
+    moisture: [C57_152],
+    shortCircuit: [IEC60076],
+    bct: [S('bộ IEC 61869', 'máy biến đổi đo lường (TI)', `${PL3}, mục 18`, false),
+      S('bộ IEEE C57.13', 'máy biến đổi đo lường (TI)', `${PL3}, mục 19`, false)],
+  };
+  // Hạng mục chưa có trong app nhưng QĐ 1901 dẫn chiếu tiêu chuẩn ngay trong điều — để tra cứu
+  const STANDARDS_EXTRA = [
+    { item: 'Đo đáp ứng tần số quét (SFRA)', ref: 'Điều 44',
+      std: [S('IEC 60076-18', 'đo đáp ứng tần số', 'Điều 44', true), S('IEEE C57.149-2012', 'phân tích SFRA', 'Điều 44', true),
+        S('CIGRE WG A2.26', 'brochure FRA', 'Điều 44', true), S('DL/T 911-2004', 'phân tích, đánh giá (hoặc tương đương)', 'Điều 44', true)] },
+    { item: 'Phân tích khí hòa tan trong dầu (DGA)', ref: 'Điều 54',
+      std: [S('IEC 60599', 'diễn giải kết quả DGA', 'Điều 54', true), S('IEEE C57.104', 'diễn giải kết quả DGA', 'Điều 54', true)] },
+    { item: 'Điện trở suất dầu MBA', ref: 'Điều 56', std: [S('IEC 60247', 'đo điện trở suất dầu', 'Điều 56', true)] },
+  ];
+  const STANDARDS_NOTE = {
+    visual: 'QĐ 1901 không dẫn chiếu tiêu chuẩn riêng',
+    oltc: 'QĐ 1901 không dẫn chiếu tiêu chuẩn riêng — đánh giá theo kết quả thí nghiệm và hướng dẫn NSX (Điều 37)',
+  };
+  const STANDARDS_LABEL = {
+    visual: 'Kiểm tra bên ngoài', noload: 'Tổn hao và dòng điện không tải', ir: 'Điện trở cách điện cuộn dây, R60/R15',
+    core: 'Cách điện lõi từ, gông từ', pi: 'Hệ số phân cực PI', vector: 'Cực tính, tổ đấu dây', bushing: 'Sứ xuyên: tgδ, điện dung, DFR',
+    bushingAC: 'Sứ xuyên: thử điện áp AC', wtgd: 'tgδ và điện dung cuộn dây', dcr: 'Điện trở một chiều', ratio: 'Tỷ số biến',
+    oltc: 'Bộ điều áp dưới tải', moisture: 'Độ ẩm cách điện cứng', shortCircuit: 'Tổn thất và điện áp ngắn mạch', bct: 'Biến dòng chân sứ',
+  };
+  // Danh mục tiêu chuẩn QĐ 1901 liệt kê (Phụ lục — III, mục 17–21), nguyên văn số hiệu
+  const CITED = [
+    { no: 17, list: ['ASTM D3612-02', 'ASTM D971', 'ASTM D3487'] },
+    { no: 18, list: ['IEC 60247', 'IEC 60137', 'IEC 60599', 'IEC 60567', 'IEC 61198', 'IEC 61868', 'IEC 60156', 'IEC 62021-1', 'IEC 61620', 'IEC 61125',
+      'IEC 60367', 'IEC 60840', 'IEC 60385-1', 'IEC 60480', 'IEC 62067', 'IEC 60229', 'IEC 60168', 'IEC 60383', 'IEC 60305', 'IEC 61109', 'IEC 61952',
+      'IEC 62217', 'bộ IEC 60076', 'bộ IEC 61869', 'bộ IEC 62271', 'bộ IEC 60099', 'bộ IEC 60143', 'bộ IEC 60871', 'bộ IEC 60071', 'bộ IEC 60502',
+      'bộ IEC 61557', 'bộ IEC 60060', 'bộ IEC 60383'] },
+    { no: 19, list: ['IEEE C57.152', 'IEEE C57.104', 'IEEE Std 81', 'bộ IEEE C57.19', 'bộ IEEE C57.13', 'bộ IEEE Std 400'] },
+    { no: 20, list: ['CIGRE 445', 'CIGRE 394', 'CIGRE 531', 'CIGRE TB 797'] },
+    { no: 21, list: ['ISO 2719', 'ISO 3104', 'ISO 3675', 'ISO 12185', 'ISO 2049'] },
+  ];
+  const stdCode = s => s.code + (s.ok ? '' : ' (cần xác nhận)');
+  // Dòng ngắn cho cột "Căn cứ": tiêu chuẩn dẫn chiếu trong điều trước, "cần xác nhận" sau
+  function stdText(key) {
+    const list = STANDARDS[key];
+    if (!list) return '';
+    if (!list.length) return STANDARDS_NOTE[key] || '';
+    return [...list.filter(s => s.ok), ...list.filter(s => !s.ok)].map(stdCode).join('; ');
+  }
+  // Khóa bảng tra của một dòng đánh giá: theo căn cứ (vd R.pi, R.core) rồi theo hạng mục
+  function stdKey(f, ref) {
+    const R = ref || QD.REF;
+    const k = Object.keys(R).find(x => R[x] === f.basis);
+    return k || (STANDARDS[f.sec] ? f.sec : '');
+  }
+  // Tiêu chuẩn dẫn chiếu của một dòng đánh giá (tra lúc hiển thị / xuất, không ghi vào kết quả đánh giá)
+  const stdOf = f => (f ? stdText(stdKey(f)) : '');
+
   window.QD = {
+    STANDARDS, STANDARDS_EXTRA, STANDARDS_NOTE, STANDARDS_LABEL, CITED, stdText, stdKey, stdCode, stdOf,
     K1, K2, tableFactor, convIR, convTgd, convDCR, irMin, tgdMax, BUSHING_TGD_NEW, ripFc, classifyPI,
     classifyMoisture, phaseSpread,
     LIMITS: {

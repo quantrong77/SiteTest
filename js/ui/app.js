@@ -415,7 +415,7 @@
     if (!shown.length) return h + `<div class="empty">${list.length ? 'Không có mục nào theo bộ lọc.' : 'Chưa có số liệu để đánh giá — nhập số liệu ở các bảng phía trên.'}</div></div>`;
     h += `<div style="overflow-x:auto"><table class="ftable"><thead><tr>${secId === '*' ? '<th>Hạng mục</th>' : ''}<th>Nội dung</th><th>Vị trí / pha / nấc</th><th>Giá trị đo</th><th>Quy đổi</th><th>Tham chiếu</th><th>Độ lệch</th><th>Giới hạn</th><th>Đánh giá</th><th>Căn cứ</th><th>Ghi chú</th></tr></thead><tbody>`;
     shown.forEach(f => {
-      h += `<tr class="st-${f.status}">${secId === '*' ? `<td>${esc(secTitle(f.sec))}</td>` : ''}<td>${esc(f.item)}</td><td>${esc(f.loc || '')}</td><td class="num">${esc(f.meas || '')}</td><td class="num">${esc(f.conv || '')}</td><td class="num">${esc(f.ref || '')}</td><td class="num">${esc(f.dev || '')}</td><td>${esc(f.limit || '')}</td><td><span class="badge st-${f.status}">${ST_TEXT[f.status]}</span></td><td>${esc(f.basis || '')}</td><td class="note">${esc(f.note || '')}</td></tr>`;
+      h += `<tr class="st-${f.status}">${secId === '*' ? `<td>${esc(secTitle(f.sec))}</td>` : ''}<td>${esc(f.item)}</td><td>${esc(f.loc || '')}</td><td class="num">${esc(f.meas || '')}</td><td class="num">${esc(f.conv || '')}</td><td class="num">${esc(f.ref || '')}</td><td class="num">${esc(f.dev || '')}</td><td>${esc(f.limit || '')}</td><td><span class="badge st-${f.status}">${ST_TEXT[f.status]}</span></td><td>${esc(f.basis || '')}${QD.stdOf(f) ? `<div class="std-ref" title="Tiêu chuẩn QĐ 1901 dẫn chiếu (tra cứu; ngưỡng đánh giá vẫn theo QĐ 1901)">${esc(QD.stdOf(f))}</div>` : ''}</td><td class="note">${esc(f.note || '')}</td></tr>`;
     });
     return h + '</tbody></table></div></div>';
   }
@@ -489,7 +489,7 @@
     const hits = (res.findings || []).filter(f => f.sec === secId && f.trendFail);
     if (!hits.length) return '';
     // hướng xử lý theo từng tiêu chí (căn cứ khác nhau), mỗi loại ghi một lần
-    const actions = [...new Map(hits.map(f => [f.basis, (f.note || '').replace(/^.*?(Hướng xử lý:)/, '$1')])).entries()];
+    const actions = [...new Map(hits.map(f => [f.basis + (QD.stdOf(f) ? ` · ${QD.stdOf(f)}` : ''), (f.note || '').replace(/^.*?(Hướng xử lý:)/, '$1')])).entries()];
     return `<div class="callout bad" role="alert"><b>Cảnh báo xu hướng so với số liệu quá khứ (QĐ 1901):</b><ul>${hits.map(f =>
       `<li><b>${esc(f.item)}</b>${f.loc ? ` – ${esc(f.loc)}` : ''}: ${esc(f.meas)}, ${esc(f.dev)} — ${f.status === 'warn' ? 'cần xem xét' : 'không đạt'} (${esc(f.limit)}; ${esc(f.ref)})</li>`).join('')}</ul>`
       + actions.map(([basis, a]) => `<div><b>${esc(basis)}:</b> ${esc(a)}</div>`).join('')
@@ -828,7 +828,7 @@
       el.classList.remove('st-pass', 'st-warn', 'st-fail', 'st-missing', 'st-info');
       const f = byKey[el.dataset.k];
       if (f && f.status !== 'info') el.classList.add('st-' + f.status);
-      el.title = f ? `${ST_TEXT[f.status]} — ${f.item}${f.loc ? ' · ' + f.loc : ''}\nĐo: ${f.meas || ''}${f.conv ? '\nQuy đổi: ' + f.conv : ''}${f.ref ? '\nTham chiếu: ' + f.ref : ''}${f.dev ? '\nĐộ lệch: ' + f.dev : ''}${f.limit ? '\nGiới hạn: ' + f.limit : ''}${f.note ? '\n' + f.note : ''}\n(${f.basis || ''})` : '';
+      el.title = f ? `${ST_TEXT[f.status]} — ${f.item}${f.loc ? ' · ' + f.loc : ''}\nĐo: ${f.meas || ''}${f.conv ? '\nQuy đổi: ' + f.conv : ''}${f.ref ? '\nTham chiếu: ' + f.ref : ''}${f.dev ? '\nĐộ lệch: ' + f.dev : ''}${f.limit ? '\nGiới hạn: ' + f.limit : ''}${f.note ? '\n' + f.note : ''}\n(${f.basis || ''}${QD.stdOf(f) ? ' · ' + QD.stdOf(f) : ''})` : '';
     });
     $$('[data-h]', main).forEach(el => {
       const f = byKey[el.dataset.h];
@@ -1286,10 +1286,10 @@
     recompute();
     const v = state.v;
     const secTitle = id => { const s = schema.sections.find(x => x.id === id); return s ? `${s.no}. ${s.title}` : id; };
-    const head = ['Số chế tạo (máy chính)', 'Ngày TN', 'Lý do', 'Hạng mục', 'Nội dung', 'Vị trí / pha / nấc', 'Giá trị đo', 'Giá trị quy đổi', 'Tham chiếu (xuất xưởng / tiêu chuẩn)', 'Độ lệch', 'Giới hạn', 'Đánh giá', 'Điều/Bảng QĐ 1901', 'Ghi chú'];
-    const rows = [head].concat(res.findings.map(f => [v['meta.serial'], v['meta.date'], v['meta.reason'], secTitle(f.sec), f.item, f.loc || '', f.meas || '', f.conv || '', f.ref || '', f.dev || '', f.limit || '', ST_TEXT[f.status], f.basis || '', f.note || '']));
+    const head = ['Số chế tạo (máy chính)', 'Ngày TN', 'Lý do', 'Hạng mục', 'Nội dung', 'Vị trí / pha / nấc', 'Giá trị đo', 'Giá trị quy đổi', 'Tham chiếu (xuất xưởng / tiêu chuẩn)', 'Độ lệch', 'Giới hạn', 'Đánh giá', 'Điều/Bảng QĐ 1901', 'Ghi chú', 'Tiêu chuẩn QĐ 1901 dẫn chiếu'];
+    const rows = [head].concat(res.findings.map(f => [v['meta.serial'], v['meta.date'], v['meta.reason'], secTitle(f.sec), f.item, f.loc || '', f.meas || '', f.conv || '', f.ref || '', f.dev || '', f.limit || '', ST_TEXT[f.status], f.basis || '', f.note || '', QD.stdOf(f)]));
     const ws = XLSX.utils.aoa_to_sheet(rows);
-    ws['!cols'] = [12, 11, 11, 30, 34, 34, 20, 20, 34, 14, 34, 12, 26, 50].map(w => ({ wch: w }));
+    ws['!cols'] = [12, 11, 11, 30, 34, 34, 20, 20, 34, 14, 34, 12, 26, 50, 34].map(w => ({ wch: w }));
     ws['!autofilter'] = { ref: XLSX.utils.encode_range({ s: { r: 0, c: 0 }, e: { r: rows.length - 1, c: head.length - 1 } }) };
     const sum = [['STT', 'Hạng mục', 'Đánh giá', 'Đạt', 'Cần xem xét', 'Không đạt', 'Thiếu dữ liệu', 'Tham khảo']].concat(schema.sections.map(s => {
       const S = res.sec[s.id];
