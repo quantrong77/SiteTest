@@ -61,12 +61,11 @@
     let h = `<div class="gd-head">${src}<span class="gd-tools">`;
     if (admin) {
       h += `<button class="btn small" data-gact="edit" data-sec="${secId}">Sửa hướng dẫn</button>`
-        + `<button class="btn small" data-gact="import" title="Chọn tệp tài liệu đào tạo (.docx) và / hoặc quy trình QT-KĐMBA (.pdf) — app tách hình và lưu vào kho file riêng tư của CSDL">Nạp hình từ tài liệu…</button>`;
+        + `<button class="btn small" data-nav="guidecfg" title="Nạp hình từ tài liệu, xem tình trạng hình và nội dung các hạng mục">Cấu hình hướng dẫn đo</button>`;
     }
     h += '</span></div>';
     h += `<div class="callout">Hướng dẫn tóm tắt, không thay thế sơ đồ, phương án và quy trình được duyệt. Nguồn từng ý ghi trong ngoặc: QĐ — QĐ 1901; QT — QT-KĐMBA; ĐT — tài liệu đào tạo.</div>`;
     h += bodyHTML(c ? c.md : defaultMd(secId));
-    if (G.busy) h += `<div class="callout">${esc(G.busy)}</div>`;
     return `<div class="gd" data-gsec="${secId}">${h}</div>`;
   }
 
@@ -100,10 +99,70 @@
     boxes.forEach(b => {
       const u = (G.urls[b.dataset.gimg] || {}).url;
       if (u) b.innerHTML = `<img src="${esc(u)}" alt="" loading="lazy">`;
-      else { missing += 1; b.innerHTML = `<span class="muted">Hình chưa nạp vào CSDL${isAdmin() ? ' — bấm “Nạp hình từ tài liệu…”' : ' — báo Admin nạp hình'}.</span>`; }
+      else { missing += 1; b.innerHTML = `<span class="muted">Hình chưa nạp vào CSDL${isAdmin() ? ' — nạp ở trang <button type="button" class="btn small" data-nav="guidecfg">Cấu hình hướng dẫn đo</button>' : ' — báo Admin nạp hình'}.</span>`; }
     });
     const box = boxes[0].closest('.gd');
     if (box) box.dataset.missing = String(missing);
+  }
+
+  // ===== Trang Cấu hình hướng dẫn đo (HD): nạp hình từ tài liệu, tình trạng hình, nội dung theo hạng mục =====
+  function usedBy() {
+    const T = typeGuide(), m = {};
+    Object.entries(T.GUIDE).forEach(([sec, md]) => T.imageKeys(md).forEach(k => { (m[k] = m[k] || []).push(sec); }));
+    return m;
+  }
+  const secName = id => { const s = App.schema.sections.find(x => x.id === id); return s ? `${s.no}. ${s.title}` : id; };
+  function renderConfig() {
+    if (signedIn() && G.loaded !== classOf() && !G.loading) load(false).then(ok => { if (ok) App.renderMain(); });
+    const T = typeGuide();
+    let h = '<div class="panel-head"><span class="secno">HD</span><h2>Cấu hình hướng dẫn đo</h2><span class="en">Measurement guides</span></div>';
+    if (!T) return `<section class="panel">${h}<div class="empty">Loại thiết bị này chưa có hướng dẫn đo.</div></section>`;
+    const admin = isAdmin(), used = usedBy(), imgs = Object.entries(T.IMAGES);
+    h += '<div class="callout">Hướng dẫn đo hiện ở bước 2 của mỗi hạng mục. Hình lấy từ tài liệu nội bộ nên <b>không nằm trong mã nguồn</b> (repo công khai) mà lưu trong kho file riêng tư của CSDL; cần đăng nhập để xem. '
+      + (admin ? 'Bạn là Admin: nạp hình, sửa và khôi phục nội dung ở đây.' : 'Chỉ Admin nạp hình và sửa nội dung; tài khoản của bạn chỉ xem.') + '</div>';
+    if (!signedIn()) h += '<div class="callout warn">Chưa đăng nhập: không xem được tình trạng hình trong kho file.</div>';
+    // 1. Hình từ tài liệu
+    h += '<h3 class="gc-h">1. Hình từ tài liệu</h3><div class="grid-wrap"><table class="ftable"><thead><tr><th>Tài liệu</th><th>Tệp cần chọn</th><th>Cách lấy hình</th><th>Đã nạp</th></tr></thead><tbody>'
+      + Object.entries(T.DOCS).map(([id, d]) => `<tr><td>${esc(d.title)}</td><td><code>${esc(d.file)}</code></td><td>${d.kind === 'docx' ? 'Ảnh nhúng trong tệp (chỉ nhận đúng phiên bản)' : `Cắt vùng hình trên trang (bản scan ${d.pages} trang)`}</td>`
+        + `<td><span data-gcnt="${id}">—</span>/${T.imagesOfDoc(id).length}</td></tr>`).join('') + '</tbody></table></div>';
+    if (admin) h += `<div class="row-actions"><button class="btn primary" data-gact="import" ${G.busy ? 'disabled' : ''} title="Chọn cùng lúc tệp .docx và .pdf ở trên — app tách hình ngay trong trình duyệt và lưu vào kho file riêng tư (nạp lại sẽ ghi đè)">Nạp hình từ tài liệu…</button></div>`;
+    if (G.busy) h += `<div class="callout" aria-live="polite">${esc(G.busy)}</div>`;
+    if (G.report) h += `<div class="callout" aria-live="polite">${G.report.map(esc).join('<br>')}</div>`;
+    h += `<details class="gc-imgs"><summary>Danh sách hình (${imgs.length})</summary><div class="grid-wrap"><table class="ftable"><thead><tr><th>Hình</th><th>Chú thích</th><th>Nguồn</th><th>Dùng ở hạng mục</th><th>Trạng thái</th></tr></thead><tbody>`
+      + imgs.map(([k, im]) => `<tr><td><div class="gc-thumb" data-gthumb="${esc(pathOf(k))}"></div></td><td>${esc(im.caption)}</td>`
+        + `<td>${im.doc === 'dt' ? `${esc(T.DOCS.dt.title)}<br><span class="muted">${esc(im.media.replace('word/media/', ''))}</span>` : `${esc(T.DOCS.qt.title)}<br><span class="muted">trang ${im.page}</span>`}</td>`
+        + `<td>${(used[k] || []).map(s => esc(secName(s))).join('<br>')}</td><td data-gstat="${esc(pathOf(k))}">—</td></tr>`).join('')
+      + '</tbody></table></div></details>';
+    // 2. Nội dung theo hạng mục
+    const secs = App.schema.sections.filter(s => has(s.id));
+    h += '<h3 class="gc-h">2. Nội dung hướng dẫn theo hạng mục</h3><div class="grid-wrap"><table class="ftable"><thead><tr><th>Hạng mục</th><th>Nội dung đang dùng</th><th>Số hình</th><th></th></tr></thead><tbody>'
+      + secs.map(s => {
+        const c = custom(s.id), n = T.imageKeys(c ? c.md : defaultMd(s.id)).length;
+        return `<tr><td>${esc(`${s.no}. ${s.title}`)}</td><td>${c ? `<span class="badge st-warn">Đơn vị đã chỉnh${c.at ? ' ' + esc(vn(c.at)) : ''}</span>${c.note ? `<br><span class="muted">${esc(c.note)}</span>` : ''}` : '<span class="muted">Mặc định của app</span>'}</td>`
+          + `<td class="num">${n}</td><td class="row-actions">${admin ? `<button class="btn small" data-gact="goedit" data-sec="${s.id}">Sửa</button>${c ? `<button class="btn small danger" data-gact="reset" data-sec="${s.id}">Khôi phục mặc định</button>` : ''}` : `<button class="btn small" data-gact="goview" data-sec="${s.id}">Xem</button>`}</td></tr>`;
+      }).join('') + '</tbody></table></div>';
+    return `<section class="panel gc">${h}</section>`;
+  }
+  // Tình trạng từng hình (kho file): đếm theo tài liệu, ảnh thu nhỏ
+  async function afterRenderConfig() {
+    const T = typeGuide();
+    if (!T || !signedIn()) return;
+    const paths = Object.keys(T.IMAGES).map(pathOf), now = Date.now();
+    const need = paths.filter(p => !G.urls[p] || G.urls[p].exp < now);
+    if (need.length) {
+      try { const got = await DB.guideImageUrls(need); need.forEach(p => { G.urls[p] = { url: got[p] || '', exp: now + 50 * 60 * 1000 }; }); }
+      catch (e) { document.querySelectorAll('[data-gstat]').forEach(td => { td.textContent = 'Không đọc được kho file: ' + e.message; }); return; }
+    }
+    const cnt = {};
+    Object.entries(T.IMAGES).forEach(([k, im]) => {
+      const p = pathOf(k), u = (G.urls[p] || {}).url;
+      if (u) cnt[im.doc] = (cnt[im.doc] || 0) + 1;
+      const td = document.querySelector(`[data-gstat="${CSS.escape(p)}"]`);
+      if (td) td.innerHTML = u ? '<span class="badge st-pass">Đã nạp</span>' : '<span class="badge st-missing">Chưa nạp</span>';
+      const th = document.querySelector(`[data-gthumb="${CSS.escape(p)}"]`);
+      if (th) th.innerHTML = u ? `<img src="${esc(u)}" alt="" loading="lazy">` : '';
+    });
+    Object.keys(T.DOCS).forEach(id => { const el = document.querySelector(`[data-gcnt="${id}"]`); if (el) el.textContent = cnt[id] || 0; });
   }
 
   // ---- nạp hình từ tài liệu (Admin)
@@ -142,7 +201,9 @@
 
   async function action(b) {
     const act = b.dataset.gact, secId = b.dataset.sec;
+    if (act === 'goview') { Workflow.setStep(secId, 'guide'); App.go(secId); return; }
     if (!isAdmin() && act !== 'cancel') throw new Error('Cần quyền Admin để chỉnh hướng dẫn đo.');
+    if (act === 'goedit') { const c = custom(secId); G.edit = { secId, text: c ? c.md : defaultMd(secId), note: c ? c.note : '' }; Workflow.setStep(secId, 'guide'); App.go(secId); return; }
     if (act === 'edit') { const c = custom(secId); G.edit = { secId, text: c ? c.md : defaultMd(secId), note: c ? c.note : '' }; }
     else if (act === 'cancel') G.edit = null;
     else if (act === 'default') { if (!confirm('Thay nội dung đang soạn bằng nội dung mặc định của app?')) return; G.edit.text = defaultMd(G.edit.secId); }
@@ -173,8 +234,8 @@
     } else if (act === 'import') {
       const files = await pick('.docx,.pdf', true);
       if (!files.length) return;
-      G.busy = 'Đang tách và lưu hình…'; App.renderMain();
-      try { const rep = await importDocs(files); App.toast('Nạp hình hướng dẫn: ' + rep.join('; ')); }
+      G.busy = 'Đang tách và lưu hình…'; G.report = null; App.renderMain();
+      try { G.report = await importDocs(files); App.toast('Đã nạp hình hướng dẫn — xem kết quả trên trang'); }
       finally { G.busy = ''; }
     }
     App.renderMain();
@@ -196,5 +257,5 @@
     tmr = setTimeout(() => { const p = document.getElementById('gdPreview'); if (p) { p.innerHTML = bodyHTML(G.edit.text); afterRender(); } }, 300);
   });
 
-  window.GuideUI = { has, html, afterRender, load, reset() { G.loaded = ''; G.edit = null; G.urls = {}; } };
+  window.GuideUI = { has, html, afterRender, renderConfig, afterRenderConfig, load, reset() { G.loaded = ''; G.edit = null; G.urls = {}; } };
 })();

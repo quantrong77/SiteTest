@@ -247,11 +247,18 @@ Hãy dùng đúng nhãn hiển thị trên phiên bản đang chạy.
 
 Hình trong hướng dẫn (sơ đồ đấu dây, sơ đồ nguyên lý) lấy từ tài liệu nội bộ nên **không nằm trong mã nguồn** (repo công khai) mà lưu trong kho file riêng tư của CSDL. Cần đăng nhập để xem hình.
 
-1. Admin mở một hạng mục, bước **Hướng dẫn đo**, bấm **Nạp hình từ tài liệu…**.
+Việc nạp hình và tình trạng nội dung nằm ở trang **HD Cấu hình hướng dẫn đo** (nhóm *Tiêu chuẩn & tra cứu* trên menu; ở bước Hướng dẫn đo, Admin có nút **Cấu hình hướng dẫn đo** để mở nhanh). Trang gồm:
+
+- **1. Hình từ tài liệu**: hai tài liệu nguồn, số hình *đã nạp / cần có* của từng tài liệu; **Danh sách hình** có ảnh thu nhỏ, chú thích, nguồn (tên ảnh trong .docx hoặc số trang .pdf), hạng mục dùng hình, trạng thái *Đã nạp / Chưa nạp*.
+- **2. Nội dung hướng dẫn theo hạng mục**: hạng mục đang dùng nội dung mặc định hay *Đơn vị đã chỉnh* (ngày, ghi chú), số hình; Admin bấm **Sửa** (mở ô soạn ở hạng mục) hoặc **Khôi phục mặc định**; tài khoản khác bấm **Xem**.
+
+Nạp hình (Admin):
+
+1. Mở trang **HD Cấu hình hướng dẫn đo**, bấm **Nạp hình từ tài liệu…**.
 2. Chọn cùng lúc tệp *TaiLieuĐT_TNNhatThu MBA_2026.docx* và *2.Qui trình kiểm định máy biến áp.pdf* (bản scan 51 trang).
 3. App tách ảnh nhúng trong .docx và cắt vùng hình trên các trang PDF ngay trong trình duyệt, rồi lưu vào kho file (bucket `library`, thư mục `guide/MBA/`). Chỉ làm một lần cho đơn vị; nạp lại sẽ ghi đè.
 4. Ảnh .docx chỉ nhận khi đúng phiên bản tài liệu (đúng dung lượng từng ảnh); tài liệu đã sửa thì hình không khớp bị bỏ qua và báo số lượng. PDF phải đúng 51 trang.
-5. Hình chưa nạp hiện khung *Hình chưa nạp vào CSDL*.
+5. Kết quả nạp (số hình mỗi tệp, hình bỏ qua) hiện ngay trên trang; cột *Đã nạp* và danh sách hình cập nhật. Hình chưa nạp hiện khung *Hình chưa nạp vào CSDL* ở bước Hướng dẫn đo.
 
 Chỉnh nội dung cho đơn vị (Admin):
 
