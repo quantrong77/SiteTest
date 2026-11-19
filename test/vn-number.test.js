@@ -28,3 +28,16 @@ test('nhận kết quả nhận dạng trả về dưới dạng chữ số', ()
   assert.equal(VnNumber.parse('197.53'), '197,53');
   assert.equal(VnNumber.parse('-5'), '-5');
 });
+
+test('kết quả nhận dạng thực tế: kèm đơn vị, trộn chữ số và chữ, tách nghìn, tỷ', () => {
+  const P = VnNumber.parse;
+  assert.equal(P('34 độ'), '34'); assert.equal(P('34 độ C'), '34'); assert.equal(P('ba mươi bốn độ'), '34');
+  assert.equal(P('4500 mega'), '4500'); assert.equal(P('4500 MΩ'), '4500'); assert.equal(P('4500mΩ'), '4500');
+  assert.equal(P('0,5 phần trăm'), '0,5'); assert.equal(P('0,5%'), '0,5'); assert.equal(P('25 kV'), '25'); assert.equal(P('2,5 A'), '2,5');
+  assert.equal(P('2 phẩy 5'), '2,5'); assert.equal(P('2 phẩy 25'), '2,25'); assert.equal(P('âm 2 phẩy 5'), '-2,5');
+  assert.equal(P('1.234,5'), '1234,5'); assert.equal(P('4 500'), '4500');
+  assert.equal(P('một tỷ'), '1000000000'); assert.equal(P('hai tỷ ba triệu'), '2003000000');
+  // đơn vị chỉ bỏ khi đứng tách / sau chữ số: "ba", "năm mươi ba" không bị cắt chữ "a"
+  assert.equal(P('ba'), '3'); assert.equal(P('năm mươi ba'), '53'); assert.equal(P('một trăm hai mươi lăm phẩy ba'), '125,3');
+  assert.equal(P('độ'), null); assert.equal(P('xin chào'), null);
+});

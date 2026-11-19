@@ -63,7 +63,9 @@ test('biểu mẫu 3 pha: hạng mục theo máy lặp cho A, B, C; bảng ánh 
   const schema = Schema.build(Object.assign(F.defaultCfg(Schema), { template: '3P' }));
   assert.equal(schema.layout, '3P');
   assert.equal(schema.tables, 28);
-  same(schema.sections.map(s => s.id), ['visual', 'noload', 'ir', 'vector', 'bushing', 'wtgd', 'dcr', 'ratio', 'moisture', 'oltc', 'bct']);
+  // thí nghiệm ngắn mạch: mục cuối (14), các mục khác giữ đúng số của mẫu Word
+  same(schema.sections.map(s => s.id), ['visual', 'noload', 'ir', 'vector', 'bushing', 'wtgd', 'dcr', 'ratio', 'moisture', 'oltc', 'bct', 'shortCircuit']);
+  same(schema.sections.map(s => s.no), [1, 2, 3, 4, 5, 7, 8, 9, 10, 11, 13, 14]);
   const ids = [];
   Schema.eachGrid(schema, g => {
     ids.push(g.id);

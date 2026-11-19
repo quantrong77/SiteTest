@@ -86,3 +86,31 @@ test('test report sứ Hitachi: gộp nhiều file theo S/N, file sau thay bản
   H.fromBase64(tr([['SU-9', 550, 730, 0.3, 30]]), 'khac.xlsx'); // không gộp: thay toàn bộ
   same([H.reports.length, H.sources], [1, ['khac.xlsx']]);
 });
+
+test('test report sứ → lần FAT của từng sứ: chỉ sứ đã có trong danh mục (có vị trí); quy 20 °C như số đo hiện trường; ngày Excel / nhập tay', () => {
+  const ctx = load(CORE);
+  const H = ctx.HitachiBushing;
+  H.clear();
+  H.fromBase64(book(ctx, { TestReport: [['Serial', 'Ur', 'Trạng thái', 'Ngày', 'T môi trường', 'C1 đo', 'tanδ1 đo'],
+    ['SU-1', 245, 'Chưa lắp', 45658, 25, 500, 0.35], ['SU-2', 245, 'Chưa lắp', '', 25, 510, 0.36], ['SU-9', 245, 'Chưa lắp', '02/01/2025', 25, 520, 0.37]] }), 'su.xlsx');
+  const eqs = [
+    { id: 'e1', class_code: 'SU', serial_no: 'SU-1', position: '1.1', parent_serial: 'MBA-1' },
+    { id: 'e2', class_code: 'SU', serial_no: 'su-2', position: '1.1', parent_serial: 'MBA-2' },
+  ];
+  const plan = JSON.parse(JSON.stringify(H.dbPlan(eqs, [{ serial_no: 'SU-2' }])));
+  same(plan.map(p => [p.serial, p.date, p.where, p.hasFat, p.pick, !!p.reason]), [
+    ['SU-1', '2025-01-01', 'MBA-1 · đầu 1.1', false, true, false],
+    ['SU-2', '', 'MBA-2 · đầu 1.1', true, false, false],
+    ['SU-9', '2025-01-02', '', false, false, true],
+  ]);
+  const packs = JSON.parse(JSON.stringify(H.factoryPacks(['SU-1', 'SU-2'], { equipment: eqs, fileName: 'su.xlsx', date: '2024-12-30' })));
+  assert.equal(packs.length, 2);
+  same(packs[0].refs, [{ key: 'SU|SU-1', class_code: 'SU', serial_no: 'SU-1' }]);
+  assert.equal(packs[0].session.test_date, '2025-01-01');
+  assert.equal(packs[1].session.test_date, '2024-12-30', 'file không ghi ngày → ngày nhập tay');
+  const c1 = packs[0].rows.find(r => r.param === 'C1'), f = H.to20({ ur: 245, mount: 'Chưa lắp', tAmb: 25, c1: 500, tgd1: 0.35 });
+  same([c1.config, c1.phase, c1.value, c1.norm_temp_c], ['1.1', '', 500, 20]);
+  assert.ok(Math.abs(c1.value_norm - f.c1) < 1e-6);
+  assert.ok(Math.abs(packs[0].rows.find(r => r.param === 'TGD1').value_norm - f.tgd1) < 1e-6);
+  H.clear();
+});

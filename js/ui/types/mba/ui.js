@@ -31,14 +31,14 @@
         return `<div class="callout"><b>Sứ RIP Hitachi Energy</b> quy đổi theo HD vận hành sứ của hãng (mục 19.6–19.8):
           T sứ = T môi trường khi <b>chưa lắp</b>, = (2·T môi trường + T dầu)/3 khi <b>đã lắp</b>; tanδ20 = tanδ/fc; C20 = C·(1 − ∆T·${HK ? String(HK.cCoef).replace('.', ',') : '0,0004'});
           sứ đã lắp cộng ΔC lắp đặt vào C1 (${HK ? HK.dC.map(r => `Ur ≤ ${r.ur} kV: ${r.pf} pF`).join('; ') : ''}).
-          So với <b>test report của hãng tra theo S/N sứ</b> (${esc(HB && HB.source ? `${HB.source}, ${HB.reports.length} sứ` : 'chưa nạp — nạp ở mục 0')}):
+          So với <b>test report của hãng tra theo S/N sứ</b> (${esc(HB && HB.source ? `${HB.source}, ${HB.reports.length} sứ` : 'chưa nạp — nạp bằng nút Thêm file .xlsx ở trên')}):
           ${tl ? `Ur ≤ ${HK.urSplit} kV: C1 ±${tl.low.c1 * 100}%, tanδ1 ±${String(tl.low.tgd1).replace('.', ',')}, C2 ±${tl.low.c2 * 100}%, tanδ2 ±${String(tl.low.tgd2).replace('.', ',')} điểm %; Ur > ${HK.urSplit} kV: C1 ±${tl.high.c1 * 100}%` : ''}.
           Sứ không có trong test report thì so với giá trị nhãn trong hồ sơ MBA (${bl.length} sứ của các máy đang chọn; ${ps}).
           <br>Chọn <b>Theo QĐ 1901</b> hoặc <b>Theo hãng</b> ở ô “Cách quy đổi về 20 °C”: tra hệ số K theo loại cách điện sứ và nhiệt độ sứ (đã lắp: nhiệt độ dầu; chưa lắp: nhiệt độ môi trường), tgδ20 = tgδ(t) × K. Bảng K do Admin cấu hình ở trang “Hệ số quy đổi sứ”.
           <div class="row-actions"><button class="btn small" data-nav="kconf">Xem bảng hệ số K</button><button class="btn small" data-act="fillBushingSN">Điền S/N sứ theo hồ sơ xuất xưởng (cần đối chiếu thực tế)</button></div></div>`;
       }
       case 'wtgd': return `<div class="callout">${mainLine}. Quy đổi về 20 °C theo <b>Bảng 7 QĐ 1901</b>: tgδ20 = tgδ(t) ÷ K2 (đo dưới 20 °C thì nhân K2); K2 tự tra theo độ chênh nhiệt độ. Tiêu chuẩn: <b>tgδ@20 °C ≤ 1 %</b>. Số liệu xuất xưởng (đo ${fm(FX.insT(s), 1)} °C) chỉ để tham khảo xu hướng.</div>`;
-      case 'dcr': return `<div class="callout">So sánh theo số chế tạo của từng cột pha (${ps}). Xuất xưởng cho R quy đổi ${D.dcr.refT} °C: cuộn SER theo nấc, COM, LV. Cuộn cao áp đo <b>${state.cfg.hvMeas === 'SER' ? 'A-Am, B-Bm, C-Cm — so với cuộn SER' : 'A-N, B-N, C-N — so với SER + COM'}</b> (chọn ở ô “Phép đo cuộn cao áp”); cuộn hạ áp: ${state.cfg.lvMode === 'delta' ? 'tam giác đã đấu (×2/3)' : 'từng máy (a–x)'} — đổi ở mục 0. ${is3P ? 'Mẫu chung 3 pha: 17 nấc, nhiệt độ đo theo từng máy, ghi BBTN đơn vị mΩ.' : 'Nấc 9a/9b/9c ứng với nấc 9A xuất xưởng.'}</div>`;
+      case 'dcr': return `<div class="callout">So sánh theo số chế tạo của từng cột pha (${ps}). Xuất xưởng cho R quy đổi ${D.dcr.refT} °C: cuộn SER theo nấc, COM, LV. Cuộn cao áp đo <b>${state.cfg.hvMeas === 'SER' ? 'A-Am, B-Bm, C-Cm — so với cuộn SER' : 'A-N, B-N, C-N — so với SER + COM'}</b> (chọn ở ô “Phép đo cuộn cao áp”); cuộn hạ áp: ${state.cfg.lvMode === 'delta' ? 'tam giác đã đấu (×2/3)' : 'từng máy (a–x)'} — đổi ở mục 0. ${is3P ? 'Mẫu chung 3 pha: 17 nấc, nhiệt độ đo theo từng máy, ghi BBTN đơn vị mΩ.' : 'Nấc 9a/9b/9c ứng với nấc 9A xuất xưởng.'}${state.cfg.oltcWinding === 'MV' && Schema.layoutOf(state.cfg) === Schema.LAYOUT_110 ? ' <b>OLTC ở cuộn trung áp</b>: cuộn trung áp nhập theo nấc, chỉ so xuất xưởng khi file xuất xưởng có R cuộn chung theo nấc; cuộn cao áp một giá trị. Khi xuất BBTN, bảng nấc của mẫu ghi cuộn trung áp (đổi nhãn đề mục).' : ''}</div>`;
       case 'ratio': return `<div class="callout">Tỷ số định mức lấy từ bảng xuất xưởng theo nấc (HV:MV), HV:LV = (U<sub>HV</sub>/√3)/U<sub>LV</sub>${state.cfg.lvMode === 'delta' ? ' × √3 (tổ đã đấu tam giác)' : ''}. ΔK tự tính nếu để trống; có thể nhập ΔK đọc từ máy đo. ${ps}.</div>`;
       case 'oltc': return `<div class="callout">OLTC theo hồ sơ xuất xưởng: <b>${esc(D.specs.oltc || '—')}</b>.</div>`;
       case 'moisture': return `<div class="callout">${mainLine}: độ ẩm cách điện cứng theo DFR xuất xưởng = <b>${fm(FX.moisture(s), 2)} %</b>. Phân loại theo Điều 28.</div>`;
@@ -57,11 +57,40 @@
   // Công cụ đầu hạng mục (mục 7, 8, 9: nhập file Haefely 2293; mục 11: số cuộn thứ cấp, nhập XML CPC 100)
   function sectionTools(id, A) {
     if (['dcr', 'ratio', 'oltc'].includes(id)) {
-      return `<div class="bct-tools"><div class="fields"><div class="field"><label>Số liệu từ máy đo</label><button class="btn primary" data-act="load2293">Nhập file Haefely 2293…</button></div>${id === 'oltc' ? A.cfgField('oltcCharts', 'Đồ thị chụp sóng trong phụ lục BBTN', { options: [['all', 'Từng lần chuyển nấc (2 đồ thị/hàng)'], ['overlay', 'Gộp theo chiều tăng / giảm nấc']] }) : ''}</div>`
+      return phaseFillHTML(id, A) + `<div class="bct-tools"><div class="fields"><div class="field"><label>Số liệu từ máy đo</label><button class="btn primary" data-act="load2293">Nhập file Haefely 2293…</button></div>${id === 'oltc' ? A.cfgField('oltcCharts', 'Đồ thị chụp sóng trong phụ lục BBTN', { options: [['all', 'Từng lần chuyển nấc (2 đồ thị/hàng)'], ['overlay', 'Gộp theo chiều tăng / giảm nấc']] }) : ''}</div>`
         + '<div class="hint-text">Chọn cùng lúc các file <b>.csv</b> xuất từ máy (điện trở một chiều, tỷ số biến, chuyển nấc) và file <b>.bin</b> cùng tên (dạng sóng chụp OLTC); có thể chọn file của cả ba pha. Bỏ qua các file .dat, .mat.</div></div>';
     }
+    // mục 5: test report sứ của hãng (tra theo S/N sứ) — nạp ngay tại mục dùng nó
+    if (id === 'bushing') return `<div class="bct-tools"><div class="fields">${generalFiles(A)}</div><div class="hint-text">File test report sứ Hitachi (.xlsx, sheet TestReport + TraCuu): app gộp theo S/N sứ, so C1, tanδ đo được với giá trị hãng. Nạp được nhiều file (sứ của nhiều máy).</div></div>`;
     if (id !== 'bct') return '';
     return `<div class="bct-tools"><div class="fields">${bctPlaceField(A)}${A.cfgField('bctCores.hv', 'Số cuộn thứ cấp TI phía HV', { options: [4, 5, 6] })}${A.cfgField('bctCores.mv', 'Số cuộn thứ cấp TI phía MV', { options: [4, 5] })}<div class="field"><label>Đặc tính từ hóa từ máy đo</label><button class="btn primary" data-act="loadCpc">Nhập XML CPC 100…</button></div><div class="field"><label>Tỷ số, điện trở, từ hóa</label><button class="btn primary" data-act="loadMrct">Nhập Megger MRCT (.pdbxml, PDF)…</button></div></div><div class="hint-text">CPC 100: chọn một hoặc nhiều file XML (mỗi file một pha/một phía); app lấy 3 điểm (U, I) theo IEC 61869-2 và điền vào bảng đặc tính từ hóa. Megger MRCT: chọn file .pdbxml của PowerDB và/hoặc báo cáo PDF "CT TEST REPORT"; tỷ số đo, sai số, góc pha, cực tính chỉ có trong báo cáo PDF. File có cuộn 5, 6 sẽ tự mở thêm cuộn. Phía LV và trung tính theo template chỉ có 4 và 3 cuộn.</div></div>`;
+  }
+
+  // ---------------------------------------------------------------- BBTN riêng từng pha: bổ sung số liệu 2 pha còn lại từ CSDL
+  function phaseFillPlan(A) {
+    const st = A.state;
+    return MbaPhaseFill.plan({ state: st, schema: A.schema, cells: TrendInlineUI.cellMap(), history: TrendInlineUI.history(),
+      sessionId: st.db && st.db.sessionId, val: k => Common.toNum(st.v[k]) });
+  }
+  function phaseFillHTML(id, A) {
+    if (!['dcr', 'ratio'].includes(id) || !window.MbaPhaseFill) return '';
+    const ap = MbaPhaseFill.applies(A.state, A.schema);
+    if (!ap) return '';
+    const esc = A.esc, ps = A.state.cfg.ps;
+    const p = phaseFillPlan(A);
+    const filled = Object.values((A.state.att && A.state.att.phaseFill) || {}).length;
+    const who = ap.others.map(x => `pha ${x} (${ps[x]})`).join(', ');
+    let msg;
+    if (p.reason === 'no-date') msg = 'Nhập <b>ngày thí nghiệm</b> (bước ③ trình khởi tạo) để tìm lần đo cùng đợt.';
+    else if (!TrendInlineUI.history().length) msg = window.DB && DB.user ? 'Chưa có số liệu của các máy này trong CSDL (hoặc đang tải).' : 'Đăng nhập để lấy số liệu từ CSDL.';
+    else if (p.fills.length) {
+      const by = [...new Map(p.fills.map(f => [f.phase, f])).values()];
+      msg = `Có <b>${p.fills.length}</b> giá trị cùng đợt: ${by.map(f => `pha ${esc(f.phase)} ngày ${esc(f.date.split('-').reverse().join('/'))}`).join(', ')}.`;
+    } else msg = `Không có lần đo cùng đợt (cách ngày thí nghiệm ≤ ${p.days} ngày) cho ô còn trống.`;
+    return `<div class="callout"><b>BBTN riêng máy pha ${esc(ap.cur)} của tổ 3 máy 1 pha.</b> So sánh giữa các pha (QĐ 1901 Điều 9 mục 6, 7) cần số liệu ${esc(who)}. `
+      + `${msg}${filled ? ` Đã bổ sung ${filled} ô (tô vàng; không ghi vào lần thí nghiệm này khi lưu CSDL).` : ''}`
+      + `<div class="fields">${A.cfgField('campaignDays', 'Cùng đợt: cách ngày thí nghiệm tối đa (ngày)', { num: true })}`
+      + `<div class="field"><label>&nbsp;</label><button class="btn" data-act="pfFill" ${p.fills.length ? '' : 'disabled'}>Bổ sung số liệu pha ${esc(ap.others.join(', '))} từ CSDL</button></div></div></div>`;
   }
 
   // ---------------------------------------------------------------- mục 9: chụp sóng OLTC (xem trước phụ lục)
@@ -159,7 +188,8 @@
     return rip ? `<div class="field"><label>${A.esc(label)}</label><div class="calcval" data-n="${f.k}"></div></div>` : null;
   }
   // Đổi cách quy đổi sứ / trạng thái lắp → vẽ lại hạng mục (ô K đổi giữa ô nhập và giá trị tính)
-  const rerenderOn = /\.(kmode|mount)$/;
+  // đổi lý do thí nghiệm: hiện / ẩn ô "lấy làm giá trị khởi đầu" (sau sửa chữa)
+  const rerenderOn = /\.(kmode|mount)$|^meta\.reason$/;
 
   // Lưới đặc tính từ hóa: nút tải XML cho đúng phía/pha; nhãn hàng theo đầu cuộn thực đo
   const gridTools = g => (g.ex ? `<button class="btn small" data-act="cpcSlot" data-grid="${g.id}">Tải XML CPC 100…</button>` : '');
@@ -215,13 +245,18 @@
   }
 
   function generalConfig(A) {
-    const { cfgField, FX } = A, D = FX && FX.data;
-    const serialOpts = D ? D.order.map(s => [s, `${s} — pha ${D.units[s].phase}`]) : [];
-    let h = '<h3>Ánh xạ cột pha ↔ số chế tạo (để so sánh từng cột với đúng máy)</h3><div class="hint-text">Template có cột A/B/C. Với tổ 3 máy 1 pha, mỗi cột ứng với một máy; nếu chỉ thí nghiệm một máy, đặt cả ba cột về cùng số chế tạo hoặc chỉ nhập cột của máy đó. Cột N (trung tính) dùng số chế tạo máy chính.</div><div class="fields">';
-    ['A', 'B', 'C'].forEach(p => { h += cfgField(`ps.${p}`, `Cột pha ${p} (a)`, serialOpts.length ? { options: [['', '—']].concat(serialOpts) } : {}); });
-    h += '</div><h3>Thông số tính toán & quy ước so sánh</h3><div class="fields">';
+    const { cfgField } = A;
+    let h = '';
+    h += '<h3>Phụ lục BBTN</h3><div class="fields">'
+      + cfgField('stdAppendix', 'Phụ lục bảng tra cứu tiêu chuẩn thí nghiệm (QĐ EVNNPT, IEC, IEEE)', { options: [['off', 'Không kèm (như mẫu BBTN)'], ['on', 'Kèm phụ lục cuối BBTN']] })
+      + '</div>';
+    h += '<h3>Thông số tính toán & quy ước so sánh</h3><div class="fields">';
     h += cfgField('taps', 'Nhãn 19 nấc (thứ tự hàng 1..19 của template)', { wide: true, note: 'Ngăn cách bằng dấu phẩy. Nhãn 9a/9b/9c được so với nấc 9A của xuất xưởng.' });
     h += cfgField('hvMeas', 'Phép đo R một chiều cuộn cao áp (mục 7.1)', { options: Schema.HV_MEAS });
+    if (Schema.layoutOf(A.state.cfg) === Schema.LAYOUT_110) {
+      h += cfgField('oltcWinding', 'Bộ điều áp dưới tải (OLTC) đặt ở cuộn', { options: Schema.OLTC_WINDINGS,
+        note: 'Trung áp: R một chiều cuộn trung áp và tỷ số MV:LV nhập theo nấc; cuộn cao áp, tỷ số HV:LV một giá trị' });
+    }
     h += cfgField('lvMode', 'Cuộn hạ áp khi đo', { options: [['unit', 'Từng máy 1 pha (chưa đấu tam giác)'], ['delta', 'Tổ 3 pha đã đấu tam giác']] });
     h += cfgField('iLV', 'Dòng định mức cuộn hạ áp I_LV (A)', { num: true });
     h += cfgField('sLV', 'Công suất cuộn hạ áp S_LV (MVA)', { num: true });
@@ -238,6 +273,46 @@
     h += cfgField('bctErrLimit', 'Giới hạn sai số tỷ số TI chân sứ (%)', { num: true, note: 'QĐ 1901 không nêu số — nhập theo cấp chính xác nếu muốn tự đánh giá Đạt/Không đạt' });
     h += cfgField('decSep', 'Dấu thập phân trong BBTN xuất ra', { options: [[',', 'Dấu phẩy (12,5)'], ['.', 'Dấu chấm (12.5)']] });
     return h + '</div>';
+  }
+
+  function generalTopology(A) {
+    return '<h3>Cấu hình MBA</h3><div class="fields">'
+      + A.cfgField('topology', 'Cấu hình thiết bị', { options: [
+        ['bank1p', 'Tổ 3 MBA một pha — 3 số chế tạo'],
+        ['threePhase', 'MBA ba pha — 1 số chế tạo (110/220 kV)'],
+        ['single1p', 'MBA một pha độc lập — 1 số chế tạo'],
+      ] })
+      + '<div class="field wide"><span class="note">Cấu hình quyết định trường số chế tạo và cách xuất BBTN; điện áp định mức không tự đổi cấu hình.</span></div></div>';
+  }
+
+  function unitSerialFields(A) {
+    const { cfgField } = A;
+    // mẫu theo pha: bảng R một chiều / tỷ số biến có cột pha B, C — số liệu của máy B, C trong tổ (so xuất xưởng, ghi CSDL theo máy đó)
+    if (A.state.cfg.topology === 'single1p') {
+      return '<h3>Số chế tạo máy pha B, C trong tổ</h3><div class="fields serial-fields">'
+        + ['B', 'C'].map(ph => cfgField(`ps.${ph}`, `Số chế tạo máy pha ${ph}`, { list: true,
+          note: ph === 'B' ? 'Cột pha B, C của bảng R một chiều, tỷ số biến được so với xuất xưởng và ghi CSDL theo máy này. Máy độc lập: để trống.' : '' })).join('')
+        + '</div>';
+    }
+    if (A.state.cfg.topology !== 'bank1p') return '';
+    return '<h3>Số chế tạo từng máy trong tổ</h3><div class="fields serial-fields">'
+      + A.fieldHTML({ k: 'meta.serial', label: 'Số chế tạo máy pha A', serial: true })
+      + ['B', 'C'].map(ph => cfgField(`ps.${ph}`, `Số chế tạo máy pha ${ph}`, { list: true })).join('')
+      + '</div>';
+  }
+
+  function reportScopeFields(A) {
+    if (A.state.cfg.topology !== 'bank1p') return '';
+    const selected = new Set(A.state.cfg.reportPhases || ['A', 'B', 'C']);
+    let h = '<h3>Phạm vi xuất BBTN</h3><div class="fields">'
+      + A.cfgField('reportScope', 'Cách lập biên bản', { options: [['combined', 'Một BBTN chung cho cả tổ A+B+C'], ['separate', 'Tách thành BBTN riêng theo pha']] })
+      + '</div>';
+    if (A.state.cfg.reportScope === 'separate') {
+      h += '<div class="phase-export"><span class="phase-export-title">Chọn pha cần xuất</span><div class="phase-export-options">'
+        + ['A', 'B', 'C'].map(ph => `<label><input type="checkbox" data-export-phase="${ph}" ${selected.has(ph) ? 'checked' : ''}> Pha ${ph}<span class="phase-export-sn">${A.esc(A.state.cfg.ps[ph] || 'chưa có S/N')}</span></label>`).join('')
+        + '</div><span class="note">Một pha tải DOCX riêng; nhiều pha tải thành một ZIP chứa từng BBTN.</span></div>';
+    }
+    return h;
   }
 
   function factoryUnits(A) {
@@ -277,6 +352,20 @@
       A.rebuild(true);
     },
     loadHitachi: () => $('#fileHitachi').click(),
+    pfFill(b, A) {
+      const p = phaseFillPlan(A), st = A.state;
+      if (!p.fills.length) { A.toast('Không có số liệu cùng đợt để bổ sung'); return; }
+      st.att = st.att || {};
+      const ocr = st.att.ocr = st.att.ocr || {}, pf = st.att.phaseFill = st.att.phaseFill || {};
+      p.fills.forEach(f => {
+        st.v[f.k] = f.value;
+        const src = `CSDL — máy pha ${f.phase} (${f.serial}) ngày ${f.date.split('-').reverse().join('/')}`;
+        pf[f.k] = { serial: f.serial, phase: f.phase, date: f.date };
+        ocr[f.k] = { status: 'check', label: f.k, src, why: f.note || '' };
+      });
+      A.rebuild(false);
+      A.toast(`Đã bổ sung ${p.fills.length} giá trị của pha ${[...new Set(p.fills.map(f => f.phase))].join(', ')} để so sánh giữa các pha`);
+    },
     resetHitachi(b, A) {
       A.lsSet(LS_HITS, null); A.lsSet(LS_HIT, null);
       loadHitachiDefault(A); A.recompute(); A.renderMain();
@@ -336,9 +425,11 @@
       const list = hitFiles(A).filter(x => x.name !== f.name).concat([{ name: f.name, b64: A.abToB64(buf) }]);
       if (!A.lsSet(LS_HITS, JSON.stringify(list))) A.toast('File lớn — chỉ dùng trong phiên này', true);
       A.recompute(); A.renderMain(); A.toast(`Đã thêm test report sứ ${f.name}: ${info.count} sứ (tổng ${info.total} sứ)`);
+      // trang XX (đã đăng nhập): mở khung lưu lên CSDL
+      document.dispatchEvent(new CustomEvent('bushingtr:added', { detail: { name: f.name, count: info.count } }));
     }));
   }
 
   window.TypeUI = window.TypeUI || {};
-  window.TypeUI.MBA = { intro, headTools, sectionTools, sectionFooter, reportAssets, field, rerenderOn, gridTools, rowLabel, generalFiles, generalConfig, factoryUnits, actions, init };
+  window.TypeUI.MBA = { intro, headTools, sectionTools, sectionFooter, reportAssets, field, rerenderOn, gridTools, rowLabel, generalFiles, generalConfig, generalTopology, unitSerialFields, reportScopeFields, factoryUnits, actions, init };
 })();

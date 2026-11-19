@@ -12,11 +12,26 @@ số liệu xuất xưởng (`ThinghiemHientruongMBA/Bao_Cao_Thu_Nghiem_3_MBA_50
 
 ## Chạy
 
-Mở `index.html` bằng Chrome hoặc Edge. Không cần cài đặt, không cần mạng (thư viện JSZip, SheetJS, supabase-js có sẵn trong `js/vendor/`).
+Cần Node.js 22.12 trở lên (hoặc 20.19 trở lên). Cài thư viện và khởi động giao diện phát triển:
+
+```sh
+npm ci
+npm run dev
+```
+
+Vite in địa chỉ để mở ứng dụng trong Chrome hoặc Edge. Tạo bản tĩnh để kiểm tra trước khi phát hành:
+
+```sh
+npm run build
+npm run preview
+```
+
+Các thư viện đọc/ghi DOCX, XLSX và Supabase vẫn được nạp từ `js/vendor/`; dữ liệu nhập tiếp tục được lưu cục bộ như trước.
 
 Trong Chrome/Edge, bấm **Đọc số** ở đầu hạng mục để nhập số tiếng Việt vào ô đang chọn; bật **Liên tục** để tự chuyển xuống hàng dưới trong cùng cột. Chrome/Edge gửi âm thanh lên máy chủ Google để nhận dạng, nên cần có mạng.
 
-**Xu hướng ngay tại ô nhập:** khi đã đăng nhập và mở biên bản đã lưu CSDL, dưới ô số có lịch sử hiện biểu đồ nhỏ và % thay đổi của giá trị đang nhập (đã quy đổi 20 °C / 75 °C như khi lưu) so với xuất xưởng (XX) và lần đo trước. Tô vàng khi vượt ngưỡng QĐ 1901 so với giá trị khởi đầu (R một chiều, tỷ số, điện dung, mức tăng tgδ). Lịch sử lưu tạm trong trình duyệt để xem khi mất mạng. Chỉ để tham khảo, không đổi kết quả đánh giá.
+**Xu hướng ngay tại ô nhập:** ngay khi có số chế tạo (cả biên bản mới đang lập ở hiện trường), app tải lịch sử đo của các thiết bị trong biên bản (CSDL khi đã đăng nhập; lưu tạm trong trình duyệt để dùng khi mất mạng); dưới ô số có lịch sử hiện biểu đồ nhỏ và % thay đổi của giá trị đang nhập (đã quy đổi 20 °C / 75 °C như khi lưu) so với xuất xưởng (XX) và lần đo trước. Tô vàng khi vượt ngưỡng QĐ 1901 so với giá trị khởi đầu (R một chiều, tỷ số, điện dung, mức tăng tgδ) hoặc R60@20 giảm quá 30% so với khởi đầu / lần trước.
+**Đánh giá xu hướng theo QĐ 1901 ngay khi nhập:** lịch sử được đưa vào đánh giá (`Evaluate.evaluate(..., { history })`); dòng CSDL của biên bản đang nhập (`MbaRows.fieldRows`, cùng khóa như khi lưu) được so với giá trị khởi đầu / lần trước của cùng thiết bị theo bảng `TREND_RULES` (`js/domain/types/mba/evaluate.js`): R60@20 giảm ≤ `IR_DROP` 30% so với khởi đầu **và** lần trước (Điều 29 mục 3); tgδ cuộn dây @20 °C tăng ≤ `WINDING_TGD_RISE` 30% (bỏ qua khi < `WINDING_TGD_OK` 1%, Điều 30 mục 3); điện dung cuộn dây ±`WINDING_C_DEV` 5% (Điều 9 mục 5); C1 sứ ≤ `BUSHING_C1_DEV` 5% (Điều 38 mục 3c); tgδ C1 sứ trong vận hành tăng ≤100%, 70–100% "Cần xem xét" (Điều 38 mục 3a); tổn hao không tải P0: sau lắp đặt/sửa chữa ±5% xuất xưởng (3 pha ≥110 kV, `NOLOAD_3PH_NEW`) hoặc ±10% khởi đầu (1 pha ≥110 kV), vận hành ±15% (Điều 34 mục 3). Mỗi đại lượng có dòng "Xu hướng …" trong mục tương ứng; vượt → "Không đạt"/"Cần xem xét", khung cảnh báo đỏ đầu mục kèm hướng xử lý (phần có căn cứ ghi điều khoản, phần còn lại ghi "gợi ý"), kết luận tự động liệt kê. Đánh giá so với xuất xưởng sẵn có giữ nguyên; không có lịch sử → như trước (lần đo là giá trị khởi đầu). **Giá trị khởi đầu sau sửa chữa:** biên bản lý do "Sau sửa chữa/đại tu" chọn `cfg.baselineReset` — `INSULATION` (có lọc dầu, sấy chân không: số liệu cách điện cuộn dây IR, WTGD lần này là khởi đầu mới — quy định đơn vị) hoặc `ALL` (thay cuộn dây / kết cấu cách điện: mọi số liệu, QĐ 1901 Điều 2); lưu ở `test_sessions.baseline_reset` (migration `20261118000100_baseline_reset.sql`), `v_trend_delta` và `TrendInline.series` lấy lần đặt lại gần nhất làm mốc, không có thì xuất xưởng, không có thì lần sớm nhất.
 
 **Số liệu không nằm trong repo.** Template BBTN của đơn vị và file Test report xuất xưởng là dữ liệu nội bộ nên không đưa lên Git
 (`js/embedded.js`, `*.docx`, `*.xlsx` nằm trong `.gitignore`). Có hai cách nạp:
@@ -34,11 +49,13 @@ Dữ liệu đang nhập được tự lưu trong trình duyệt; dùng **Lưu .
 2. **Mục 1–11**: mỗi hạng mục có 4 bước *Chuẩn bị · Hướng dẫn đo · Nhập số liệu · Đánh giá* và khung *Tài liệu tham khảo*
    (điều khoản QĐ 1901; quy trình đơn vị và HD máy đo khi có). Thanh điều hướng hiện tiến trình và trạng thái từng hạng mục
    (chưa làm / đang làm / đã nhập / đạt / cần xem xét / không đạt), vẫn nhảy tự do giữa các hạng mục.
+   Các hạng mục MBA tương ứng có hướng dẫn đo rút gọn theo *Tài liệu đào tạo thí nghiệm MBA (2026)*,
+   kèm dẫn mục nguồn; hướng dẫn không thay thế sơ đồ đấu nối và quy trình chi tiết được duyệt.
    Bước Nhập số liệu: nhập vào các bảng giống hệt template. Có thể **dán khối từ Excel** (Ctrl+V vào ô đầu),
    Enter để xuống dòng. Ô viền xanh/đỏ/vàng = Đạt / Không đạt / Cần xem xét; rê chuột vào ô để xem chi tiết.
    Ô nền xám là giá trị tự tính (Kht, PI, quy đổi 20 °C, ΔR, ΔK…); ô chữ nghiêng mờ là giá trị tự tính có thể ghi đè.
 3. **Σ Tổng hợp**: xem toàn bộ kết quả so sánh, chỉnh đánh giá ghi vào BBTN nếu cần, điền kết luận.
-4. **Xuất BBTN .docx** (điền vào template) và **Xuất so sánh .xlsx** (bảng so sánh chi tiết để lưu hồ sơ).
+4. **Xuất BBTN .docx** (điền vào template) và **Xuất so sánh .xlsx** (bảng so sánh chi tiết để lưu hồ sơ). Cuối BBTN có phụ lục bảng tra theo từng hạng mục, tách tiêu chí QĐ EVNNPT khỏi các tiêu chuẩn IEC/IEEE liên quan. Viện dẫn IEC/IEEE nêu phương pháp hoặc hướng dẫn; chỉ dùng làm giới hạn đạt/không đạt khi hồ sơ áp dụng quy định rõ.
 
 ## Đọc ảnh nameplate (mục 0)
 
@@ -47,19 +64,27 @@ Dữ liệu đang nhập được tự lưu trong trình duyệt; dùng **Lưu .
 - Ảnh được phóng to, chuyển xám, lọc trung vị (bỏ hạt nhiễu, vân xước kim loại) trước khi đọc. Bảng nhãn – giá trị bị
   OCR tách cột được ghép lại theo toạ độ trên ảnh, có bù độ nghiêng.
 - Trường đọc: hãng, kiểu loại, số chế tạo, năm, công suất (cuộn HV), điện áp và dòng định mức (ghép HV/MV/LV đúng cách
-  ghi trong BBTN), tổ đấu dây, kiểu OLTC (mục 9), I0 nameplate (cấu hình mục 0).
+  ghi trong BBTN), tổ đấu dây, kiểu OLTC, I0 nameplate (cấu hình mục 0).
 - Hộp thoại cho xem ảnh, sửa giá trị, chọn ô cần điền, xoay ảnh đọc lại. Sau khi điền: ô **tô vàng** = đọc được nhưng chưa
   chắc chắn (độ tin cậy < 80 %, đã sửa ký tự O→0, bỏ khoảng trắng, ghép theo thứ tự cuộn, số giá trị giữa các cuộn không
   khớp…), ô **tô đỏ** = không đọc được, cần nhập tay; có băng nhắc ở đầu khối. Sửa ô thì ô đó hết tô nền; hoặc bấm
   *Đã kiểm tra hết*.
 - OCR trên ảnh chụp thật có thể sai (lóa, chữ khắc mờ, góc chụp): luôn đối chiếu với nameplate.
 
-## Phụ lục BBTN (OLTC, SFRA, dầu MBA)
+## Hạng mục thực hiện, lý do thí nghiệm
+
+Mục 0 có khối **Hạng mục thực hiện trong lần thí nghiệm này** (và ô **Thực hiện** ở đầu từng hạng mục): bỏ tích → ẩn vùng nhập,
+không đánh giá, không ghi CSDL / BBTN (`cfg.skip`, lọc bằng `Report.performed`); số liệu vẫn giữ. **Lý do thí nghiệm**: Sau lắp đặt,
+1 năm sau lắp đặt, Định kỳ 1/3/6 năm, Tăng cường, Đột xuất, Sau sửa chữa/đại tu (`Schema.REASONS`); mã CSDL theo `Common.kindOf`
+(Tăng cường → OTHER); "1 năm sau lắp đặt" dùng ngưỡng máy đã vận hành.
+
+## Phụ lục BBTN (OLTC, SFRA, dầu MBA) và mục ngắn mạch MBA
 
 Trang **Phụ lục BBTN** (thanh điều hướng, nhóm Kết quả). Khi xuất BBTN .docx, mỗi phụ lục được nối thành một section
 riêng sau biên bản (trang mới, đánh số trang lại; nhiều phụ lục thì đánh "PHỤ LỤC 1, 2").
 
-- **Chụp sóng OLTC**: dựng từ file Haefely 2293 nhập ở mục 9.
+- **Chụp sóng OLTC**: dựng từ file Haefely 2293 nhập ở hạng mục OLTC.
+- **Thí nghiệm ngắn mạch MBA**: hạng mục cuối của biên bản (mục 12; mẫu 3 pha chung: mục 14) với các tab Chuẩn bị, Hướng dẫn đo, Nhập số liệu và Đánh giá. Nhập U theo V hoặc kV (có gợi ý 67/220/380 V, chấp nhận giá trị khác), I/P, f, Un/In, nhiệt độ, PI²R và vật liệu dây dẫn nếu cần. App nhận dạng bố cục 1 pha / ba máy 1 pha / MBA 3 pha để ghép số chế tạo và xét lệch pha. Theo QĐ 1387 Điều 26, dòng thử phải ≥25% In; khi thiếu điện áp theo Test Report, dùng 380 V hoặc ≤10 kV rồi nội suy. Khi xuất BBTN: thêm hàng "12. Thí nghiệm ngắn mạch máy biến áp" vào bảng hạng mục trang 1 và mục 12 (bảng số liệu, so sánh Test Report, đánh giá) ngay trước "THIẾT BỊ THÍ NGHIỆM" — không còn là phụ lục. Bảng/hàng do app thêm được đánh dấu để nhập lại BBTN đã xuất không lệch chỉ số bảng.
 - **SFRA**: bấm *Mở SFRA Analyzer* (https://quantrong77.github.io/-Analysis-SFRA/), phân tích rồi tải báo cáo Word ở mục
   *Báo cáo*; quay lại bấm *Nạp báo cáo SFRA (.docx)…*. App hiện tiêu đề, số phép đo, kết luận của báo cáo; khi xuất,
   nội dung báo cáo (bảng, giản đồ Bode, kết luận) được nối nguyên văn — ảnh và kiểu đoạn được chép sang mã riêng để không
@@ -85,8 +110,8 @@ Tài liệu tiêu chuẩn, quy trình của đơn vị và hướng dẫn máy �
 
 - Mỗi hạng mục có nút **Hoàn tác** (kèm số bước) và **Xóa số liệu hạng mục** cạnh thanh 4 bước.
 - Mỗi bước hoàn tác là một thao tác: sửa xong một ô, dán bảng, nhập file máy đo (Haefely 2293, CPC 100), điền tự động,
-  thêm / xóa dòng, xóa hạng mục. Một lần nhập file đổi nhiều hạng mục thì mỗi hạng mục có bước riêng (vd hoàn tác mục 9
-  không đụng số liệu mục 7, 8 vừa nhập cùng file).
+  thêm / xóa dòng, xóa hạng mục. Một lần nhập file đổi nhiều hạng mục thì mỗi hạng mục có bước riêng (vd hoàn tác hạng mục OLTC
+  không đụng số liệu các hạng mục khác vừa nhập cùng file).
 - **Ctrl+Z** khi con trỏ không ở trong ô nhập: hoàn tác hạng mục đang mở (trong ô nhập, Ctrl+Z vẫn là hoàn tác gõ chữ).
 - Xóa hạng mục giữ nguyên thông tin chung, cấu hình (đề mục cột, nhãn dòng) và kết luận.
 - Lịch sử giữ trong phiên làm việc (tối đa 200 bước), mất khi tải lại trang hoặc tạo / mở biên bản khác.
@@ -96,7 +121,7 @@ Tài liệu tiêu chuẩn, quy trình của đơn vị và hướng dẫn máy �
 | Hạng mục | Khóa tra cứu |
 |---|---|
 | Không tải, cách điện, tgδ cuộn dây, độ ẩm, OLTC | Số chế tạo máy chính |
-| Điện trở một chiều, tỷ số biến | Số chế tạo của từng cột pha + nấc (9a/9b/9c → 9A) |
+| Điện trở một chiều, tỷ số biến | Số chế tạo của từng cột pha + nấc |
 | Sứ đầu vào | **Số chế tạo sứ** nhập ở bảng; không khớp thì theo vị trí đầu sứ của máy ứng với cột pha |
 | Biến dòng chân sứ | Số chế tạo máy (cột pha) + ký hiệu cuộn, vd `2S1-2S3` (mã lõi CT đặt ở mục 0) |
 
@@ -141,14 +166,14 @@ Tài liệu tiêu chuẩn, quy trình của đơn vị và hướng dẫn máy �
     Cực tính ghi vào ô "Kết quả kiểm tra cực tính" khi ô còn trống. Hai lõi cùng vào một ô thì không cho điền.
 - **Haefely 2293** (mục 7, 8, 9 — nút *Nhập file Haefely 2293…*): chọn cùng lúc các file `.csv` xuất từ máy và file `.bin`
   cùng tên của cả ba pha (bỏ qua `.dat`, `.mat`).
-  - Điện trở một chiều theo nấc → mục 7 (Ω → mΩ), tỷ số biến theo nấc → mục 8, bảng chuyển nấc + dạng sóng → mục 9.
+  - Điện trở một chiều theo nấc (Ω → mΩ), tỷ số biến theo nấc, bảng chuyển nấc + dạng sóng OLTC.
   - Pha lấy theo tên file (…TAP-A, …TSB B, …pha C) vì máy 1 pha đo từng máy với cùng dây A–N; cặp cuộn của tỷ số biến
     đoán theo tỷ số định mức xuất xưởng gần nhất; nơi ghi của từng loại số liệu sửa được trong hộp thoại.
   - Nấc 9 của máy (17 nấc) ghi vào hàng 9b (chọn được 9a / 9c / cả ba). Nhóm điện trở lệch xa các file khác mặc định không điền.
   - Biểu mẫu chỉ có một ô nhiệt độ mỗi cuộn: các pha đo ở nhiệt độ khác nhau được quy về cùng nhiệt độ
     (R2 = R1·(235+t2)/(235+t1)) trước khi ghi — có thể bỏ chọn trong hộp thoại.
   - Dạng sóng R(t) (3250 mẫu, 6500 Hz) được nén (min/max mỗi 5 mẫu, 16 bit) và lưu trong biên bản (`state.att.oltc`),
-    xem trước ở mục 9. Khi xuất BBTN, **phụ lục chụp sóng OLTC** được nối vào section riêng sau biên bản (đánh số trang lại):
+    xem trước ở hạng mục OLTC. Khi xuất BBTN, **phụ lục chụp sóng OLTC** được nối vào section riêng sau biên bản (đánh số trang lại):
     mỗi pha một bảng số liệu và đồ thị từng lần chuyển nấc (hoặc gộp theo chiều tăng / giảm).
   - QĐ 1901 không nêu ngưỡng chụp sóng: app chỉ báo “Cần xem xét” khi máy không ghi nhận chuyển mạch (tFall = tRise = 0)
     hoặc dòng đo sụt dưới 50 % trong lúc chuyển nấc; đánh giá theo hướng dẫn NSX OLTC.
@@ -174,7 +199,7 @@ Tài liệu tiêu chuẩn, quy trình của đơn vị và hướng dẫn máy �
 ### Đăng nhập bằng Google
 
 Đăng nhập Google cần mở app qua địa chỉ `http(s)`, không mở trực tiếp file `index.html`:
-chạy **`start.bat`** (mở `http://localhost:8000`) hoặc bật GitHub Pages cho repo (Settings → Pages → Branch `main`, thư mục `/root`).
+chạy **`start.bat`** (mở `http://localhost:8000`) hoặc bật GitHub Pages cho repo (Settings → Pages → Source: GitHub Actions).
 
 Cấu hình một lần:
 
@@ -187,7 +212,7 @@ Cấu hình một lần:
 2. **Supabase** → *Authentication* → *Sign In / Providers* → **Google**: bật, dán Client ID + Client secret, Save.
 3. **Supabase** → *Authentication* → *URL Configuration*:
    - *Site URL*: địa chỉ chính của app (vd `https://quantrong77.github.io/SiteTest/`).
-   - *Redirect URLs*: thêm `http://localhost:8000/**` và `https://quantrong77.github.io/SiteTest/**`.
+   - *Redirect URLs*: thêm `http://127.0.0.1:5173/**` và `https://quantrong77.github.io/SiteTest/**`.
 4. Chạy thêm migration `20261023000300_auth_profile.sql` để lưu tên & ảnh đại diện Google.
 
 Người đăng nhập Google lần đầu được tạo tài khoản quyền **viewer**; admin cấp quyền như trên.
@@ -200,7 +225,7 @@ Người đăng nhập Google lần đầu được tạo tài khoản quyền *
 | `test_sessions` | Mỗi lần thí nghiệm: `FAT` (Test report xuất xưởng), `SAT` (sau lắp đặt), `PERIODIC`, `AFTER_REPAIR`…; kèm toàn bộ biểu mẫu (`app_state`) để mở lại và xuất lại BBTN |
 | `measurements` | Một giá trị một dòng: hạng mục · đại lượng · sơ đồ/cuộn · pha · nấc, giá trị đo, nhiệt độ, **giá trị quy đổi chuẩn** (20 °C / 75 °C), đánh giá |
 | `test_findings` | Kết quả so sánh – đánh giá của app tại thời điểm lưu |
-| `documents` + Storage `test-documents` | File BBTN .docx đã xuất, Test report gốc |
+| `documents` + Storage `test-documents` | File BBTN .docx đã xuất, PDF BBTN gốc, Test report gốc, ảnh hiện trường |
 | `v_trend_delta` | Chuỗi xu hướng kèm giá trị khởi đầu (FAT nếu có) và % thay đổi |
 
 Phân quyền (RLS): viewer xem; editor nhập/sửa và xóa bản nháp của mình; admin toàn quyền.
@@ -211,7 +236,7 @@ Phân quyền (RLS): viewer xem; editor nhập/sửa và xóa bản nháp của 
 - Trước khi **Lưu CSDL** hoặc **Nhập Test report**, chọn Trạm/Ngăn lộ ở trang CSDL để thiết bị mới được gắn vào ngăn đó.
 - **Nhập Test report vào CSDL** (trang CSDL): tạo lần thí nghiệm FAT cho từng máy, kèm sứ và BCT — mốc khởi đầu của xu hướng. Chạy lại chỉ cập nhật, không tạo trùng.
 - **Lưu CSDL** (thanh trên cùng hoặc trang CSDL): lưu biên bản đang nhập dạng nháp, hoặc **Lưu & chốt** khi đã hoàn chỉnh.
-- **Mở / Xuất BBTN .docx** từ danh sách biên bản đã lưu: mở lại biểu mẫu và xuất đúng template; file .docx được lưu kèm vào Storage.
+- **Mở / Mở cùng PDF / Xuất BBTN .docx** từ danh sách biên bản đã lưu: mở lại biểu mẫu, đối chiếu PDF gốc cạnh biểu mẫu nếu có, hoặc xuất đúng template.
 - **Xu hướng**: chọn MBA (có thể gồm cả sứ/OLTC), chọn chuỗi số liệu → biểu đồ theo thời gian từng pha/thiết bị, bảng % thay đổi,
   và danh sách các chuỗi thay đổi nhiều nhất ở lần đo gần nhất.
 
@@ -256,14 +281,23 @@ nhận là mẫu này). Cùng biểu mẫu PTC3/BM.01 với mẫu theo pha nên 
 nấc đánh số 1…19, chỉ số bảng theo chỗ ngắt trang của mẫu 110-220 (`Schema.MAP_110`), không đổi template theo pha máy chính và
 không lấy số chế tạo theo pha từ file xuất xưởng tổ máy 1 pha.
 
+**OLTC đặt ở cuộn nào** (chỉ mẫu 110–220 kV; mục 0 *Thông số tính toán* hoặc đầu mục Điện trở một chiều): *Cuộn cao áp*
+(mặc định, như trước) hoặc *Cuộn trung áp 110 kV* cho MBA 220 kV kiểu Liên Xô cũ. Chọn trung áp: R một chiều cuộn trung áp
+và tỷ số MV:LV nhập theo 19 nấc, cuộn cao áp và tỷ số HV:LV một giá trị; khi xuất BBTN, bảng nấc của mẫu ghi cuộn trung áp,
+bảng một hàng ghi cuộn cao áp (đổi nhãn đề mục "Cuộn dây trung áp / cao thế", cấp điện áp, "Cuộn MV:LV / HV:LV"). CSDL: dòng đo
+ghi `config='MV'` kèm `tap`, thiết bị lưu `rated.oltc_winding`; nhập số chế tạo của máy đã có trong CSDL thì app tự chọn theo
+thuộc tính này. Nhập BBTN .docx cũ: đề mục trước bảng nấc ghi "trung áp (M.V Winding)" → nhận là OLTC trung áp. Số liệu trung
+áp nhập trước đây (một giá trị, `tap` rỗng) là chuỗi xu hướng riêng với số liệu theo nấc.
+
 ### Nhập BBTN cũ vào CSDL (chuỗi xu hướng)
 
-Trang **Nhập BBTN cũ** (nhóm Cơ sở dữ liệu): chọn nhiều file .docx hoặc cả thư mục BBTN đã ban hành theo một trong các mẫu trên.
-App nhận dạng mẫu theo số bảng của phần biên bản (bảng phụ lục không tính), đoán số cuộn thứ cấp biến dòng chân sứ theo bảng có số
-liệu, đọc mọi ô nhập theo đúng vị trí dùng để xuất (ô tự tính được tính lại), đọc ngày dạng dd/mm/yyyy, dd.mm.yyyy hoặc
-"ngày … tháng … năm …". Bảng soát cho biết mẫu, số chế tạo, ngày, số ô đọc được và cảnh báo (thiếu số chế tạo / ngày, đọc quá ít ô).
-*Mở để soát* nạp thành biên bản đang mở để kiểm tra, sửa rồi lưu; *Lưu CSDL* lưu thẳng (đã chốt) với nguồn `manual`, kèm tên và
-file gốc trên Storage. Mẫu chung 3 pha ghi số chế tạo cả 3 máy trong một ô: máy chính lấy số đầu, cột pha A/B/C theo thứ tự.
+Trang **Nhập BBTN cũ** (nhóm Cơ sở dữ liệu): chọn một/nhiều file hoặc cả thư mục `.docx` và `.pdf`.
+DOCX được đọc theo bảng như trước. PDF có lớp chữ theo mẫu PTC3/BM.01 110–220 kV được nhận dạng thông tin bìa; PDF scan được render bằng PDF.js
+và OCR bằng [Tesseract.js](https://github.com/naptha/tesseract.js) (`vie+eng`) ngay trên máy người dùng. Engine và dữ liệu ngôn ngữ tải theo yêu cầu ở lần đầu, sau đó được cache trong trình duyệt.
+Mở PDF cạnh biểu mẫu trong cùng trang để đối chiếu, nhập/hiệu chỉnh số liệu. Bảng soát cho biết mẫu, số chế tạo, ngày, số biên bản, số ô số liệu
+và cảnh báo. Bấm **Đã soát** sau khi đã nhập ít nhất một giá trị đo rồi **Lưu CSDL**; ứng dụng lưu số đo để xem xu hướng và tải file gốc
+lên Storage. Từ danh sách biên bản đã lưu, **Mở cùng PDF** mở lại PDF gốc cạnh biểu mẫu. OCR chỉ đọc chữ in; kiểm tra kết quả vì có thể nhận sai,
+và số liệu đo trong PDF hiện cần nhập, đối chiếu thủ công. Cần áp dụng migration `20261116000100_bbtn_pdf_import.sql` trước khi lưu PDF vào CSDL.
 
 ## Phát triển với agent (Codex, Claude Code)
 
@@ -272,7 +306,7 @@ Quy tắc chung cho agent lập trình: [AGENTS.md](AGENTS.md) (Claude Code đ�
 
 ## Kiểm tra tự động
 
-Cần Node.js 22 trở lên, không cài thêm thư viện:
+Cần Node.js 22.12 trở lên (hoặc 20.19 trở lên); không cần cài thêm thư viện để chạy bộ test:
 
 ```
 npm test
@@ -300,7 +334,8 @@ npm test
 - `test/types.test.js`: đăng ký loại thiết bị, biên bản cũ không ghi loại → MBA, lưu biên bản qua kho dữ liệu.
 - `test/layers.test.js`: ranh giới ba lớp (nghiệp vụ không chạm DOM/mạng; giao diện không truy vấn Supabase trực tiếp;
   `index.html` nạp đủ file theo thứ tự lớp).
-- GitHub Actions chạy test cho mỗi pull request, và chạy trước bước triển khai GitHub Pages.
+- GitHub Actions chạy test cho mỗi pull request, và chạy trước bước triển khai GitHub Pages. **Chỉ `main` được triển khai**;
+  nhánh đang hiệu chỉnh thử trên localhost (`npm run dev`), chạy tay workflow Pages trên nhánh khác chỉ chạy test.
 
 ## Cấu trúc mã
 

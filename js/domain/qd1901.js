@@ -41,6 +41,8 @@
   // Quy ước đơn vị (đã xác nhận): chênh đúng 16 °C dùng K2 = 2,4; chênh > 16 °C tính bằng tích các cột còn lại (1…15),
   // không dùng cột 16 — vd 18 °C = K(15)×K(3).
   K2.composeFrom = dt => (dt > 16 ? K2.filter(r => r[0] !== 16) : K2);
+  // Điều 30 mục 3 (sau Bảng 47): tgδ(t2) = K2 × tgδ(t1) khi t2 > t1. Ghi chú của QĐ in "t2 < t1 thì tgδ(t2) = tgδ(t1)/K1" là
+  // NHẦM — đúng là chia cho K2 (K1 là hệ số điện trở cách điện, Bảng 4). Chủ dự án xác nhận 19/11/2026; convTgd luôn dùng K2.
 
   function convTgd(v, tFrom, tTo) {
     const f = tableFactor(K2, tTo - tFrom);
@@ -68,6 +70,17 @@
   // Bảng 46 — tgδ lớn nhất cho phép cuộn dây MBA ngâm dầu (dùng khi không có giá trị khởi đầu)
   const TGD_MAX = { '110-220': [0.8, 1, 1.3, 1.7, 2.3, 3, 4], '330-500': [0.8, 1.0, 1.3, 1.7, 2.2, 2.9, 3.8] };
   const tgdMax = (t, cls) => interp(T10_70, TGD_MAX[cls || '330-500'], t);
+  // MBA không có giá trị khởi đầu (Điều 30 mục 3): so với Bảng 46 — quy tgδ đo ở t1 về nhiệt độ cột Bảng 46 gần nhất (t2)
+  // bằng K2 (Bảng 47, nhân các hệ số khi ∆t không có trong bảng); không nội suy Bảng 46.
+  // Quy ước: cách đều hai cột (vd 15 °C) chọn cột cao hơn (chặt hơn); ngoài 10–70 °C dùng cột biên.
+  function tgdTable46(tg, t1, cls) {
+    const row = TGD_MAX[cls];
+    if (!row || !Number.isFinite(tg) || !Number.isFinite(t1)) return null;
+    let i = 0;
+    T10_70.forEach((t, j) => { if (Math.abs(t - t1) <= Math.abs(T10_70[i] - t1)) i = j; });
+    const t2 = T10_70[i], cv = convTgd(tg, t1, t2);
+    return { t2, max: row[i], val: cv.val, k: cv.k, expr: cv.expr, dt: cv.dt, ok: cv.val <= row[i] };
+  }
 
   // Bảng 52 — tgδ cho phép sứ mới ở 10–40 °C (Điều 38)
   const BUSHING_TGD_NEW = { OIP: 0.7, RIP: 0.7, RIS: 0.7, RBP: 1.5, GIF: 0.5 };
@@ -101,8 +114,86 @@
     return (max - min) / avg * 100;
   }
 
+  // ===== Bảng tra tiêu chuẩn IEC/IEEE mà QĐ 1901 dẫn chiếu (G5) =====
+  // Chỉ ghi số hiệu tiêu chuẩn và nơi QĐ 1901 nhắc tới — KHÔNG đưa ngưỡng nào từ tiêu chuẩn vào đánh giá.
+  // ok: true  = QĐ 1901 dẫn chiếu ngay trong điều khoản của hạng mục (ghi ở `where`);
+  // ok: false = chỉ có trong danh mục tài liệu áp dụng (Phụ lục, mục III) → "cần xác nhận" khả năng áp dụng cho hạng mục.
+  const PL3 = 'Phụ lục — III. Các tài liệu liên quan áp dụng';
+  const S = (code, scope, where, ok) => ({ code, scope, where, ok: !!ok });
+  const IEC60076 = S('bộ IEC 60076', 'MBA điện lực (yêu cầu chung, phương pháp thử)', `${PL3}, mục 18`, false);
+  const C57_152 = S('IEEE C57.152', 'hướng dẫn thử nghiệm hiện trường MBA ngâm dầu', `${PL3}, mục 19`, false);
+  const STANDARDS = {
+    visual: [],
+    noload: [S('IEC 60076-1', 'phương pháp đo, độ không đảm bảo đo; yêu cầu thiết bị đo', 'Điều 34 mục 2, 3', true),
+      S('IEC 60076-19', 'độ không đảm bảo đo tổn hao', 'Điều 34 mục 2, 3', true)],
+    ir: [C57_152, IEC60076],
+    core: [C57_152],
+    pi: [S('IEEE C57.152', 'đánh giá hệ số phân cực PI', 'Điều 9 Bảng 1 ghi chú d', true)],
+    vector: [IEC60076],
+    bushing: [S('IEC 60137', 'thí nghiệm tgδ sứ ở nhiệt độ môi trường 10–40 °C', 'Điều 38 mục 2', true),
+      S('IEEE C57.12.200', 'đo đáp ứng điện môi DFR sứ có test tap', 'Điều 38 mục 2', true),
+      S('bộ IEEE C57.19', 'sứ xuyên', `${PL3}, mục 19`, false)],
+    bushingAC: [S('IEC 60137', 'sứ xuyên điện áp trên 1 kV', `${PL3}, mục 18 (Điều 38 chỉ dẫn cho thí nghiệm tgδ)`, false),
+      S('bộ IEEE C57.19', 'sứ xuyên', `${PL3}, mục 19`, false)],
+    wtgd: [C57_152, IEC60076],
+    dcr: [IEC60076, C57_152],
+    ratio: [IEC60076, C57_152],
+    oltc: [],
+    moisture: [C57_152],
+    shortCircuit: [IEC60076],
+    bct: [S('bộ IEC 61869', 'máy biến đổi đo lường (TI)', `${PL3}, mục 18`, false),
+      S('bộ IEEE C57.13', 'máy biến đổi đo lường (TI)', `${PL3}, mục 19`, false)],
+  };
+  // Hạng mục chưa có trong app nhưng QĐ 1901 dẫn chiếu tiêu chuẩn ngay trong điều — để tra cứu
+  const STANDARDS_EXTRA = [
+    { item: 'Đo đáp ứng tần số quét (SFRA)', ref: 'Điều 44',
+      std: [S('IEC 60076-18', 'đo đáp ứng tần số', 'Điều 44', true), S('IEEE C57.149-2012', 'phân tích SFRA', 'Điều 44', true),
+        S('CIGRE WG A2.26', 'brochure FRA', 'Điều 44', true), S('DL/T 911-2004', 'phân tích, đánh giá (hoặc tương đương)', 'Điều 44', true)] },
+    { item: 'Phân tích khí hòa tan trong dầu (DGA)', ref: 'Điều 54',
+      std: [S('IEC 60599', 'diễn giải kết quả DGA', 'Điều 54', true), S('IEEE C57.104', 'diễn giải kết quả DGA', 'Điều 54', true)] },
+    { item: 'Điện trở suất dầu MBA', ref: 'Điều 56', std: [S('IEC 60247', 'đo điện trở suất dầu', 'Điều 56', true)] },
+  ];
+  const STANDARDS_NOTE = {
+    visual: 'QĐ 1901 không dẫn chiếu tiêu chuẩn riêng',
+    oltc: 'QĐ 1901 không dẫn chiếu tiêu chuẩn riêng — đánh giá theo kết quả thí nghiệm và hướng dẫn NSX (Điều 37)',
+  };
+  const STANDARDS_LABEL = {
+    visual: 'Kiểm tra bên ngoài', noload: 'Tổn hao và dòng điện không tải', ir: 'Điện trở cách điện cuộn dây, R60/R15',
+    core: 'Cách điện lõi từ, gông từ', pi: 'Hệ số phân cực PI', vector: 'Cực tính, tổ đấu dây', bushing: 'Sứ xuyên: tgδ, điện dung, DFR',
+    bushingAC: 'Sứ xuyên: thử điện áp AC', wtgd: 'tgδ và điện dung cuộn dây', dcr: 'Điện trở một chiều', ratio: 'Tỷ số biến',
+    oltc: 'Bộ điều áp dưới tải', moisture: 'Độ ẩm cách điện cứng', shortCircuit: 'Tổn thất và điện áp ngắn mạch', bct: 'Biến dòng chân sứ',
+  };
+  // Danh mục tiêu chuẩn QĐ 1901 liệt kê (Phụ lục — III, mục 17–21), nguyên văn số hiệu
+  const CITED = [
+    { no: 17, list: ['ASTM D3612-02', 'ASTM D971', 'ASTM D3487'] },
+    { no: 18, list: ['IEC 60247', 'IEC 60137', 'IEC 60599', 'IEC 60567', 'IEC 61198', 'IEC 61868', 'IEC 60156', 'IEC 62021-1', 'IEC 61620', 'IEC 61125',
+      'IEC 60367', 'IEC 60840', 'IEC 60385-1', 'IEC 60480', 'IEC 62067', 'IEC 60229', 'IEC 60168', 'IEC 60383', 'IEC 60305', 'IEC 61109', 'IEC 61952',
+      'IEC 62217', 'bộ IEC 60076', 'bộ IEC 61869', 'bộ IEC 62271', 'bộ IEC 60099', 'bộ IEC 60143', 'bộ IEC 60871', 'bộ IEC 60071', 'bộ IEC 60502',
+      'bộ IEC 61557', 'bộ IEC 60060', 'bộ IEC 60383'] },
+    { no: 19, list: ['IEEE C57.152', 'IEEE C57.104', 'IEEE Std 81', 'bộ IEEE C57.19', 'bộ IEEE C57.13', 'bộ IEEE Std 400'] },
+    { no: 20, list: ['CIGRE 445', 'CIGRE 394', 'CIGRE 531', 'CIGRE TB 797'] },
+    { no: 21, list: ['ISO 2719', 'ISO 3104', 'ISO 3675', 'ISO 12185', 'ISO 2049'] },
+  ];
+  const stdCode = s => s.code + (s.ok ? '' : ' (cần xác nhận)');
+  // Dòng ngắn cho cột "Căn cứ": tiêu chuẩn dẫn chiếu trong điều trước, "cần xác nhận" sau
+  function stdText(key) {
+    const list = STANDARDS[key];
+    if (!list) return '';
+    if (!list.length) return STANDARDS_NOTE[key] || '';
+    return [...list.filter(s => s.ok), ...list.filter(s => !s.ok)].map(stdCode).join('; ');
+  }
+  // Khóa bảng tra của một dòng đánh giá: theo căn cứ (vd R.pi, R.core) rồi theo hạng mục
+  function stdKey(f, ref) {
+    const R = ref || QD.REF;
+    const k = Object.keys(R).find(x => R[x] === f.basis);
+    return k || (STANDARDS[f.sec] ? f.sec : '');
+  }
+  // Tiêu chuẩn dẫn chiếu của một dòng đánh giá (tra lúc hiển thị / xuất, không ghi vào kết quả đánh giá)
+  const stdOf = f => (f ? stdText(stdKey(f)) : '');
+
   window.QD = {
-    K1, K2, tableFactor, convIR, convTgd, convDCR, irMin, tgdMax, BUSHING_TGD_NEW, ripFc, classifyPI,
+    STANDARDS, STANDARDS_EXTRA, STANDARDS_NOTE, STANDARDS_LABEL, CITED, stdText, stdKey, stdCode, stdOf,
+    K1, K2, tableFactor, convIR, convTgd, convDCR, irMin, tgdMax, tgdTable46, BUSHING_TGD_NEW, ripFc, classifyPI,
     classifyMoisture, phaseSpread,
     LIMITS: {
       DCR_DEV: 2,          // Điều 9 mục 7 — ±2% so với pha khác & số liệu NSX cùng nhiệt độ
@@ -116,6 +207,14 @@
       CORE_NEW: 500, CORE_OLD: 100, // Điều 9 Bảng 1 ghi chú a
       NOLOAD_1PH_NEW: 10,  // Điều 34 — MBA 1 pha ≥110 kV sau lắp đặt/sửa chữa: ±10% giá trị khởi đầu
       NOLOAD_OPER: 15,     // Điều 34 — trong vận hành: ±15%
+      NOLOAD_3PH_NEW: 5,   // Điều 34 mục 3 — MBA 3 pha ≥110 kV sau lắp đặt/sửa chữa: ±5% giá trị xuất xưởng
+      NOLOAD_LV_PHASE: 5,  // Điều 34 mục 3 — MBA 3 pha, đo điện áp thấp: Po, Io (nguồn bc, ngắn mạch a) và (nguồn ab, ngắn mạch c) lệch ≤5%
+      UK_PHASE: 3,         // Điều 35 — MBA 3 pha: Uk từng pha lệch ≤3% giá trị trung bình 3 pha
+      UK_DEV: 3,           // Điều 35 — Uk sai số cho phép 3% so với giá trị ghi trên mác máy (đối chiếu Test Report)
+      PK_RISE: 15,         // Điều 35 — tổn thất ngắn mạch (quy về cùng điều kiện) không lớn hơn 15% số liệu NSX
+      SC_CURRENT_MIN: 25,  // QĐ 1387/QĐ-EVNNPT Điều 26 — dòng thử ngắn mạch tối thiểu (% In)
+      UK1387_NEW: 5,       // QĐ 1387/QĐ-EVNNPT Điều 27 — sau lắp mới: Uk tại nấc chính lệch ≤5% so với nhãn máy
+      UK1387_INIT: 3,      // QĐ 1387/QĐ-EVNNPT Điều 27 — đại tu / vận hành: Uk lệch ≤3% so với Uk ban đầu
       BCT_IR_MIN: 200,     // Điều 39 — TI chân sứ ≥200 MΩ (khi NSX không quy định)
       BUSHING_AC_PCT: 85,  // Điều 38 — thử AC 1 phút = 85% giá trị xuất xưởng
       KHT_HEALTHY: 1.3,    // Điều 29 — MBA không ẩm: R60/R15 từ 1,3–2 (10–30 °C)
@@ -123,7 +222,15 @@
     // Mô tả từng ngưỡng cho trang Bộ tiêu chí (Admin chỉnh theo đơn vị; giá trị trong LIMITS luôn là giá trị gốc QĐ 1901)
     LIMIT_INFO: {
       NOLOAD_1PH_NEW: { sec: 'noload', label: 'Tổn hao không tải MBA 1 pha ≥110 kV — sau lắp đặt / sửa chữa, lệch tối đa so với giá trị khởi đầu', unit: '%', source: 'Điều 34' },
+      NOLOAD_3PH_NEW: { sec: 'noload', label: 'Tổn hao không tải MBA 3 pha ≥110 kV — sau lắp đặt / sửa chữa, lệch tối đa so với giá trị xuất xưởng', unit: '%', source: 'Điều 34 mục 3' },
       NOLOAD_OPER: { sec: 'noload', label: 'Tổn hao không tải — trong vận hành, lệch tối đa so với giá trị khởi đầu', unit: '%', source: 'Điều 34' },
+      NOLOAD_LV_PHASE: { sec: 'noload', label: 'MBA 3 pha, đo ở điện áp thấp — Po, Io hai pha biên (nguồn bc / ab) lệch tối đa', unit: '%', source: 'Điều 34 mục 3' },
+      UK_PHASE: { sec: 'shortCircuit', label: 'MBA 3 pha — Uk từng pha lệch tối đa so với trung bình 3 pha', unit: '%', source: 'Điều 35' },
+      UK_DEV: { sec: 'shortCircuit', label: 'Điện áp ngắn mạch Uk — sai số tối đa so với mác máy / Test Report', unit: '%', source: 'Điều 35' },
+      PK_RISE: { sec: 'shortCircuit', label: 'Tổn thất ngắn mạch Pk (quy cùng điều kiện) — lớn hơn số liệu NSX tối đa', unit: '%', source: 'Điều 35' },
+      SC_CURRENT_MIN: { sec: 'shortCircuit', label: 'Dòng thử ngắn mạch tối thiểu so với dòng định mức', unit: '% In', source: 'QĐ 1387/QĐ-EVNNPT Điều 26' },
+      UK1387_NEW: { sec: 'shortCircuit', label: 'Sau lắp mới — Uk tại nấc chính lệch tối đa so với nhãn máy', unit: '%', source: 'QĐ 1387/QĐ-EVNNPT Điều 27' },
+      UK1387_INIT: { sec: 'shortCircuit', label: 'Đại tu / vận hành — Uk lệch tối đa so với Uk ban đầu', unit: '%', source: 'QĐ 1387/QĐ-EVNNPT Điều 27' },
       IR_DROP: { sec: 'ir', label: 'R60 quy về 20 °C giảm tối đa so với giá trị khởi đầu / lần trước', unit: '%', source: 'Điều 9 mục 4' },
       KHT_HEALTHY: { sec: 'ir', label: 'Hệ số hấp thụ R60/R15 tối thiểu (MBA không ẩm, 10–30 °C)', unit: '', source: 'Điều 29' },
       CORE_NEW: { sec: 'ir', label: 'R cách điện lõi từ / gông từ tối thiểu — MBA mới, sau lắp đặt', unit: 'MΩ', source: 'Điều 9 Bảng 1 ghi chú a' },
@@ -153,6 +260,7 @@
       ratio: 'Điều 9 mục 6; Điều 33 mục 3',
       oltc: 'Điều 37 mục 3',
       moisture: 'Điều 28 mục 3',
+      shortCircuit: 'Điều 35',
       bct: 'Điều 39',
     },
   };

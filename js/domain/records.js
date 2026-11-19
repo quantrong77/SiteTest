@@ -16,11 +16,27 @@
   }
 
   // File Test report xuất xưởng → mỗi máy một lần thí nghiệm FAT
-  async function importFactory(state, FX, fileBlob, bayId) {
+  // serials (tùy chọn): chỉ lưu các máy này (file có nhiều máy của các ngăn khác nhau)
+  // meta (tùy chọn): { test_date: 'yyyy-mm-dd', report_no } người dùng nhập tay — thay giá trị đọc từ file (file không ghi / đọc sai)
+  async function importFactory(state, FX, fileBlob, bayId, serials, meta) {
     const T = typeOf(state);
     if (!T.toRows.factorySessions) throw new Error(`${T.label}: chưa hỗ trợ nhập Test report xuất xưởng vào CSDL`);
-    return need().importFactory(T.toRows.factorySessions(FX), FX.data.fileName, fileBlob, bayId);
+    const want = serials && serials.length ? new Set(serials.map(s => String(s).trim().toUpperCase())) : null;
+    const packs = T.toRows.factorySessions(FX).filter(p => !want || want.has(String(p.serial).trim().toUpperCase()));
+    if (!packs.length) throw new Error('Không có máy nào được chọn để lưu');
+    const date = meta && String(meta.test_date || '').trim(), no = meta && String(meta.report_no || '').trim();
+    if (date && !/^\d{4}-\d{2}-\d{2}$/.test(date)) throw new Error(`Ngày thí nghiệm “${date}” không hợp lệ`);
+    packs.forEach(p => { if (date) p.session.test_date = date; if (no) p.session.report_no = no; });
+    if (packs.some(p => !p.session.test_date)) throw new Error('Không đọc được ngày thí nghiệm trong file xuất xưởng — nhập tay ngày thí nghiệm rồi lưu');
+    return need().importFactory(packs, FX.data.fileName, fileBlob, bayId);
   }
 
-  window.Records = { setRepo, saveField, importFactory };
+  // Gói lần thí nghiệm FAT dựng sẵn (vd test report sứ — HitachiBushing.factoryPacks) → lưu như test report xuất xưởng
+  async function importPacks(packs, fileName, fileBlob) {
+    if (!packs || !packs.length) throw new Error('Không có thiết bị nào được chọn để lưu');
+    if (packs.some(p => !p.session.test_date)) throw new Error('Thiếu ngày thí nghiệm — nhập tay ngày thí nghiệm rồi lưu');
+    return need().importFactory(packs, fileName, fileBlob, null);
+  }
+
+  window.Records = { setRepo, saveField, importFactory, importPacks };
 })();

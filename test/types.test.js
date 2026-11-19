@@ -74,3 +74,18 @@ test('Lưu biên bản khi chưa gắn kho dữ liệu báo lỗi rõ', async ()
   const res = ctx.Evaluate.evaluate(state, null, schema);
   await assert.rejects(() => ctx.Records.saveField(state, res, schema), /Chưa gắn kho dữ liệu/);
 });
+
+test('Nhập Test report: lọc máy, ngày / số report nhập tay khi file không ghi; thiếu ngày báo nhập tay', async () => {
+  const ctx = load(CORE);
+  const T = ctx.EquipmentTypes.get('MBA');
+  const packs = () => [{ serial: 'SN-1', session: { kind: 'FAT', test_date: null } }, { serial: 'SN-2', session: { kind: 'FAT', test_date: null } }];
+  T.toRows.factorySessions = packs;
+  let got = null;
+  ctx.Records.setRepo({ importFactory: async (p, fileName, blob, bayId) => { got = { p: JSON.parse(JSON.stringify(p)), bayId }; return []; } });
+  const FX = { data: { fileName: 'tr.xlsx' } };
+  await assert.rejects(() => ctx.Records.importFactory({}, FX, null, null, ['SN-1']), /Không đọc được ngày thí nghiệm.*nhập tay/);
+  await assert.rejects(() => ctx.Records.importFactory({}, FX, null, null, ['sn-1'], { test_date: '18/11/2026' }), /không hợp lệ/);
+  await ctx.Records.importFactory({}, FX, null, 'B1', ['sn-1'], { test_date: '2026-01-05', report_no: ' TR-9 ' });
+  same(got, { p: [{ serial: 'SN-1', session: { kind: 'FAT', test_date: '2026-01-05', report_no: 'TR-9' } }], bayId: 'B1' });
+  await assert.rejects(() => ctx.Records.importFactory({}, FX, null, null, ['SN-X'], { test_date: '2026-01-05' }), /Không có máy nào/);
+});

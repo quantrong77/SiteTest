@@ -3,7 +3,7 @@
 // Ảnh được phóng to, chuyển xám, giãn độ tương phản trước khi đọc để chữ nhỏ trên nameplate rõ hơn.
 (function () {
   'use strict';
-  const LIB = 'https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js';
+  const LIB = 'https://cdn.jsdelivr.net/npm/tesseract.js@7.0.0/dist/tesseract.min.js';
   let libLoading = null, worker = null;
 
   function loadLib() {

@@ -60,10 +60,20 @@
   }
 
   // Loại lần thí nghiệm theo lý do ghi trong biên bản (mã dùng trong CSDL)
+  // Thứ tự quan trọng: "1 năm sau lắp đặt" là định kỳ (không phải SAT); "Tăng cường" chưa có mã riêng trong CSDL → OTHER
+  // (chữ đầy đủ vẫn lưu ở test_sessions.reason)
   const KIND_OF_REASON = [
-    [/lắp đặt/i, 'SAT'], [/sửa chữa/i, 'AFTER_REPAIR'], [/định kỳ/i, 'PERIODIC'], [/bất thường/i, 'ABNORMAL'], [/dự phòng/i, 'SPARE'],
+    [/^\s*sau\s+lắp\s+đặt/i, 'SAT'], [/sau\s+lắp\s+đặt|định\s+kỳ/i, 'PERIODIC'], [/sửa\s+chữa|đại\s+tu/i, 'AFTER_REPAIR'],
+    [/bất\s+thường|đột\s+xuất/i, 'ABNORMAL'], [/dự\s+phòng/i, 'SPARE'], [/lắp\s+đặt/i, 'SAT'],
   ];
   const KIND_LABEL = { FAT: 'Xuất xưởng (FAT)', SAT: 'Sau lắp đặt', PERIODIC: 'Định kỳ', AFTER_REPAIR: 'Sau sửa chữa', ABNORMAL: 'Bất thường', SPARE: 'Dự phòng', OTHER: 'Khác' };
+  // Chữ đọc từ BBTN cũ khớp một lựa chọn (không phân biệt hoa thường, khoảng trắng, dạng Unicode) → đúng chữ của lựa chọn
+  const optionOf = (text, options) => {
+    // gạch chéo / gạch ngang (OCR hay đọc "Sau sửa chữa – đại tu") coi như nhau
+    const n = x => String(x || '').normalize('NFC').toLocaleLowerCase('vi').replace(/\s+/g, ' ').replace(/\s*[\/\-\u2010-\u2015]\s*/g, '/').trim();
+    const t = n(text);
+    return (t && (options || []).find(o => n(o) === t)) || text;
+  };
   const kindOf = reason => (KIND_OF_REASON.find(([re]) => re.test(reason || '')) || [null, 'OTHER'])[1];
   // dd/mm/yyyy hoặc yyyy-mm-dd → yyyy-mm-dd
   function isoDate(s) {
@@ -74,5 +84,5 @@
     return m ? m[0] : null;
   }
 
-  window.Common = { RANK, worst, ST_TEXT, toNum, ok, fmt, sgn, devPct, str, eachGrid, eachField, findGrid, sectionOfKey, KIND_LABEL, kindOf, isoDate };
+  window.Common = { RANK, worst, ST_TEXT, toNum, ok, fmt, sgn, devPct, str, eachGrid, eachField, findGrid, sectionOfKey, KIND_LABEL, kindOf, optionOf, isoDate };
 })();

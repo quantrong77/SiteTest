@@ -1,5 +1,5 @@
 // MBA: ánh xạ số liệu máy đo Haefely 2293 (đã đọc bằng js/data/instruments/wa2293.js) vào biểu mẫu:
-// điện trở một chiều (mục 7, Ω → mΩ), tỷ số biến theo nấc (mục 8), chụp sóng OLTC (mục 9 + phụ lục BBTN).
+// điện trở một chiều (Ω → mΩ), tỷ số biến theo nấc, chụp sóng OLTC và phụ lục BBTN.
 (function () {
   'use strict';
   const ok = Number.isFinite;

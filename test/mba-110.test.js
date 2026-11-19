@@ -103,3 +103,19 @@ test('BBTN nhập từ file: lần thí nghiệm nguồn "manual" kèm tên file
   assert.equal(pack.session.source, 'manual');
   assert.equal(pack.session.source_file, 'BBTN_cu.docx');
 });
+
+test('MBA 3 pha: Po, Io đo ở điện áp thấp — hai pha biên (nguồn ab / bc) lệch ≤5% (Điều 34 mục 3); mẫu theo pha không xét', () => {
+  const ctx = load(CORE);
+  const run = (template, v) => {
+    const cfg = cfgOf(ctx, template), schema = ctx.Schema.build(cfg);
+    const state = { type: 'MBA', cfg, v: Object.assign({ 'meta.reason': 'Định kỳ' }, v), att: {} };
+    return ctx.Evaluate.evaluate(state, null, schema).findings.filter(f => /^Lệch (Po|Io) giữa các pha/.test(f.item));
+  };
+  const v = { 'nl.lv.ab.p': '100', 'nl.lv.bc.p': '104', 'nl.lv.ca.p': '140', 'nl.lv.ab.i': '1,00', 'nl.lv.bc.i': '1,10' };
+  const f = run('110', v);
+  const po = f.find(x => x.item.startsWith('Lệch Po')), io = f.find(x => x.item.startsWith('Lệch Io'));
+  assert.equal(po.status, 'pass'); assert.equal(po.dev, '3,92 %');
+  assert.match(po.note, /lớn hơn 37,3 %/);
+  assert.equal(io.status, 'fail', 'Io lệch 9,5% > 5%');
+  assert.equal(run('A', v).length, 0, 'MBA một pha: không áp tiêu chí 3 pha');
+});

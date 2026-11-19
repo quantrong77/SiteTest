@@ -1,9 +1,14 @@
 // Xu hướng ngay tại ô nhập (hàm thuần): ghép lịch sử đo của cùng thiết bị và cùng đại lượng với giá trị đang nhập,
-// tính % so với mốc khởi đầu (FAT, không có thì lần sớm nhất — như view v_trend_delta) và so với lần đo trước.
+// tính % so với mốc khởi đầu (như view v_trend_delta) và so với lần đo trước.
 // Chỉ để tham khảo khi nhập; đánh giá chính thức vẫn ở mục kết quả. Không truy cập giao diện hay CSDL.
 (function () {
   'use strict';
   const KEY = ['item', 'param', 'config', 'phase', 'tap'];
+  // Lần thí nghiệm sau sửa chữa được lấy làm giá trị khởi đầu mới (test_sessions.baseline_reset):
+  //  'INSULATION' — có lọc dầu, sấy chân không: số liệu cách điện cuộn dây (R cách điện, tgδ / điện dung cuộn dây) — quy định đơn vị;
+  //  'ALL' — thay cuộn dây / thay đổi kết cấu cách điện: mọi số liệu (QĐ 1901 Điều 2, định nghĩa giá trị khởi đầu).
+  const RESET_ITEMS = { INSULATION: ['IR', 'WTGD'] };
+  const resetCovers = (r, item) => r.baseline_reset === 'ALL' || (RESET_ITEMS[r.baseline_reset] || []).includes(item);
   const same = (a, b) => KEY.every(k => String(a[k] ?? '') === String(b[k] ?? ''));
   const num = x => (x === null || x === undefined || x === '' ? NaN : Number(x));
   const pct = (value, base) => (Number.isFinite(value) && Number.isFinite(base) && base !== 0
@@ -24,7 +29,10 @@
     old = old.filter(r => (r.cmp_basis || 'raw') === basis)
       .sort((a, b) => String(a.test_date || '').localeCompare(String(b.test_date || '')));
     if (!old.length) return null;
-    const base = old.find(r => r.kind === 'FAT') || old[0];
+    // mốc khởi đầu (QĐ 1901 Điều 2, Điều 3 mục d): lần sau sửa chữa gần nhất được lấy làm khởi đầu mới → xuất xưởng (test report)
+    // → lần sau lắp đặt (sớm nhất) → lần đo sớm nhất
+    const resets = old.filter(r => resetCovers(r, target.item));
+    const base = resets[resets.length - 1] || old.find(r => r.kind === 'FAT') || old.find(r => r.kind === 'SAT') || old[0];
     const previous = old[old.length - 1];
     const points = old.map(r => num(r.value_cmp));
     if (Number.isFinite(cur)) points.push(cur);
@@ -36,17 +44,30 @@
   }
 
   // Tô vàng chỉ khi đại lượng có ngưỡng QĐ 1901 so với giá trị khởi đầu (bộ tiêu chí L = Criteria.limits()):
-  // độ lệch hai chiều (R một chiều, tỷ số, điện dung) hoặc mức tăng (tgδ). Không có ngưỡng thì không tô.
+  // độ lệch hai chiều (R một chiều, tỷ số, điện dung), mức tăng (tgδ) hoặc mức giảm so với khởi đầu HOẶC lần trước
+  // (R60@20 cách điện cuộn dây — Điều 29 mục 3). Không có ngưỡng thì không tô.
   const RULES = {
     'DCR:R': ['DCR_DEV', 'abs'], 'RATIO:K': ['RATIO_DEV', 'abs'], 'WTGD:C': ['WINDING_C_DEV', 'abs'],
     'BUSHING:C1': ['BUSHING_C1_DEV', 'abs'], 'WTGD:TGD': ['WINDING_TGD_RISE', 'rise'], 'BUSHING:TGD1': ['BUSHING_TGD_RISE_WARN', 'rise'],
+    'IR:R60': ['IR_DROP', 'drop'],
   };
-  function warn(target, fromBase, L) {
+  function warn(target, fromBase, L, fromPrevious) {
     const r = RULES[`${target.item}:${target.param}`];
     const lim = r && L ? Number(L[r[0]]) : NaN;
-    if (!Number.isFinite(lim) || !Number.isFinite(fromBase)) return false;
+    if (!Number.isFinite(lim)) return false;
+    if (r[1] === 'drop') return [fromBase, fromPrevious].some(d => d !== null && Number.isFinite(d) && d < -lim);
+    if (!Number.isFinite(fromBase)) return false;
     return r[1] === 'rise' ? fromBase > lim : Math.abs(fromBase) > lim;
   }
 
-  window.TrendInline = { series, warn, pct, KEY };
+  // Mốc khởi đầu đang dùng: mã, chữ viết tắt (ô xu hướng), tên đầy đủ (dòng đánh giá)
+  function baseInfo(base, item) {
+    if (!base) return null;
+    if (resetCovers(base, item)) return { code: 'RESET', short: 'KĐ', name: 'giá trị khởi đầu sau sửa chữa' };
+    if (base.kind === 'FAT') return { code: 'FAT', short: 'XX', name: 'xuất xưởng' };
+    if (base.kind === 'SAT') return { code: 'SAT', short: 'LĐ', name: 'sau lắp đặt' };
+    return { code: 'FIRST', short: 'Đầu', name: 'lần đo sớm nhất (chưa có test report, số liệu sau lắp đặt)' };
+  }
+
+  window.TrendInline = { series, warn, pct, baseInfo, KEY, RESET_ITEMS, resetCovers };
 })();

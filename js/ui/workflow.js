@@ -18,9 +18,10 @@
 
   // Trạng thái hạng mục theo kết quả đánh giá: chưa làm / đang làm / đã nhập / đạt / cần xem xét / không đạt
   const STATE = {
-    todo: 'Chưa làm', doing: 'Đang làm', entered: 'Đã nhập', pass: 'Đạt', warn: 'Cần xem xét', fail: 'Không đạt',
+    todo: 'Chưa làm', doing: 'Đang làm', entered: 'Đã nhập', pass: 'Đạt', warn: 'Cần xem xét', fail: 'Không đạt', skip: 'Không thực hiện',
   };
   function stateOf(S, isCurrent) {
+    if (S && S.skipped) return 'skip';
     const st = S && S.status;
     if (!st) return isCurrent ? 'doing' : 'todo';
     if (st === 'missing') return 'doing';
@@ -30,6 +31,8 @@
 
   // Thanh tiến trình đầu thanh điều hướng
   function progressHTML(sections, sec, esc) {
+    // chỉ đếm hạng mục thực hiện (bỏ tích "Thực hiện" thì không tính)
+    sections = sections.filter(s => !(sec[s.id] && sec[s.id].skipped));
     const n = sections.length;
     const done = sections.filter(s => sec[s.id] && sec[s.id].status && sec[s.id].status !== 'missing').length;
     const fail = sections.filter(s => sec[s.id] && sec[s.id].status === 'fail').length;
@@ -71,7 +74,9 @@
     const stdLibrary = (grouped.standard || []).length ? items('standard') : '';
     const stdEmpty = !refs.length && !stdLibrary ? `<p class="wf-none">${EMPTY_DOC}</p>` : '';
     const kindName = kind => ({ standard: 'Tiêu chuẩn', procedure: 'Quy trình', manual: 'Hướng dẫn máy đo' }[kind] || kind);
-    return `<aside class="wf-refs" aria-label="Tài liệu tham khảo"><h3>Tài liệu tham khảo</h3>
+    return `<aside class="wf-refs" id="wfRefs" aria-label="Tài liệu tham khảo"><div class="wf-refs-head"><h3>Tài liệu tham khảo</h3>`
+      + '<button type="button" class="wf-refs-close" data-act="refsToggle" aria-label="Ẩn khung tài liệu tham khảo" title="Ẩn khung (mở lại bằng nút Tài liệu tham khảo)">×</button></div>'
+      + `
       <h4>Tiêu chuẩn đánh giá</h4>${std}${stdLibrary}${stdEmpty}
       <h4>Quy trình thí nghiệm của đơn vị</h4>${items('procedure')}
       <h4>Hướng dẫn sử dụng máy đo</h4>${items('manual')}</aside>`;

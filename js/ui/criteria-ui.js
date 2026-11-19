@@ -42,6 +42,21 @@
     });
     h += '</tbody></table></div>';
     if (ed) h += '<div class="row-actions"><button class="btn" data-crit-act="reset">Khôi phục toàn bộ theo QĐ 1901</button><button class="btn primary" data-crit-act="save">Lưu bộ tiêu chí</button></div>';
+    return `<section class="panel">${h}</section>${standardsHTML()}`;
+  }
+
+  // Bảng tra hạng mục → điều khoản QĐ 1901 → tiêu chuẩn IEC/IEEE QĐ 1901 dẫn chiếu (chỉ tra cứu, không thêm ngưỡng)
+  function standardsHTML() {
+    const cell = list => list.map(s => `<div><b>${esc(s.code)}</b> — ${esc(s.scope)}<br><span class="muted">${s.ok ? `Dẫn chiếu tại ${esc(s.where)}` : `<span class="badge st-warn">cần xác nhận</span> chỉ có trong ${esc(s.where)}`}</span></div>`).join('');
+    const rows = Object.keys(QD.STANDARDS).map(k => [QD.STANDARDS_LABEL[k] || k, QD.REF[k] || '', QD.STANDARDS[k].length ? cell(QD.STANDARDS[k]) : `<span class="muted">${esc(QD.STANDARDS_NOTE[k] || '—')}</span>`])
+      .concat(QD.STANDARDS_EXTRA.map(x => [`${x.item} (chưa có trong BBTN)`, x.ref, cell(x.std)]));
+    let h = '<div class="panel-head"><span class="secno">TC</span><h2>Bảng tra tiêu chuẩn</h2><span class="en">Referenced standards</span></div>';
+    h += '<div class="callout">Hạng mục → điều khoản QĐ 1901 → tiêu chuẩn IEC/IEEE mà QĐ 1901 dẫn chiếu. Chỉ để tra cứu: ngưỡng đánh giá vẫn theo QĐ 1901 và bộ tiêu chí ở trên, '
+      + 'app <b>không</b> lấy ngưỡng từ các tiêu chuẩn này. Dòng <span class="badge st-warn">cần xác nhận</span>: tiêu chuẩn chỉ nằm trong danh mục tài liệu áp dụng của QĐ 1901, điều khoản của hạng mục không nêu — cần người có chuyên môn xác nhận trước khi viện dẫn.</div>';
+    h += '<div class="grid-wrap"><table class="ftable std-tbl"><thead><tr><th>Hạng mục</th><th>Điều khoản QĐ 1901</th><th>Tiêu chuẩn dẫn chiếu</th></tr></thead><tbody>'
+      + rows.map(r => `<tr><td>${esc(r[0])}</td><td>${esc(r[1])}</td><td>${r[2]}</td></tr>`).join('') + '</tbody></table></div>';
+    h += `<details class="std-cited"><summary>Danh mục tiêu chuẩn QĐ 1901 liệt kê (Phụ lục — III. Các tài liệu liên quan áp dụng)</summary><ul>`
+      + QD.CITED.map(c => `<li><b>Mục ${c.no}:</b> ${esc(c.list.join('; '))}</li>`).join('') + '</ul></details>';
     return `<section class="panel">${h}</section>`;
   }
 

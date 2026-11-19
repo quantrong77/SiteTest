@@ -332,6 +332,60 @@
   // ---------- API tra cứu ----------
   function api(F) {
     const tapKey = t => String(t || '').trim().toUpperCase();
+    const pairKey = value => {
+      const s = String(value || '').toUpperCase().replace(/[–—−]/g, '-').replace(/\s+/g, ' ');
+      if (/HV\s*-\s*MV|CAO\s*[-–]\s*TRUNG|\bC\s*-\s*T\b/.test(s)) return 'HV-MV';
+      if (/HV\s*-\s*LV|CAO\s*[-–]\s*HẠ|CAO\s*[-–]\s*HA|\bC\s*-\s*H\b/.test(s)) return 'HV-LV';
+      if (/MV\s*-\s*LV|TRUNG\s*[-–]\s*HẠ|TRUNG\s*[-–]\s*HA|\bT\s*-\s*H\b/.test(s)) return 'MV-LV';
+      return null;
+    };
+    function shortCircuitFor(serial) {
+      const sn = String(serial || '').trim();
+      if (!sn || !F.losses.length) return [];
+      const headerAt = F.losses.findIndex(r => r && r.some(c => /Cặp cuộn dây|Winding Pair/i.test(String(c || ''))));
+      if (headerAt < 0) return [];
+      const head = F.losses[headerAt].map(x => String(x || ''));
+      const snKey = norm(sn), directCol = head.findIndex(x => norm(x).includes(snKey));
+      const unit = F.units[sn], machine = unit && unit.machine || F.order.indexOf(sn) + 1;
+      const machineCol = kind => head.findIndex(x => new RegExp(`(?:Máy|Machine)\\s*${machine}\\b`, 'i').test(x) && new RegExp(kind, 'i').test(x));
+      const lossCol = machineCol('Loss|Tổn hao|\\bPk\\b'), ukCol = machineCol('%IZ|Uk|Impedance');
+      const byKey = new Map();
+      const get = (row, pair, tap) => {
+        const key = `${pair}|${tap}`;
+        if (!byKey.has(key)) byKey.set(key, { pair, tap, serial: sn, phase: unit && unit.phase || '', pkKw: null, ukPct: null, pkTempC: null });
+        return byKey.get(key);
+      };
+      for (let i = headerAt + 1; i < F.losses.length; i++) {
+        const row = F.losses[i];
+        if (!row) continue;
+        const label = String(row[0] || ''), pair = pairKey(label);
+        if (!pair) continue;
+        const tap = tapKey(String(row[1] || '-').replace(/^Tap\\s*/i, '')) || '-';
+        const entry = get(row, pair, tap);
+        if (lossCol >= 0 && ukCol >= 0) {
+          const loss = num(row[lossCol]), uk = num(row[ukCol]);
+          if (loss !== null) {
+            entry.pkKw = loss;
+            const tm = label.match(/\(?\s*(\d+(?:[.,]\d+)?)\s*°\s*C\s*\)?/i);
+            if (tm) entry.pkTempC = Number(tm[1].replace(',', '.'));
+          }
+          if (uk !== null) entry.ukPct = uk;
+          continue;
+        }
+        if (directCol < 0) continue;
+        const pk = /(tổn\s*hao|loss|\bPk\b)/i.test(label) && !/(không\s*tải|no.?load)/i.test(label);
+        const uk = /(trở\s*kháng|điện\s*áp|impedance|%IZ|\bUk\b)/i.test(label) && !/(không\s*tải|no.?load)/i.test(label);
+        if (pk) {
+          entry.pkKw = num(row[directCol]);
+          const tm = label.match(/\(?\s*(\d+(?:[.,]\d+)?)\s*°\s*C\s*\)?/i);
+          if (tm) entry.pkTempC = Number(tm[1].replace(',', '.'));
+          const phase = label.match(/Pha\s*([ABC])\b/i);
+          if (phase) entry.phase = phase[1].toUpperCase();
+        }
+        if (uk) entry.ukPct = num(row[directCol]);
+      }
+      return Array.from(byKey.values()).filter(x => x.pkKw !== null || x.ukPct !== null);
+    }
     // Nấc hiện trường (vd 9a/9b/9c) → nấc trong biên bản xuất xưởng (9A)
     function matchTap(list, tap) {
       const k = tapKey(tap);
@@ -346,10 +400,15 @@
       data: F,
       has: s => !!F.units[s],
       unit: s => F.units[s] || null,
+      shortCircuitFor,
       ratioTap: tap => matchTap(F.ratio.taps, tap),
-      dcr(winding, tap, s) {
+      // opts.byTap: cuộn có bộ điều áp không phải cuộn nối tiếp (OLTC ở cuộn trung áp) — chỉ trả giá trị khi file XX có
+      // số liệu theo nấc của cuộn đó (không so mọi nấc với một giá trị)
+      dcr(winding, tap, s, opts) {
         const rows = F.dcr.rows.filter(r => r.winding === winding);
-        const r = winding === 'SER' ? matchTap(rows, tap) : rows[0];
+        // cuộn nối tiếp không có nấc (OLTC ở cuộn trung áp, cuộn cao áp một giá trị): dùng khi file XX chỉ có một hàng
+        const r = opts && opts.byTap ? (rows.length > 1 ? matchTap(rows, tap) : null)
+          : winding === 'SER' ? (tap ? matchTap(rows, tap) : (rows.length === 1 ? rows[0] : null)) : rows[0];
         if (!r || r.r75[s] == null) return null;
         return { r75: r.r75[s], meas: r.meas[s], tap: r.tap, refT: F.dcr.refT, measT: (F.conditions[s] || {}).dcr };
       },

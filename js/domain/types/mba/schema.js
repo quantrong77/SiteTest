@@ -10,6 +10,14 @@
   const col = (k, label, doc, o = {}) => Object.assign({ k, label, doc }, o);
 
   // ---------------- Thông tin chung (bảng 0) ----------------
+  // Loại thí nghiệm (ô "Lý do thí nghiệm"); giá trị cũ khác danh sách vẫn giữ nguyên trong biên bản
+  // Lần sau sửa chữa / đại tu lấy làm giá trị khởi đầu mới cho các lần thí nghiệm sau (test_sessions.baseline_reset)
+  const BASELINE_RESETS = [
+    ['', 'Không — giữ giá trị khởi đầu cũ'],
+    ['INSULATION', 'Có lọc dầu, sấy chân không — lấy số liệu cách điện cuộn dây lần này (R cách điện, tgδ, điện dung) làm giá trị khởi đầu'],
+    ['ALL', 'Thay cuộn dây / thay đổi kết cấu cách điện — lấy mọi số liệu lần này làm giá trị khởi đầu (QĐ 1901 Điều 2)'],
+  ];
+  const REASONS = ['Sau lắp đặt', '1 năm sau lắp đặt', 'Định kỳ 1 năm', 'Định kỳ 3 năm', 'Định kỳ 6 năm', 'Tăng cường', 'Đột xuất', 'Sau sửa chữa/đại tu'];
   const META = [
     { k: 'meta.project', label: 'Tên dự án / tên trạm', doc: { t: 0, r: 2, c: 0, re: /\(Project\):(?<v>.*)$/ } },
     { k: 'meta.site', label: 'Vị trí lắp đặt', doc: { t: 0, r: 3, c: 0, re: /\(Site\):(?<v>.*)$/ } },
@@ -21,7 +29,7 @@
     { k: 'meta.voltage', label: 'Điện áp định mức', doc: { t: 0, r: 6, c: 2, re: /voltage\):(?<v>.*)$/, joinNext: true } },
     { k: 'meta.vector', label: 'Tổ đấu dây', doc: { t: 0, r: 7, c: 0, re: /group\):(?<v>.*)$/ } },
     { k: 'meta.current', label: 'Dòng định mức (A)', doc: { t: 0, r: 7, c: 2, re: /current\):(?<v>.*)$/ } },
-    { k: 'meta.reason', label: 'Lý do thí nghiệm', type: 'select', options: ['Sau lắp đặt', 'Sau sửa chữa', 'Định kỳ', 'Bất thường', 'Dự phòng'], doc: { t: 0, r: 8, c: 0, re: /nghiệm:(?<v>.*)$/ } },
+    { k: 'meta.reason', label: 'Lý do thí nghiệm', type: 'select', options: REASONS, doc: { t: 0, r: 8, c: 0, re: /nghiệm:(?<v>.*)$/ } },
     { k: 'meta.date', label: 'Ngày thí nghiệm', doc: { t: 0, r: 8, c: 2, re: /\(Date\):(?<v>.*)$/ } },
     { k: 'meta.ambT', label: 'Nhiệt độ môi trường (°C)', num: true, doc: { t: 0, r: 9, c: 0, re: /\(Temp\.\)\s*=(?<v>[^º°]*)/ } },
     { k: 'meta.hum', label: 'Độ ẩm (%)', num: true, doc: { t: 0, r: 9, c: 0, re: /\(Humidity\)\s*=(?<v>[^%]*)/ } },
@@ -169,7 +177,7 @@
   };
   const PH3 = ['A', 'B', 'C'];
   const TAPS_17 = range(17, i => String(i + 1));
-  // Hàng tổng hợp hạng mục ở bảng 0 của từng mẫu: cột ✓ và cột Đánh giá; mục 4 (cách điện lõi từ) lấy theo mục 3; mục 12 SFRA theo phụ lục
+  // Hàng tổng hợp hạng mục ở bảng 0 của từng mẫu: cột ✓ và Đánh giá theo mẫu.
   const SUMMARY = {
     '1P': { rows: SUMMARY_ROWS, tick: 3, ev: 4 },
     '3P': { rows: { visual: 11, noload: 12, ir: [13, 14], vector: 15, bushing: 16, wtgd: 17, dcr: 18, ratio: 19, oltc: 20, moisture: 21, bct: 23 }, fra: 22, tick: 6, ev: 7 },
@@ -381,6 +389,10 @@
         groups: ['hv', 'mv', 'lv'].map(side => ({ id: side, title: BCT_SIDES[side].label, bct: side, grids: bctGrids(side, +cfg.bctCores[side]).map(noDoc) }))
           .concat([{ id: 'n', title: 'Phía trung tính — đặc tính từ hóa', grids: [noDoc(exGrid('bct.n.ex.N', 'Đặc tính từ hóa — Trung tính', [50], 3, 4))] }]),
       },
+      {
+        // Thí nghiệm ngắn mạch: mục cuối biên bản (mẫu Word không có — app thêm chỉ mục và bảng khi xuất BBTN)
+        id: 'shortCircuit', no: 14, title: 'Thí nghiệm ngắn mạch máy biến áp', en: 'Short-circuit impedance & load loss',
+      },
     ];
     return { sections, taps, head: META_3P, tail: CLOSING_3P, layout: LAYOUT_3P, summary: SUMMARY[LAYOUT_3P], tables: 28 };
   }
@@ -449,9 +461,83 @@
       // nấc đánh số 1…19 (mẫu theo pha: 9a/9b/9c); người dùng đã đặt danh sách nấc riêng thì giữ
       const custom = cfg.taps && cfg.taps.length === 19 && cfg.taps.join() !== DEFAULT_TAPS.join();
       const s = build1P(Object.assign({}, cfg, { taps: custom ? cfg.taps : TAPS_19 }));
-      return Object.assign(remapTables(s, MAP_110), { layout: LAYOUT_110, tables: 71 });
+      const s110 = withOltcField(Object.assign(remapTables(s, MAP_110), { layout: LAYOUT_110, tables: 71 }));
+      return cfg.oltcWinding === 'MV' ? oltcOnMV(s110, cfg) : s110;
     }
     return build1P(cfg);
+  }
+
+  // ---------------------------------------------------------------- OLTC đặt ở cuộn nào (chỉ mẫu 110–220 kV)
+  // MBA 220 kV kiểu Liên Xô cũ đặt OLTC ở cuộn trung áp 110 kV: R một chiều cuộn trung áp và tỷ số MV:LV theo nấc,
+  // cuộn cao áp và tỷ số HV:LV một giá trị. Dùng lại bảng nấc / bảng một hàng sẵn có của template: đổi bảng giữa hai
+  // lưới, ghi lại hàng tiêu đề cột (docLabel) và đổi nhãn đề mục khi xuất (schema.docSwaps, MbaReport.fill).
+  // Số liệu đính kèm biên bản (state.att) thuộc hạng mục nào — xóa / hoàn tác / bỏ tích "Thực hiện" theo hạng mục
+  const ATT_SECTIONS = { oltc: 'oltc', oscAuto: 'oltc', shortCircuit: 'shortCircuit' };
+  const OLTC_WINDINGS = [['HV', 'Cuộn cao áp (mặc định)'], ['MV', 'Cuộn trung áp 110 kV (MBA 220 kV kiểu Liên Xô cũ)']];
+  const findIn = (sec, id) => sec.groups.find(g => g.id === id);
+  function withOltcField(schema) {
+    const sections = schema.sections.map(s => (s.id !== 'dcr' ? s : Object.assign({}, s, {
+      groups: s.groups.map((g, i) => (i ? g : Object.assign({}, g, {
+        fields: [{ k: 'cfg.oltcWinding', cfg: 'oltcWinding', label: 'Bộ điều áp dưới tải (OLTC) đặt ở cuộn', options: OLTC_WINDINGS }].concat(g.fields || []),
+      }))),
+    })));
+    return Object.assign({}, schema, { sections });
+  }
+  // Lưới mới dùng bảng / hàng của lưới khác; cột dời chỉ số cột Word (bảng nấc có cột "Nấc" ở đầu) và ghi tiêu đề cột
+  // theo docLabels (người dùng đã sửa tiêu đề — editHdr — thì giữ chữ của người dùng)
+  function moveGrid(g, onto, rows, shift, docLabels, extra) {
+    const cols = g.cols.map((c, i) => Object.assign({}, c, {
+      doc: c.doc === undefined ? undefined : c.doc + shift,
+      docLabel: c.defLabel && c.label !== c.defLabel ? c.label : docLabels[i],
+    }));
+    return Object.assign({}, g, { tables: onto.tables, rows, cols }, extra || {});
+  }
+  function oltcOnMV(schema, cfg) {
+    const ser = cfg.hvMeas === 'SER';
+    const hvDoc = PH3.map(ph => (ser ? `${ph}${ph}m` : `${ph}N`));
+    const hvApp = PH3.map(ph => (ser ? `${ph}-${ph}m` : `${ph}-N`));
+    const one = [{ k: 'r', label: 'Giá trị', doc: 1 }];
+    const swaps = [];
+    const sections = schema.sections.map(s => {
+      if (s.id === 'dcr') {
+        const hv = findIn(s, 'hv'), mv = findIn(s, 'mv'), lv = findIn(s, 'lv');
+        const hvG = hv.grids[0], mvG = mv.grids[0];
+        swaps.push({ kind: 'winding', a: hvG.tables[0], b: mvG.tables[0] });
+        // nhiệt độ đo ghi vào đoạn đề mục đứng trước bảng mới của lưới
+        const field = (f, before) => (f.doc ? Object.assign({}, f, { doc: Object.assign({}, f.doc, { before }) }) : f);
+        const mvGrid = moveGrid(mvG, hvG, hvG.rows, 1,
+          ['AmN', 'ΔRAmN(%)', 'BmN', '∆RBmN(%)', 'CmN', '∆RCmN(%)', '∆R(A,B,C)(%)'], { title: 'Theo nấc', corner: 'Nấc' });
+        const hvGrid = moveGrid(hvG, mvG, one, -1,
+          [hvDoc[0], `ΔR${hvDoc[0]}(%)`, hvDoc[1], `∆R${hvDoc[1]}(%)`, hvDoc[2], `∆R${hvDoc[2]}(%)`, '∆R(A,B,C)(%)'], { title: '' });
+        delete hvGrid.corner;
+        const n = s.no;
+        return Object.assign({}, s, { groups: [
+          Object.assign({}, mv, { title: `${n}.1 Cuộn trung áp — theo nấc OLTC — Am-N / Bm-N / Cm-N (mΩ)`,
+            fields: hv.fields.filter(f => f.cfg === 'oltcWinding').concat((mv.fields || []).map(f => field(f, hvG.tables[0]))), grids: [mvGrid] }),
+          Object.assign({}, hv, { title: `${n}.2 Cuộn cao áp — đo ${hvApp.join(' / ')} (mΩ)`,
+            fields: hv.fields.filter(f => f.cfg !== 'oltcWinding').map(f => field(f, mvG.tables[0])), grids: [hvGrid] }),
+          Object.assign({}, lv, { title: lv.title.replace(/^\d+\.\d+/, `${n}.3`) }),
+        ] });
+      }
+      if (s.id === 'ratio') {
+        const hm = findIn(s, 'hm'), hl = findIn(s, 'hl'), ml = findIn(s, 'ml');
+        const hlG = hl.grids[0], mlG = ml.grids[0];
+        swaps.push({ kind: 'ratio', a: hlG.tables[0], b: mlG.tables[0] });
+        const mlGrid = moveGrid(mlG, hlG, hlG.rows, 1,
+          ['UAmBm/Uab', '∆KAmBm/ab(%)', 'UBmCm/Ubc', '∆KBmCm/bc(%)', 'UCmAm/Uca', '∆KCmAm/ca(%)', '∆K(A,B,C)(%)'], { title: 'Theo nấc', corner: 'Nấc' });
+        const hlGrid = moveGrid(hlG, mlG, one, -1,
+          ['UAB/Uab', '∆KAB/ab(%)', 'UBC/Ubc', '∆KBC/bc(%)', 'UCA/Uca', '∆KCA/ca(%)', '∆K(A,B,C)(%)'], { title: '' });
+        delete hlGrid.corner;
+        const n = s.no;
+        return Object.assign({}, s, { groups: [
+          hm,
+          Object.assign({}, ml, { title: `${n}.2 Cuộn MV : LV — theo nấc OLTC`, grids: [mlGrid] }),
+          Object.assign({}, hl, { title: `${n}.3 Cuộn HV : LV`, grids: [hlGrid] }),
+        ] });
+      }
+      return s;
+    });
+    return Object.assign({}, schema, { sections, oltcWinding: 'MV', docSwaps: swaps });
   }
   function build1P(cfg) {
     const taps = (cfg.taps && cfg.taps.length === 19) ? cfg.taps : DEFAULT_TAPS;
@@ -695,6 +781,10 @@
         groups: ['hv', 'mv', 'lv'].map(side => ({ id: side, title: BCT_SIDES[side].label, bct: side, grids: bctGrids(side, +cfg.bctCores[side]) }))
           .concat([{ id: 'n', title: 'Phía trung tính — đặc tính từ hóa', grids: [exGrid('bct.n.ex.N', 'Đặc tính từ hóa — Trung tính', [50], 3, 4)] }]),
       },
+      {
+        // Thí nghiệm ngắn mạch: mục cuối biên bản (mẫu Word không có — app thêm chỉ mục và bảng khi xuất BBTN)
+        id: 'shortCircuit', no: 12, title: 'Thí nghiệm ngắn mạch máy biến áp', en: 'Short-circuit impedance & load loss',
+      },
     ];
     return { sections, taps, head: META, tail: CLOSING, layout: '1P', summary: SUMMARY['1P'], tables: 73 };
   }
@@ -703,5 +793,5 @@
   // Duyệt biểu mẫu: hàm chung ở js/domain/common.js (trường đầu/cuối biên bản lấy từ schema.head/tail)
   const { eachGrid, eachField } = Common;
 
-  window.Schema = { HV_MEAS, LAYOUT_3P, LAYOUT_110, MAP_110, TAPS_19, layoutOf, TAPS_17, build, eachGrid, eachField, META, CLOSING, SUMMARY_ROWS, DEFAULT_TAPS, BCT_SIDES, BCT_TABLES };
+  window.Schema = { HV_MEAS, OLTC_WINDINGS, BASELINE_RESETS, ATT_SECTIONS, REASONS, LAYOUT_3P, LAYOUT_110, MAP_110, TAPS_19, layoutOf, TAPS_17, build, eachGrid, eachField, META, CLOSING, SUMMARY_ROWS, DEFAULT_TAPS, BCT_SIDES, BCT_TABLES };
 })();
