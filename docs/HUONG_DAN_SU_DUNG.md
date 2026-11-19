@@ -15,8 +15,8 @@ Mở hướng dẫn này trong app bằng nút ? trên header hoặc phím F1. K
 5. Điền thông tin chung, nhiệt độ môi trường và cấu hình cần thiết.
 6. Chọn hạng mục, đọc hướng dẫn đo, nhập hoặc nạp kết quả máy đo.
 7. Kiểm tra ô tự tính, cảnh báo và các giá trị so sánh xuất xưởng.
-8. Mở **Σ Tổng hợp**, rà phát hiện và bấm **Điền kết luận tự động**.
-9. Mở **Phụ lục BBTN** nếu có file OLTC, SFRA, DFR hoặc BBTN dầu cần đính kèm.
+8. Mở **Phụ lục BBTN** nếu có file OLTC, SFRA, DFR hoặc BBTN dầu cần đính kèm; xem **Xu hướng** khi có lịch sử đo.
+9. Mở **Σ Tổng hợp & kết luận** (cuối nhóm Kết quả), rà phát hiện và bấm **Điền kết luận tự động**.
 10. Bấm **Xuất BBTN .docx**, **Xuất so sánh .xlsx** và **Lưu .json**.
 
 Khi xuất Word, cuối BBTN có phụ lục bảng tra theo từng hạng mục MBA, gồm tiêu chí QĐ EVNNPT và các tiêu chuẩn IEC/IEEE liên quan. Phần QĐ EVNNPT nêu căn cứ đánh giá; IEC/IEEE nêu mã thử, phương pháp hoặc hướng dẫn và không tự tạo giới hạn đạt/không đạt. Khi quy định không nêu ngưỡng chung, đối chiếu Test Report, nhà chế tạo, giá trị gốc và quy trình được duyệt.
@@ -39,7 +39,7 @@ Khi xuất Word, cuối BBTN có phụ lục bảng tra theo từng hạng mục
 - **Thanh điều hướng bên trái** chia nhóm:
   - **Biên bản** — thông tin chung & cấu hình, số liệu xuất xưởng, nhập BBTN cũ (dữ liệu đầu vào của biên bản đang lập);
   - **Hạng mục thí nghiệm** — mô hình 3D và các mục 1…12;
-  - **Kết quả** — tổng hợp & kết luận, **xu hướng**, phụ lục BBTN;
+  - **Kết quả** — phụ lục BBTN, **xu hướng**, tổng hợp & kết luận (kết luận sau cùng);
   - **Cơ sở dữ liệu** — biên bản đã lưu, trạm – ngăn – thiết bị;
   - **Tiêu chuẩn & tra cứu** — bộ tiêu chí, hệ số quy đổi sứ, thư viện tài liệu.
   Hai nhóm cuối bấm vào tên nhóm để đóng / mở.
