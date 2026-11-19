@@ -374,7 +374,10 @@ Hãy dùng đúng nhãn hiển thị trên phiên bản đang chạy.
 8. K2 tại chênh 16 °C là 2,4 theo quyết định dự án.
 9. Cột quy đổi là dữ liệu tính, không nhập lại như số đo độc lập.
 10. Kiểm tra thay đổi điện dung so với xuất xưởng khi có dữ liệu.
-11. Tiêu chí tgδ và tăng so với xuất xưởng tham chiếu Điều 9 mục 5 và Điều 30.
+11. Đánh giá tgδ cuộn dây (Điều 9 mục 5, Điều 30 mục 3):
+    - tgδ quy về 20 °C **≤ 1 %**: Đạt, coi là tốt, **không cần so với giá trị khởi đầu** (giá trị so XX chỉ ghi tham khảo).
+    - Lớn hơn 1 %: so với **giá trị khởi đầu** quy cùng nhiệt độ, không tăng quá 30 % — dùng số liệu XX; CSDL có giá trị khởi đầu thì đánh giá ở dòng **Xu hướng**.
+    - Lớn hơn 1 % mà không có giá trị khởi đầu: tham khảo **Bảng 46** theo nhiệt độ cuộn dây và cấp điện áp cao áp (lấy từ ô Điện áp định mức); chưa có điện áp thì báo Cần xem xét.
 12. Nhập thủ công từ cầu đo tgδ hoặc nạp file nếu có luồng phù hợp.
 
 ## 11. Mục 7: Điện trở một chiều
