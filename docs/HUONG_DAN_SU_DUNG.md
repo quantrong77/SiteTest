@@ -65,7 +65,7 @@ Khi xuất Word, cuối BBTN có phụ lục bảng tra theo từng hạng mục
       Khối **Test report xuất xưởng** (bước ① và ②): nút **Nhập Test Report (.xlsx)…** nạp file test report của thiết bị — chưa có số chế tạo thì
       file một máy (hoặc tổ 3 máy pha A / B / C) tự điền số chế tạo; sau đó app tự điền thông số kỹ thuật và chuyển sang bước ②.
    2. **Thông số kỹ thuật** — app tự điền tên trạm, vị trí lắp đặt, hãng, kiểu, năm sản xuất, công suất, điện áp, dòng, tổ đấu dây theo thứ tự:
-      thông số đã lưu của thiết bị trong **CSDL** → **test report** (file .xlsx trên máy có số chế tạo này, hoặc file test report gốc lưu trong CSDL — tự tải về) → **nhập tay**.
+      thông số đã lưu của thiết bị trong **CSDL** → **test report** (file .xlsx trên máy có số chế tạo này, hoặc file test report gốc lưu trong CSDL — tự tải về) → **BBTN gần nhất** của thiết bị trong CSDL (ô ghi “Tự điền từ BBTN dd/mm/yyyy”) → **nhập tay**. Điện áp, dòng định mức: test report / BBTN (đủ các cuộn) trước CSDL.
       Ô tự điền tô vàng "Tự điền từ … — kiểm tra lại"; ô chưa có nguồn nào tô đỏ "nhập tay" (giá trị mẫu của template được xóa để khỏi ghi nhầm).
       Sửa ô là bỏ tô nền; ô đã nhập tay không bị ghi đè. Nút **Điền lại từ CSDL / test report** chạy lại theo số chế tạo đang nhập; vẫn dùng được **Nhập ảnh nameplate…**.
       Test report đang dùng mà CSDL chưa có số liệu xuất xưởng của máy: bấm **Lưu test report lên CSDL** để lưu làm **giá trị khởi đầu**
@@ -668,7 +668,9 @@ Cách cũ ở trang CSDL vẫn dùng được (ghi mọi máy trong file vào ng
 1. Mở trang **Nhập BBTN cũ** trong nhóm Cơ sở dữ liệu.
 2. Chọn một/nhiều file `.docx`, `.pdf` hoặc chọn cả thư mục.
 3. DOCX được đọc theo cấu trúc bảng của mẫu PTC3/BM.01 đã hỗ trợ; PDF có lớp chữ được đọc trực tiếp, PDF scan được OCR bằng [Tesseract.js](https://github.com/naptha/tesseract.js) (`vie+eng`) sau khi PDF.js render từng trang.
-4. Kiểm tra mẫu, số chế tạo, ngày thí nghiệm, số biên bản, số ô số liệu và các cảnh báo trong bảng.
+4. Kiểm tra mẫu, số chế tạo, ngày thí nghiệm, **lý do** (lần *Sau lắp đặt* ghi nhãn **khởi đầu** — làm giá trị khởi đầu khi không có test report), số biên bản, số ô số liệu và các cảnh báo trong bảng.
+4b. **Trùng:** file có cùng số chế tạo và ngày thí nghiệm với lần thí nghiệm đã có trong CSDL hoặc với file khác trong lô thì **không tự lưu**. Chọn **Ghi đè** (thay số liệu
+    lần đã có bằng file này) hoặc **Lưu thành lần mới** / **Vẫn lưu** — tránh lần thí nghiệm trùng làm sai xu hướng.
 5. Với PDF, bấm **Soát cạnh PDF** để mở bản gốc trong khung trái và biểu mẫu trong khung phải cùng trang.
 6. Đối chiếu nội dung bìa, nhập hoặc sửa số liệu đo trong biểu mẫu bên phải. PDF không có trường form nên số liệu bảng đo chưa được tự động trích xuất.
 7. Bấm **Đã soát** trên thanh phía trên khung PDF sau khi đã nhập ít nhất một giá trị đo; nếu đã đóng khung song song, mở lại file rồi đánh dấu. Kiểm tra số liệu và ngày trước khi lưu.

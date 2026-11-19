@@ -77,3 +77,16 @@ test('tổ máy khai trong CSDL (equipment_groups) được ưu tiên; máy than
   assert.deepEqual(r.singles.map(e => e.serial_no), ['SN-B'], 'máy cũ pha B là máy đơn; máy thanh lý không hiện');
   assert.equal(J(ES.bayUnits(list, 'b1', 'MBA')).bank.B.serial_no, 'SN-B', 'không có tổ trong CSDL: suy theo pha như cũ');
 });
+
+test('nguồn thông số: BBTN lịch sử bù ô CSDL / test report không có; điện áp, dòng: test report đủ cuộn trước CSDL', () => {
+  const eq = { name: 'AT1 pha A', manufacturer: 'Hãng CSDL', rated: { voltage: '220', current_a: '' } };
+  const hist = { date: '2023-05-10', v: { 'meta.type': 'KIEU-BBTN', 'meta.voltage': '220/115/23', 'meta.current': '262/500/1500', 'meta.manuf': 'Hãng BBTN' } };
+  const f = J(ES.headFrom(eq, null, { substation: 'Trạm Thử' }, hist));
+  assert.deepEqual(f['meta.manuf'], { value: 'Hãng CSDL', src: 'CSDL' }, 'CSDL trước BBTN');
+  assert.deepEqual(f['meta.type'], { value: 'KIEU-BBTN', src: 'BBTN 10/05/2023' });
+  assert.deepEqual(f['meta.voltage'], { value: '220/115/23', src: 'BBTN 10/05/2023' }, 'BBTN đủ cuộn trước CSDL chỉ có cuộn cao áp');
+  assert.deepEqual(f['meta.current'], { value: '262/500/1500', src: 'BBTN 10/05/2023' });
+  const g = J(ES.headFrom(eq, { voltage: { HV: '225', MV: '115', LV: '23' } }, {}, hist));
+  assert.deepEqual(g['meta.voltage'], { value: '225/115/23', src: 'Test report' }, 'test report trước BBTN');
+  assert.deepEqual(J(ES.headFrom(eq, null, {}, null))['meta.voltage'], { value: '220', src: 'CSDL' });
+});

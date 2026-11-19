@@ -14,16 +14,40 @@
     return T.toRows.fieldRows(state, res, schema).rows.filter(r => r.value !== null).length;
   }
 
+  // Trùng: cùng số chế tạo + ngày thí nghiệm với file khác trong lô (dupList) hoặc với lần thí nghiệm đã có trong CSDL (dup).
+  // Chưa chọn cách xử lý (dupChoice: 'over' ghi đè lần đã có | 'new' lưu thành lần mới) thì không lưu — tránh lần thí nghiệm trùng làm sai xu hướng.
+  const dupKey = st => `${String(st.v['meta.serial'] || '').trim().toUpperCase()}|${Common.isoDate(st.v['meta.date']) || ''}`;
+  const dupPending = it => !!(it && (it.dup || it.dupList) && !it.dupChoice);
+  function markListDups(A) {
+    const seen = new Map();
+    items.forEach(it => {
+      const st = activeState(it, A);
+      it.dupList = '';
+      if (!st || it.error || !st.v || !String(st.v['meta.serial'] || '').trim() || !Common.isoDate(st.v['meta.date'])) return;
+      const k = dupKey(st);
+      if (seen.has(k)) it.dupList = seen.get(k).file; else seen.set(k, it);
+    });
+  }
+  async function checkDbDup(it, A) {
+    const st = activeState(it, A);
+    if (!window.DB || !DB.user || !DB.findSessions || it.dupChoice) return;
+    try {
+      const rows = await DB.findSessions(String(st.v['meta.serial']).trim(), Common.isoDate(st.v['meta.date']));
+      const mine = (st.db && st.db.sessionId) || (it.saved && it.saved.id);
+      it.dup = rows.find(r => r.id !== mine) || null;
+    } catch (e) { it.dup = null; }
+  }
+
   function canSave(it, A) {
     const st = activeState(it, A);
-    if (!it || it.error || (it.saved && it.saved.status !== 'draft') || !it.reviewed || !st) return false;
+    if (!it || it.error || (it.saved && it.saved.status !== 'draft') || !it.reviewed || !st || dupPending(it)) return false;
     if (!String(st.v['meta.serial'] || '').trim() || !Common.isoDate(st.v['meta.date'])) return false;
     return true;
   }
 
   function canSaveDraft(it, A) {
     const st = activeState(it, A);
-    return Boolean(it && !it.error && !it.saved && !it.processing && st
+    return Boolean(it && !it.error && !it.saved && !it.processing && st && !dupPending(it)
       && String(st.v['meta.serial'] || '').trim() && Common.isoDate(st.v['meta.date']));
   }
 
@@ -36,7 +60,8 @@
       ${items.some(it => canSaveDraft(it, A)) ? `<button class="btn" data-act="impSaveDraftAll"${busy ? ' disabled' : ''}>Lưu nháp chưa lưu (${items.filter(it => canSaveDraft(it, A)).length})</button>` : ''}
       ${items.some(it => canSave(it, A)) ? `<button class="btn primary" data-act="impSaveAll"${busy ? ' disabled' : ''}>Lưu các biên bản đã soát (${items.filter(it => canSave(it, A)).length})</button>` : ''}</div>`;
     if (!items.length) return `<section class="panel">${h}<p class="wf-none">Chưa chọn file nào.</p></section>`;
-    h += '<div class="grid-wrap"><table class="ftable"><thead><tr><th>File</th><th>Định dạng / mẫu</th><th>Số chế tạo</th><th>Ngày TN</th><th>Số biên bản</th><th>Ô số liệu</th><th>Trạng thái</th><th></th></tr></thead><tbody>';
+    markListDups(A);
+    h += '<div class="grid-wrap"><table class="ftable"><thead><tr><th>File</th><th>Định dạng / mẫu</th><th>Số chế tạo</th><th>Ngày TN</th><th>Lý do</th><th>Số biên bản</th><th>Ô số liệu</th><th>Trạng thái</th><th></th></tr></thead><tbody>';
     h += items.map(it => {
       const st = activeState(it, A), v = st && st.v || {};
       const progressStatus = String(it.progress && it.progress.status || 'Đang xử lý');
@@ -48,14 +73,21 @@
         : it.error ? '<span class="badge st-fail">Lỗi đọc</span>'
         : it.saved ? `<span class="badge ${it.saved.status === 'final' ? 'st-pass' : 'st-info'}">${it.saved.status === 'final' ? 'Đã lưu · đã soát' : it.reviewed ? 'Đã soát · chờ cập nhật' : 'Đã lưu nháp · chờ soát'}</span>`
           : it.reviewed ? '<span class="badge st-info">Đã soát</span>' : '<span class="badge st-warn">Cần soát</span>';
-      const notes = [...(it.warnings || []), ...(it.saveNotice ? [it.saveNotice] : [])];
+      const dupNote = it.dupChoice ? '' : it.dup ? `Trùng: CSDL đã có lần thí nghiệm ${v['meta.serial']} ngày ${v['meta.date']}${it.dup.report_no ? ` (số ${it.dup.report_no})` : ''}`
+        + `${it.dup.status === 'final' ? ', đã chốt' : ''}${it.dup.source === 'factory_import' ? ', từ test report' : ''} — chọn Ghi đè hoặc Lưu thành lần mới.`
+        : it.dupList ? `Trùng số chế tạo và ngày với file ${it.dupList} trong lô — kiểm tra, hoặc Vẫn lưu.` : '';
+      const notes = [...(dupNote ? [dupNote] : []), ...(it.warnings || []), ...(it.saveNotice && !dupNote ? [it.saveNotice] : [])];
       const warnings = it.error ? `<div class="note">${esc(it.error)}</div>`
         : notes.length ? `<div class="note">${notes.map(esc).join('<br>')}</div>` : '';
       const format = it.format === 'pdf' ? `PDF · ${esc(LAYOUT_NAME[it.layout] || it.layout || 'chưa nhận dạng')}` : `DOCX · ${esc(LAYOUT_NAME[it.layout] || it.layout || 'chưa nhận dạng')}`;
-      return `<tr><td>${esc(it.file)}</td><td>${format}</td><td>${esc(v['meta.serial'] || '—')}</td><td>${esc(v['meta.date'] || '—')}</td><td>${esc(it.reportNo || st && st.imported && st.imported.reportNo || '—')}</td>
+      const kind = v['meta.reason'] ? Common.kindOf(v['meta.reason']) : '';
+      return `<tr><td>${esc(it.file)}</td><td>${format}</td><td>${esc(v['meta.serial'] || '—')}</td><td>${esc(v['meta.date'] || '—')}</td>`
+        + `<td>${esc(v['meta.reason'] || '—')}${kind === 'SAT' ? ' <span class="badge st-pass" title="Lần sau lắp đặt: giá trị khởi đầu khi không có test report">khởi đầu</span>' : ''}</td><td>${esc(it.reportNo || st && st.imported && st.imported.reportNo || '—')}</td>
         <td class="num">${Number(it.count) || 0}</td><td>${status}${warnings}</td><td><div class="row-actions" style="margin:0">
         ${it.state && !it.error && !it.processing ? `<button class="btn small" data-act="impOpen" data-id="${it.id}">${it.format === 'pdf' ? 'Soát cạnh PDF' : 'Mở để soát'}</button>` : ''}
         ${it.state && !it.error && !it.processing && !it.reviewed ? `<button class="btn small" data-act="impReviewDone" data-id="${it.id}">Đã soát</button>` : ''}
+        ${dupPending(it) && it.dup ? `<button class="btn small" data-act="impDupOver" data-id="${it.id}"${busy ? ' disabled' : ''} title="Ghi số liệu file này vào lần thí nghiệm đã có (thay số liệu cũ)">Ghi đè</button>` : ''}
+        ${dupPending(it) ? `<button class="btn small" data-act="impDupNew" data-id="${it.id}"${busy ? ' disabled' : ''}>${it.dup ? 'Lưu thành lần mới' : 'Vẫn lưu'}</button>` : ''}
         ${canSaveDraft(it, A) ? `<button class="btn small" data-act="impSaveDraft" data-id="${it.id}"${busy ? ' disabled' : ''}>Lưu nháp</button>` : ''}
         ${canSave(it, A) ? `<button class="btn small primary" data-act="impSave" data-id="${it.id}"${busy ? ' disabled' : ''}>Lưu &amp; chốt</button>` : ''}
         <button class="btn small" data-act="impDel" data-id="${it.id}" aria-label="Ẩn ${esc(it.file)}">Ẩn</button></div></td></tr>`;
@@ -117,6 +149,9 @@
       it.saveNotice = 'Chưa tự lưu: đăng nhập bằng tài khoản có quyền nhập liệu để lưu vào CSDL.';
       return false;
     }
+    markListDups(A);
+    await checkDbDup(it, A);
+    if (dupPending(it)) { it.saveNotice = 'Chưa tự lưu: trùng lần thí nghiệm đã có.'; return false; }
     it.saving = true; busy = true; A.render();
     try {
       await save(it, A, 'draft');
@@ -212,6 +247,19 @@
         state.imported.reviewed = false; A.persist();
         A.toast('Đã soát nhưng chưa cập nhật được CSDL: ' + e.message, true);
       } finally { busy = false; A.render(); }
+      return;
+    }
+    if ((act === 'impDupOver' || act === 'impDupNew') && it) {
+      const st = activeState(it, A);
+      if (act === 'impDupOver') {
+        if (!it.dup) return;
+        st.db = { sessionId: it.dup.id, equipmentId: st.db && st.db.equipmentId, savedAt: null };
+        it.state.db = st.db;
+      }
+      it.dupChoice = act === 'impDupOver' ? 'over' : 'new';
+      it.saveNotice = '';
+      if (await autoSaveDraft(it, A)) A.toast(`${it.file}: ${it.dupChoice === 'over' ? 'đã ghi đè lần thí nghiệm đã có' : 'đã lưu thành lần thí nghiệm mới'} (nháp)`);
+      A.render();
       return;
     }
     if (act === 'impSaveDraft' || act === 'impSaveDraftAll') {

@@ -162,10 +162,16 @@
     const fxHas = () => A.FX && serial && A.FX.unit(serial);
     if (!fxHas() && eq && signedIn()) { try { report = await loadReport(eq.id); } catch (err) { A.toast('Không tải được test report từ CSDL: ' + err.message, true); } }
     const fx = fxHas() ? A.FX.data.specs : null;
-    const plan = A.applyHeadFills(EquipmentSpecs.headFrom(eq, fx, where));
-    const n = { CSDL: 0, 'Test report': 0 };
-    Object.values(plan).forEach(f => { n[f.src] += 1; });
-    return { n, report, fx: !!fx };
+    // BBTN gần nhất của thiết bị (đã lưu CSDL, khác biên bản đang mở): bù ô CSDL / test report không có
+    let hist = null;
+    if (eq && signedIn() && DB.latestForm) {
+      try { hist = await DB.latestForm(eq.id); } catch (err) { hist = null; }
+      if (hist && A.state.db && hist.id === A.state.db.sessionId) hist = null;
+    }
+    const plan = A.applyHeadFills(EquipmentSpecs.headFrom(eq, fx, where, hist));
+    const n = { CSDL: 0, 'Test report': 0, BBTN: 0 };
+    Object.values(plan).forEach(f => { n[/^BBTN/.test(f.src) ? 'BBTN' : f.src] += 1; });
+    return { n, report, fx: !!fx, hist };
   }
 
   async function apply() {
@@ -194,7 +200,8 @@
     A.rebuild(true);
     A.loadTrend(); // lịch sử đo của máy (và các máy cùng tổ) cho xu hướng, so sánh giữa các pha
     A.setupGo('specs');
-    const parts = [r.n.CSDL ? `${r.n.CSDL} ô từ CSDL` : '', r.n['Test report'] ? `${r.n['Test report']} ô từ test report${r.report ? ` (${r.report})` : ''}` : ''].filter(Boolean);
+    const parts = [r.n.CSDL ? `${r.n.CSDL} ô từ CSDL` : '', r.n['Test report'] ? `${r.n['Test report']} ô từ test report${r.report ? ` (${r.report})` : ''}` : '',
+      r.n.BBTN ? `${r.n.BBTN} ô từ BBTN ${String(r.hist.date).split('-').reverse().join('/')}` : ''].filter(Boolean);
     A.toast(eq || cfg.pickEq === 'new'
       ? `Đã chọn ${eq ? eq.serial_no : 'thiết bị mới'} — ${parts.length ? `tự điền ${parts.join(', ')}; ô tô nền cần kiểm tra` : 'chưa có thông số trong CSDL / test report, nhập tay'}`
       : 'Đã gắn ngăn');
@@ -212,8 +219,8 @@
     }
     const r = await fillSpecs(eq, where);
     A.rebuild(false);
-    const total = r.n.CSDL + r.n['Test report'];
-    A.toast(total ? `Đã điền ${total} ô (${r.n.CSDL} từ CSDL, ${r.n['Test report']} từ test report)` : 'Không có thông số mới để điền (ô đã nhập tay được giữ nguyên)');
+    const total = r.n.CSDL + r.n['Test report'] + r.n.BBTN;
+    A.toast(total ? `Đã điền ${total} ô (${r.n.CSDL} từ CSDL, ${r.n['Test report']} từ test report${r.n.BBTN ? `, ${r.n.BBTN} từ BBTN cũ` : ''})` : 'Không có thông số mới để điền (ô đã nhập tay được giữ nguyên)');
   }
 
   async function action(act) {
