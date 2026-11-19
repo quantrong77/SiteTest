@@ -228,8 +228,9 @@ Hãy dùng đúng nhãn hiển thị trên phiên bản đang chạy.
 
 1. Chọn mục trên thanh điều hướng.
 2. Mỗi mục có các bước **Chuẩn bị**, **Hướng dẫn đo**, **Nhập số liệu**, **Đánh giá**.
-3. Các hạng mục MBA đã hỗ trợ có hướng dẫn đo rút gọn theo *Tài liệu đào tạo thí nghiệm MBA (2026)*; mục nguồn hiện trong khung tài liệu tham khảo.
+3. Bước **Hướng dẫn đo** của từng hạng mục MBA tổng hợp QĐ 1901 Chương V, quy trình QT-KĐMBA và tài liệu đào tạo thí nghiệm MBA (2026): mục đích, điều kiện đo, sơ đồ đấu dây (có hình), trình tự đo, lưu ý. Nguồn từng ý ghi trong ngoặc: QĐ — QĐ 1901; QT — QT-KĐMBA; ĐT — tài liệu đào tạo.
    Hướng dẫn trong app không thay thế sơ đồ đấu nối, phương án an toàn và quy trình chi tiết được đơn vị phê duyệt; làm theo các tài liệu đó trước khi đo.
+   Xem mục **Hướng dẫn đo: hình và chỉnh sửa (Admin)** ngay dưới.
 4. Nhập số liệu bằng bàn phím hoặc dán bảng từ Excel vào ô đầu.
 5. Phím Enter đi xuống hàng trong cùng cột theo bảng.
 6. Ô màu xám thường là tự tính.
@@ -241,6 +242,25 @@ Hãy dùng đúng nhãn hiển thị trên phiên bản đang chạy.
 12. **Xóa số liệu hạng mục** xóa số liệu hạng mục hiện tại, không xóa thông tin chung.
 13. Cấu hình, nhãn và kết luận được giữ theo hành vi xóa trong mã.
 14. Có thể dùng nút **Đọc số** ở hạng mục có ô số hỗ trợ.
+
+### Hướng dẫn đo: hình và chỉnh sửa (Admin)
+
+Hình trong hướng dẫn (sơ đồ đấu dây, sơ đồ nguyên lý) lấy từ tài liệu nội bộ nên **không nằm trong mã nguồn** (repo công khai) mà lưu trong kho file riêng tư của CSDL. Cần đăng nhập để xem hình.
+
+1. Admin mở một hạng mục, bước **Hướng dẫn đo**, bấm **Nạp hình từ tài liệu…**.
+2. Chọn cùng lúc tệp *TaiLieuĐT_TNNhatThu MBA_2026.docx* và *2.Qui trình kiểm định máy biến áp.pdf* (bản scan 51 trang).
+3. App tách ảnh nhúng trong .docx và cắt vùng hình trên các trang PDF ngay trong trình duyệt, rồi lưu vào kho file (bucket `library`, thư mục `guide/MBA/`). Chỉ làm một lần cho đơn vị; nạp lại sẽ ghi đè.
+4. Ảnh .docx chỉ nhận khi đúng phiên bản tài liệu (đúng dung lượng từng ảnh); tài liệu đã sửa thì hình không khớp bị bỏ qua và báo số lượng. PDF phải đúng 51 trang.
+5. Hình chưa nạp hiện khung *Hình chưa nạp vào CSDL*.
+
+Chỉnh nội dung cho đơn vị (Admin):
+
+1. Bấm **Sửa hướng dẫn**: ô soạn Markdown bên trái, xem trước bên phải.
+2. Cú pháp: `### Tiêu đề`, danh sách `1.` / `-`, `**đậm**`, `*nghiêng*`, bảng `| A | B |`, hình `![chú thích](img:khóa)` (mỗi hình một dòng).
+3. **Chèn ảnh…**: chọn ảnh trên máy (≤ 5 MB), app lưu vào kho file và chèn dòng hình tại vị trí con trỏ.
+4. Ghi **Ghi chú thay đổi** (căn cứ, văn bản), bấm **Lưu** — áp dụng cho mọi người trong đơn vị; hướng dẫn hiện nhãn *Đơn vị đã chỉnh*.
+5. **Lấy nội dung mặc định** nạp lại nội dung gốc của app vào ô soạn; **Khôi phục mặc định** xóa nội dung đơn vị đã chỉnh.
+6. Cần chạy migration `20261120000100_workflow_guides.sql` trên Supabase trước khi lưu.
 
 ### Nhập bằng giọng nói
 

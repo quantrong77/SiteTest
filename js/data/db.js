@@ -192,6 +192,24 @@
     return saved;
   }
   const libraryFileUrl = async path => chk(await need().storage.from('library').createSignedUrl(path, 600));
+  // Hướng dẫn đo do đơn vị chỉnh (Admin) — bảng workflow_guides; chưa chạy migration thì coi như chưa chỉnh
+  const listGuides = async classCode => soft(need().from('workflow_guides').select('*').eq('class_code', classCode));
+  const saveGuide = async row => chk(await need().from('workflow_guides')
+    .upsert(Object.assign({}, row, { updated_by: user && user.id }), { onConflict: 'class_code,section_id,kind' }).select().single());
+  const deleteGuide = async (classCode, sectionId, kind) => chk(await need().from('workflow_guides').delete()
+    .eq('class_code', classCode).eq('section_id', sectionId).eq('kind', kind).select('section_id'));
+  // Ảnh hướng dẫn: bucket riêng tư 'library', thư mục guide/<loại>/ (Admin ghi, mọi vai trò đọc)
+  async function uploadGuideImage(path, blob) {
+    chk(await need().storage.from('library').upload(path, blob, { upsert: true, contentType: blob.type || 'image/png' }));
+    return path;
+  }
+  // Link tạm (1 giờ) cho nhiều ảnh một lần; ảnh chưa nạp → url rỗng
+  async function guideImageUrls(paths) {
+    if (!paths.length) return {};
+    const r = await need().storage.from('library').createSignedUrls(paths, 3600);
+    if (r.error) throw r.error;
+    return Object.fromEntries((r.data || []).map(x => [x.path, x.error ? '' : x.signedUrl]));
+  }
   async function downloadDoc(path) { return chk(await need().storage.from(BUCKET).download(path)); }
 
   const listSessions = async () => chk(await need().from('v_session_list').select('*').order('test_date', { ascending: false }).limit(500));
@@ -298,7 +316,7 @@
   window.DB = {
     connect, cfgGet, checkConfig, siteCfg, refreshUser, signIn, signUp, signOut, signInWithGoogle, resetPassword, updatePassword, onAuthChange, authInit, saveField, importFactory, uploadDoc, downloadDoc,
     listSessions, listFactorySessions, factoryMeasurements, updateFactory, deleteFactory,
-    latestForm, findSessions, listLocations, updateLocation, listGroups, listGroupMembers, createGroup, replaceGroupMember, replaceComponent, loadSession, deleteSession, listDocs, listEquipment, equipmentRated, trend, trendForSerials, listSubstations, listBays, listClasses, listKTables, listCriteria, saveCriteria, deleteCriteria, listLibrary, saveLibraryDoc, deleteLibraryDoc, uploadLibraryFile, libraryFileUrl, crud,
+    latestForm, findSessions, listLocations, updateLocation, listGroups, listGroupMembers, createGroup, replaceGroupMember, replaceComponent, loadSession, deleteSession, listDocs, listEquipment, equipmentRated, trend, trendForSerials, listSubstations, listBays, listClasses, listKTables, listCriteria, saveCriteria, deleteCriteria, listLibrary, saveLibraryDoc, deleteLibraryDoc, uploadLibraryFile, libraryFileUrl, listGuides, saveGuide, deleteGuide, uploadGuideImage, guideImageUrls, crud,
     get client() { return client; }, get user() { return user; }, get role() { return role; }, get profile() { return profile; },
     get busy() { return inflight; },
     canEdit: () => role === 'editor' || role === 'admin',

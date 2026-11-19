@@ -169,5 +169,36 @@
     return { pages, ocrPages: missing.length, confidence };
   }
 
-  window.PdfText = { extract, extractWithOcr };
+  // Cắt vùng trang PDF thành ảnh PNG (hình hướng dẫn từ quy trình bản scan) — xử lý trong trình duyệt.
+  // crops: [{ key, page (từ 1), rect: [x0, y0, x1, y1] theo tỉ lệ trang }] → { pages, out: [{ key, blob }] }
+  async function cropRegions(file, crops, scale = 2.2) {
+    const lib = await withTimeout(loadLib(), 30000, 'Không tải được thư viện đọc PDF trong 30 giây; kiểm tra kết nối mạng.');
+    const pdf = await lib.getDocument({ data: new Uint8Array(await file.arrayBuffer()), isEvalSupported: false }).promise;
+    const out = [], cache = new Map();
+    try {
+      for (const c of crops) {
+        if (c.page < 1 || c.page > pdf.numPages) continue;
+        let canvas = cache.get(c.page);
+        if (!canvas) {
+          const page = await pdf.getPage(c.page);
+          const viewport = page.getViewport({ scale });
+          canvas = document.createElement('canvas');
+          canvas.width = Math.ceil(viewport.width); canvas.height = Math.ceil(viewport.height);
+          await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
+          cache.clear(); cache.set(c.page, canvas);
+        }
+        const [x0, y0, x1, y1] = c.rect;
+        const sx = Math.round(x0 * canvas.width), sy = Math.round(y0 * canvas.height);
+        const w = Math.round((x1 - x0) * canvas.width), h = Math.round((y1 - y0) * canvas.height);
+        const cut = document.createElement('canvas');
+        cut.width = w; cut.height = h;
+        cut.getContext('2d').drawImage(canvas, sx, sy, w, h, 0, 0, w, h);
+        const blob = await new Promise(res => cut.toBlob(res, 'image/png'));
+        if (blob) out.push({ key: c.key, blob });
+      }
+      return { pages: pdf.numPages, out };
+    } finally { pdf.destroy(); }
+  }
+
+  window.PdfText = { extract, extractWithOcr, cropRegions };
 })();

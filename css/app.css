@@ -621,3 +621,24 @@ table.grid.fx-table td.fx-act { padding: 3px 6px; width: 1%; white-space: nowrap
 .std-tbl td > div + div { margin-top: 6px; }
 .std-cited { margin-top: 10px; }
 .std-cited ul { margin: 6px 0 0 18px; }
+
+/* Hướng dẫn đo (GuideUI): nội dung có hình, Admin soạn Markdown có xem trước */
+.gd-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 10px; }
+.gd-tools { display: flex; flex-wrap: wrap; gap: 6px; }
+.gd-body h3 { margin: 18px 0 6px; font-size: 15px; }
+.gd-body p, .gd-body li { line-height: 1.55; }
+.gd-body em { color: var(--muted); font-style: normal; font-size: .9em; }
+.gd-body table { margin: 6px 0 10px; }
+.gd-fig { margin: 12px 0; max-width: 760px; }
+.gd-img { display: grid; place-items: center; min-height: 64px; padding: 6px; border: 1px solid var(--line, #d6dbe0); border-radius: 8px; background: #fff; }
+.gd-img img { display: block; max-width: 100%; height: auto; }
+.gd-fig figcaption { margin-top: 4px; font-size: 12.5px; color: var(--muted); }
+.gd-src { font-size: 11.5px; }
+.gd-split { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 12px; margin-top: 8px; }
+.gd-split textarea { width: 100%; min-height: 520px; font: 12.5px/1.5 ui-monospace, Consolas, monospace; padding: 8px; border: 1px solid var(--line, #d6dbe0); border-radius: 8px; resize: vertical; box-sizing: border-box; }
+.gd-preview { max-height: 640px; overflow: auto; padding: 4px 10px; border: 1px dashed var(--line, #d6dbe0); border-radius: 8px; }
+@media (max-width: 900px) { .gd-split { grid-template-columns: minmax(0, 1fr); } .gd-split textarea { min-height: 320px; } }
+.gd-body ul { list-style: disc; padding-left: 22px; margin: 4px 0 8px; }
+.gd-body ol { list-style: decimal; padding-left: 24px; margin: 4px 0 8px; }
+.gd-body li + li { margin-top: 3px; }
+.gd-img img { max-height: 480px; width: auto; }
