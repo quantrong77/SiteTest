@@ -16,6 +16,8 @@
       baselineReset: '',
       // kèm phụ lục "Bảng tra cứu tiêu chuẩn" cuối BBTN ('on') hay không ('off', mặc định)
       stdAppendix: 'off',
+      // BBTN riêng từng pha của tổ 3 máy 1 pha: lần đo của 2 pha còn lại cách ngày thí nghiệm ≤ N ngày là cùng đợt (MbaPhaseFill)
+      campaignDays: 30,
       iLV: '', sLV: '', sR: '', i0Ref: '', bC1Dev: '', bTgdMax: '', bctCores: { hv: 4, mv: 4, lv: 4 },
       ctNo: { hv: '1,2,3,4,5,6', mv: '4,5,6,7,8', n: '8,9,10', lv: '11,12,13,14' }, bctErrLimit: '', decSep: ',',
       hdr: {}, wtgdLabels: {}, wtgdRows: [], oltcCharts: 'all',

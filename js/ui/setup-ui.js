@@ -192,6 +192,7 @@
     }
     const r = await fillSpecs(eq, { substation: sub.name, bay: bay.name || bay.code });
     A.rebuild(true);
+    A.loadTrend(); // lịch sử đo của máy (và các máy cùng tổ) cho xu hướng, so sánh giữa các pha
     A.setupGo('specs');
     const parts = [r.n.CSDL ? `${r.n.CSDL} ô từ CSDL` : '', r.n['Test report'] ? `${r.n['Test report']} ô từ test report${r.report ? ` (${r.report})` : ''}` : ''].filter(Boolean);
     A.toast(eq || cfg.pickEq === 'new'

@@ -68,12 +68,12 @@
     });
     if (!s) return '';
     const yellow = TrendInline.warn(target, s.fromBase, window.Criteria ? Criteria.limits() : null, s.fromPrevious);
-    const baseLbl = s.base.kind === 'FAT' ? 'XX' : 'Đầu';
+    const bi = TrendInline.baseInfo(s.base, target.item), baseLbl = bi.short;
     const lines = s.hasCurrent
       ? [`${baseLbl} ${fmt(s.fromBase)}`].concat(s.fromPrevious !== null ? [`Trước ${fmt(s.fromPrevious)}`] : [])
       : [`${s.history.length} lần trước`];
     const title = `Xu hướng tham khảo (${s.history.length} lần đo trước${s.basis === 'norm' ? ', giá trị đã quy đổi nhiệt độ' : ''}). `
-      + `${s.base.kind === 'FAT' ? 'XX: so với xuất xưởng' : 'Đầu: so với lần đo sớm nhất'}${s.fromPrevious !== null ? '; Trước: so với lần đo gần nhất' : ''}. `
+      + `${bi.short}: so với ${bi.name}${s.base.test_date ? ` (${String(s.base.test_date).split('-').reverse().join('/')})` : ''}${s.fromPrevious !== null ? '; Trước: so với lần đo gần nhất' : ''}. `
       + `Đánh giá chính thức ở mục kết quả.${yellow ? ' Vượt ngưỡng QĐ 1901 so với giá trị khởi đầu.' : ''}`;
     return `<span class="trend-inline${yellow ? ' is-warning' : ''}" title="${esc(title)}">${spark(s.points, s.hasCurrent)}${lines.map(l => `<span>${esc(l)}</span>`).join('')}</span>`;
   }
@@ -99,7 +99,8 @@
   async function load(c, root, onChange) {
     ctx = c;
     const my = ++seq; // lượt tải mới nhất (mở biên bản khác trong lúc chờ thì bỏ kết quả cũ)
-    const pack = rowsOf(c, false);
+    // ô trống cũng tính (điền tạm): tải cả lịch sử máy các pha khác của tổ (BBTN riêng từng pha cần số liệu 2 pha còn lại)
+    const pack = rowsOf(c, true);
     const serials = pack ? serialsOf(pack) : [];
     const key = serials.join('|');
     if (!key) { const had = hist.length; reset(); if (had && onChange) onChange(); return; }
@@ -123,5 +124,7 @@
   function reset() { hist = []; loadedFor = ''; cells = new Map(); seq++; }
   const history = () => hist;
 
-  window.TrendInlineUI = { prepare, decorate, load, reset, has, history };
+  const cellMap = () => cells;
+
+  window.TrendInlineUI = { prepare, decorate, load, reset, has, history, cellMap };
 })();

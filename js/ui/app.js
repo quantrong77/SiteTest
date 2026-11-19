@@ -295,6 +295,9 @@
   function clearFlag(k, el) {
     if (!flagOf(k)) return;
     delete state.att.ocr[k];
+    if (state.att.phaseFill) delete state.att.phaseFill[k]; // số liệu pha khác người dùng sửa lại → coi là số đo của lần này
+    const td = el && el.closest('td.flag-check');
+    if (td) { td.classList.remove('flag-check'); td.removeAttribute('title'); }
     const box = el && el.closest('.field');
     if (box) { box.classList.remove('flag-check', 'flag-missing'); const n = box.querySelector('.flag-note'); if (n) n.remove(); }
     const banner = $('[data-flagbanner]');
@@ -385,7 +388,9 @@
         // Bảng đã có cột độ lệch riêng (ΔR, ΔK, sai số) thì không lặp lại gợi ý dưới ô
         const hasDevCol = g.cols.some(x => x.k === 'd' + c.k || x.k === c.k + 'e');
         const hint = hasDevCol || c.auto || r.auto ? '' : `<span class="hint" data-h="${key}"></span>`;
-        h += `<td><input data-k="${key}" data-g="${g.id}" data-r="${ri}" data-col="${ci}" class="${text ? 'text' : ''} ${c.auto || r.text || r.auto ? 'auto' : ''}" value="${val}" ${text ? '' : 'inputmode="decimal"'} autocomplete="off">${hint}</td>`;
+        const fl = flagOf(key);
+        const flAttr = fl && fl.src ? ` class="flag-check" title="${esc(`Tự điền từ ${fl.src}${fl.why ? ` (${fl.why})` : ''} — kiểm tra lại; sửa ô là bỏ tô nền`)}"` : '';
+        h += `<td${flAttr}><input data-k="${key}" data-g="${g.id}" data-r="${ri}" data-col="${ci}" class="${text ? 'text' : ''} ${c.auto || r.text || r.auto ? 'auto' : ''}" value="${val}" ${text ? '' : 'inputmode="decimal"'} autocomplete="off">${hint}</td>`;
       });
       h += '</tr>';
     });
@@ -916,6 +921,8 @@
       if (/^ps\.[BC]$/.test(el.dataset.cfg) && state.cfg.topology === 'bank1p') {
         pickFactory(true);
       }
+      // số chế tạo máy các pha đổi → tải lịch sử (xu hướng; BBTN riêng từng pha: số liệu 2 pha còn lại)
+      if (/^ps\.[ABC]$/.test(el.dataset.cfg)) setTimeout(loadInlineTrend, 0);
       if (el.dataset.cfg === 'topology') {
         const topology = el.value;
         const standard = topology === 'bank1p' ? '3P' : topology === 'threePhase' ? '110' : 'A';
@@ -1397,6 +1404,7 @@
     applyTemplate, applyHeadFills, setupGo, pickFactory: quiet => pickFactory(quiet),
     useFactory(name) { const e = FXS.find(x => x.name === name); if (e) { setFactory(e); recompute(); renderNav(); renderMain(); persist(); } return e; },
     exportDocx, exportXlsx, toast, esc, download, safeName, persist, recompute, renderMain, fieldHTML, cfgField, readFile, lsGet, lsSet, abToB64, track,
+    loadTrend: () => loadInlineTrend(),
     rebuild(schemaChanged) { if (schemaChanged) schema = T().buildSchema(state.cfg); recompute(); renderNav(); renderMain(); persist(); },
     render() { renderNav(); renderMain(); },
     go(id) { current = id; renderNav(); renderMain(); window.scrollTo(0, 0); },

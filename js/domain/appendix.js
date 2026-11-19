@@ -150,8 +150,10 @@
         if (phases.size === 3) {
           const mean = Array.from(phases.values()).reduce((a, b) => a + b, 0) / 3;
           const values = Array.from(phases.values());
-          phaseDeltaPct = mean ? (Math.max(...values) - Math.min(...values)) / mean * 100 : null;
-          phaseStatus = phaseDeltaPct === null ? 'warn' : phaseDeltaPct <= 3 ? 'pass' : 'fail';
+          // Điều 35: Uk từng pha không lệch quá 3% giá trị trung bình 3 pha → độ lệch lớn nhất của một pha so với trung bình
+          phaseDeltaPct = mean ? Math.max(...values.map(v => Math.abs(v - mean))) / mean * 100 : null;
+          const ukLim = typeof Criteria !== 'undefined' && Criteria.limits ? Criteria.limits().UK_PHASE : 3;
+          phaseStatus = phaseDeltaPct === null ? 'warn' : phaseDeltaPct <= ukLim ? 'pass' : 'fail';
         } else phaseStatus = 'warn';
       }
       if (is3Phase && ['overhaul', 'operation'].includes(x.testCase) && !['pass', 'fail'].includes(phaseStatus)) x.uk1387Status = 'warn';

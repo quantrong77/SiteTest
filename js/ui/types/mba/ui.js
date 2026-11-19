@@ -57,13 +57,40 @@
   // Công cụ đầu hạng mục (mục 7, 8, 9: nhập file Haefely 2293; mục 11: số cuộn thứ cấp, nhập XML CPC 100)
   function sectionTools(id, A) {
     if (['dcr', 'ratio', 'oltc'].includes(id)) {
-      return `<div class="bct-tools"><div class="fields"><div class="field"><label>Số liệu từ máy đo</label><button class="btn primary" data-act="load2293">Nhập file Haefely 2293…</button></div>${id === 'oltc' ? A.cfgField('oltcCharts', 'Đồ thị chụp sóng trong phụ lục BBTN', { options: [['all', 'Từng lần chuyển nấc (2 đồ thị/hàng)'], ['overlay', 'Gộp theo chiều tăng / giảm nấc']] }) : ''}</div>`
+      return phaseFillHTML(id, A) + `<div class="bct-tools"><div class="fields"><div class="field"><label>Số liệu từ máy đo</label><button class="btn primary" data-act="load2293">Nhập file Haefely 2293…</button></div>${id === 'oltc' ? A.cfgField('oltcCharts', 'Đồ thị chụp sóng trong phụ lục BBTN', { options: [['all', 'Từng lần chuyển nấc (2 đồ thị/hàng)'], ['overlay', 'Gộp theo chiều tăng / giảm nấc']] }) : ''}</div>`
         + '<div class="hint-text">Chọn cùng lúc các file <b>.csv</b> xuất từ máy (điện trở một chiều, tỷ số biến, chuyển nấc) và file <b>.bin</b> cùng tên (dạng sóng chụp OLTC); có thể chọn file của cả ba pha. Bỏ qua các file .dat, .mat.</div></div>';
     }
     // mục 5: test report sứ của hãng (tra theo S/N sứ) — nạp ngay tại mục dùng nó
     if (id === 'bushing') return `<div class="bct-tools"><div class="fields">${generalFiles(A)}</div><div class="hint-text">File test report sứ Hitachi (.xlsx, sheet TestReport + TraCuu): app gộp theo S/N sứ, so C1, tanδ đo được với giá trị hãng. Nạp được nhiều file (sứ của nhiều máy).</div></div>`;
     if (id !== 'bct') return '';
     return `<div class="bct-tools"><div class="fields">${bctPlaceField(A)}${A.cfgField('bctCores.hv', 'Số cuộn thứ cấp TI phía HV', { options: [4, 5, 6] })}${A.cfgField('bctCores.mv', 'Số cuộn thứ cấp TI phía MV', { options: [4, 5] })}<div class="field"><label>Đặc tính từ hóa từ máy đo</label><button class="btn primary" data-act="loadCpc">Nhập XML CPC 100…</button></div><div class="field"><label>Tỷ số, điện trở, từ hóa</label><button class="btn primary" data-act="loadMrct">Nhập Megger MRCT (.pdbxml, PDF)…</button></div></div><div class="hint-text">CPC 100: chọn một hoặc nhiều file XML (mỗi file một pha/một phía); app lấy 3 điểm (U, I) theo IEC 61869-2 và điền vào bảng đặc tính từ hóa. Megger MRCT: chọn file .pdbxml của PowerDB và/hoặc báo cáo PDF "CT TEST REPORT"; tỷ số đo, sai số, góc pha, cực tính chỉ có trong báo cáo PDF. File có cuộn 5, 6 sẽ tự mở thêm cuộn. Phía LV và trung tính theo template chỉ có 4 và 3 cuộn.</div></div>`;
+  }
+
+  // ---------------------------------------------------------------- BBTN riêng từng pha: bổ sung số liệu 2 pha còn lại từ CSDL
+  function phaseFillPlan(A) {
+    const st = A.state;
+    return MbaPhaseFill.plan({ state: st, schema: A.schema, cells: TrendInlineUI.cellMap(), history: TrendInlineUI.history(),
+      sessionId: st.db && st.db.sessionId, val: k => Common.toNum(st.v[k]) });
+  }
+  function phaseFillHTML(id, A) {
+    if (!['dcr', 'ratio'].includes(id) || !window.MbaPhaseFill) return '';
+    const ap = MbaPhaseFill.applies(A.state, A.schema);
+    if (!ap) return '';
+    const esc = A.esc, ps = A.state.cfg.ps;
+    const p = phaseFillPlan(A);
+    const filled = Object.values((A.state.att && A.state.att.phaseFill) || {}).length;
+    const who = ap.others.map(x => `pha ${x} (${ps[x]})`).join(', ');
+    let msg;
+    if (p.reason === 'no-date') msg = 'Nhập <b>ngày thí nghiệm</b> (bước ③ trình khởi tạo) để tìm lần đo cùng đợt.';
+    else if (!TrendInlineUI.history().length) msg = window.DB && DB.user ? 'Chưa có số liệu của các máy này trong CSDL (hoặc đang tải).' : 'Đăng nhập để lấy số liệu từ CSDL.';
+    else if (p.fills.length) {
+      const by = [...new Map(p.fills.map(f => [f.phase, f])).values()];
+      msg = `Có <b>${p.fills.length}</b> giá trị cùng đợt: ${by.map(f => `pha ${esc(f.phase)} ngày ${esc(f.date.split('-').reverse().join('/'))}`).join(', ')}.`;
+    } else msg = `Không có lần đo cùng đợt (cách ngày thí nghiệm ≤ ${p.days} ngày) cho ô còn trống.`;
+    return `<div class="callout"><b>BBTN riêng máy pha ${esc(ap.cur)} của tổ 3 máy 1 pha.</b> So sánh giữa các pha (QĐ 1901 Điều 9 mục 6, 7) cần số liệu ${esc(who)}. `
+      + `${msg}${filled ? ` Đã bổ sung ${filled} ô (tô vàng; không ghi vào lần thí nghiệm này khi lưu CSDL).` : ''}`
+      + `<div class="fields">${A.cfgField('campaignDays', 'Cùng đợt: cách ngày thí nghiệm tối đa (ngày)', { num: true })}`
+      + `<div class="field"><label>&nbsp;</label><button class="btn" data-act="pfFill" ${p.fills.length ? '' : 'disabled'}>Bổ sung số liệu pha ${esc(ap.others.join(', '))} từ CSDL</button></div></div></div>`;
   }
 
   // ---------------------------------------------------------------- mục 9: chụp sóng OLTC (xem trước phụ lục)
@@ -325,6 +352,20 @@
       A.rebuild(true);
     },
     loadHitachi: () => $('#fileHitachi').click(),
+    pfFill(b, A) {
+      const p = phaseFillPlan(A), st = A.state;
+      if (!p.fills.length) { A.toast('Không có số liệu cùng đợt để bổ sung'); return; }
+      st.att = st.att || {};
+      const ocr = st.att.ocr = st.att.ocr || {}, pf = st.att.phaseFill = st.att.phaseFill || {};
+      p.fills.forEach(f => {
+        st.v[f.k] = f.value;
+        const src = `CSDL — máy pha ${f.phase} (${f.serial}) ngày ${f.date.split('-').reverse().join('/')}`;
+        pf[f.k] = { serial: f.serial, phase: f.phase, date: f.date };
+        ocr[f.k] = { status: 'check', label: f.k, src, why: f.note || '' };
+      });
+      A.rebuild(false);
+      A.toast(`Đã bổ sung ${p.fills.length} giá trị của pha ${[...new Set(p.fills.map(f => f.phase))].join(', ')} để so sánh giữa các pha`);
+    },
     resetHitachi(b, A) {
       A.lsSet(LS_HITS, null); A.lsSet(LS_HIT, null);
       loadHitachiDefault(A); A.recompute(); A.renderMain();

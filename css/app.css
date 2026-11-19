@@ -313,6 +313,7 @@ code { font-family: var(--mono); font-size: 12px; }
 /* ---------- chụp sóng OLTC (mục 9) ---------- */
 /* ---------- ô đọc tự động cần kiểm tra (ảnh nameplate) ---------- */
 .field.flag-check input, .field.flag-check select, .field.flag-check textarea { background: #fff4cc; border-color: #e0b100; }
+td.flag-check input { background: #fff4cc; border-color: #e0b100; }
 .field.flag-missing input, .field.flag-missing select, .field.flag-missing textarea { background: #fde6e3; border-color: var(--fail); }
 .field .flag-note { color: var(--warn); }
 .field.flag-missing .flag-note { color: var(--fail); }
