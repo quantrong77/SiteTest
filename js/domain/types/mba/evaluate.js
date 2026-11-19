@@ -506,10 +506,12 @@
             const kv = toNum(String(txt('meta.voltage')).split(/[/;,]/)[0]);
             const cls = ok(kv) && kv >= 300 ? '330-500' : ok(kv) && kv >= 100 ? '110-220' : '';
             if (cls) {
-              const mx = QD.tgdMax(tW, cls);
-              st = tg <= mx ? 'pass' : 'fail';
-              limit = `tgδ@20 °C > ${L.WINDING_TGD_OK} %, không có giá trị khởi đầu → Bảng 46: ≤ ${fmt(mx, 2)} % @${fmt(tW, 1)} °C (${cls.replace('-', '÷')} kV)`;
-              judged = ` tgδ20 > ${L.WINDING_TGD_OK} %, không có giá trị khởi đầu: tham khảo Bảng 46 — tgδ đo ${fmt(tg, 3)} % @${fmt(tW, 1)} °C so với ${fmt(mx, 2)} % (Điều 30 mục 3).`;
+              const b = QD.tgdTable46(tg, tW, cls);
+              st = b.ok ? 'pass' : 'fail';
+              limit = `tgδ@20 °C > ${L.WINDING_TGD_OK} %, không có giá trị khởi đầu → Bảng 46: ≤ ${fmt(b.max, 2)} % @${b.t2} °C (${cls.replace('-', '÷')} kV)`;
+              const how = b.dt ? `quy về ${b.t2} °C bằng K2 = ${fmt(b.k, 3)} (Bảng 47, ∆t = ${b.dt} °C; ${b.expr}; tgδ(${b.t2}) = tgδ(${fmt(tW, 1)})${b.t2 > tW ? ' × ' : ' ÷ '}K2) được ${fmt(b.val, 3)} %`
+                : `đo đúng nhiệt độ cột ${b.t2} °C`;
+              judged = ` tgδ20 > ${L.WINDING_TGD_OK} %, không có giá trị khởi đầu: tham khảo Bảng 46 — tgδ đo ${fmt(tg, 3)} % @${fmt(tW, 1)} °C, ${how}, so với ${fmt(b.max, 2)} % (Điều 30 mục 3).`;
             } else {
               st = 'warn';
               limit = `tgδ@20 °C > ${L.WINDING_TGD_OK} % → so với giá trị khởi đầu (Điều 30 mục 3)`;
