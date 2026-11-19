@@ -68,14 +68,26 @@
     });
     if (!s) return '';
     const yellow = TrendInline.warn(target, s.fromBase, window.Criteria ? Criteria.limits() : null, s.fromPrevious);
+    // dự báo 3 năm (tham khảo, TrendForecast): các lần đo từ mốc khởi đầu + giá trị đang nhập; chỉ báo khi xu hướng có ý nghĩa thống kê
+    let fcw = null;
+    if (window.TrendForecast && s.hasCurrent) {
+      const date = Common.isoDate(st.v['meta.date']);
+      const pts = s.history.filter(r => !s.base.test_date || String(r.test_date) >= String(s.base.test_date)).map(r => ({ date: r.test_date, value: r.value_cmp }));
+      if (date) pts.push({ date, value: Number(s.points[s.points.length - 1]) });
+      const L = window.Criteria ? Criteria.limits() : null;
+      fcw = TrendForecast.warning(TrendForecast.forecast(pts, 3, TrendForecast.limitsFor(target.item, target.param, s.base.value_cmp, L)));
+      if (fcw && fcw.status !== 'predicted') fcw = null; // đã vượt: cảnh báo tô vàng / mục đánh giá đã báo
+    }
     const bi = TrendInline.baseInfo(s.base, target.item), baseLbl = bi.short;
     const lines = s.hasCurrent
       ? [`${baseLbl} ${fmt(s.fromBase)}`].concat(s.fromPrevious !== null ? [`Trước ${fmt(s.fromPrevious)}`] : [])
       : [`${s.history.length} lần trước`];
+    if (fcw) lines.push(`Dự báo ⚠ ${String(fcw.date).slice(0, 7).split('-').reverse().join('/')}`);
     const title = `Xu hướng tham khảo (${s.history.length} lần đo trước${s.basis === 'norm' ? ', giá trị đã quy đổi nhiệt độ' : ''}). `
       + `${bi.short}: so với ${bi.name}${s.base.test_date ? ` (${String(s.base.test_date).split('-').reverse().join('/')})` : ''}${s.fromPrevious !== null ? '; Trước: so với lần đo gần nhất' : ''}. `
-      + `Đánh giá chính thức ở mục kết quả.${yellow ? ' Vượt ngưỡng QĐ 1901 so với giá trị khởi đầu.' : ''}`;
-    return `<span class="trend-inline${yellow ? ' is-warning' : ''}" title="${esc(title)}">${spark(s.points, s.hasCurrent)}${lines.map(l => `<span>${esc(l)}</span>`).join('')}</span>`;
+      + `Đánh giá chính thức ở mục kết quả.${yellow ? ' Vượt ngưỡng QĐ 1901 so với giá trị khởi đầu.' : ''}`
+      + (fcw ? ` Dự báo (tham khảo): xu hướng có ý nghĩa thống kê (p = ${fcw.pValue !== null && fcw.pValue !== undefined ? fcw.pValue.toFixed(3).replace('.', ',') : '?'}), chạm ngưỡng QĐ 1901 khoảng ${String(fcw.date).split('-').reverse().join('/')} (~${fcw.yearsFromLast.toFixed(1).replace('.', ',')} năm) — xem trang Xu hướng.` : '');
+    return `<span class="trend-inline${yellow || fcw ? ' is-warning' : ''}" title="${esc(title)}">${spark(s.points, s.hasCurrent)}${lines.map(l => `<span>${esc(l)}</span>`).join('')}</span>`;
   }
 
   // Vẽ/cập nhật gợi ý dưới các ô (gọi sau khi dựng trang và khi gõ)

@@ -617,9 +617,17 @@ Thí nghiệm ngắn mạch không còn là phụ lục: số liệu nằm trong
 4. Chọn chuỗi số liệu theo hạng mục, đại lượng, sơ đồ/cuộn và nấc.
 5. Xem biểu đồ, bảng và phần trăm thay đổi.
 6. Giá trị chuẩn hóa có thể dùng 20 °C hoặc 75 °C tùy đại lượng.
-7. FAT được dùng làm điểm khởi đầu nếu có.
-8. Xu hướng hỗ trợ theo dõi, không thay đánh giá tổng thể theo Điều 3 QĐ 1901.
-9. Nếu không thấy chuỗi, kiểm tra phiên đã lưu và thiết bị đã gắn đúng.
+7. Mốc khởi đầu: lần sau sửa chữa được lấy làm khởi đầu mới → FAT → sau lắp đặt → lần đo sớm nhất.
+8. **Dự báo** (ô *Dự báo*: không / 1 / 3 / 5 / 10 năm, mặc định 3 năm) — tham khảo, chuyển từ dga-webapp:
+   - chỉ dùng các lần đo **từ mốc khởi đầu** (vd sau lọc sấy dầu thì bỏ các lần trước đó); đường mảnh: đường khớp; nét đứt: dự báo theo **độ dốc Sen**;
+     vùng mờ: **khoảng dự báo 95%** (hồi quy tuyến tính); đường đỏ nét đứt: **ngưỡng QĐ 1901** tính từ giá trị khởi đầu
+     (R60 giảm 30%, tgδ cuộn dây tăng 30%, tgδ sứ tăng 100%, điện dung cuộn dây / C1 sứ ±5%, R một chiều ±2%, P0 ±15%); vạch nâu: mốc khởi đầu sau sửa chữa;
+   - bảng **Dự báo xu hướng**: số lần đo, xu hướng theo kiểm định Mann–Kendall (p), tốc độ Sen / năm và khoảng tin cậy 95%, giá trị dự báo cuối kỳ và khoảng 95%,
+     ngày dự kiến chạm ngưỡng, *gần đây nhanh hơn* khi tốc độ 3 năm gần nhất vượt khoảng tin cậy của cả chuỗi;
+   - **cảnh báo** chỉ khi xu hướng có ý nghĩa thống kê (p < 0,05) và mốc chạm ngưỡng nằm trong số năm dự báo, hoặc lần đo gần nhất đã vượt ngưỡng;
+   - giả định tốc độ thay đổi không đổi; ít điểm (< 4 lần đo) thì chưa kiểm định được xu hướng.
+9. Xu hướng, dự báo hỗ trợ theo dõi, không thay đánh giá tổng thể theo Điều 3 QĐ 1901.
+10. Nếu không thấy chuỗi, kiểm tra phiên đã lưu và thiết bị đã gắn đúng.
 
 ### Xu hướng tại ô nhập
 
@@ -630,6 +638,7 @@ Thí nghiệm ngắn mạch không còn là phụ lục: số liệu nằm trong
 5. Các giá trị được quy đổi chuẩn trước khi so sánh khi có quy tắc.
 6. Màu cảnh báo chỉ hỗ trợ tham khảo.
 7. Tính năng không thay đổi kết quả evaluate của biên bản.
+8. Có ngưỡng QĐ 1901 mà xu hướng (gồm cả giá trị đang nhập) có ý nghĩa thống kê và dự báo chạm ngưỡng trong 3 năm: ô hiện **Dự báo ⚠ tháng/năm**, rê chuột xem chi tiết.
 
 ### Nhập Test report xuất xưởng vào CSDL
 
