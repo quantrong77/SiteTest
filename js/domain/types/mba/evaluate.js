@@ -794,6 +794,9 @@
     };
     trendFindings();
 
+    // Thí nghiệm ngắn mạch (Uk, Pk theo QĐ 1901 Điều 35, QĐ 1387) — tính ở Appendix, gộp vào kết quả chung
+    if (typeof Appendix !== 'undefined' && Appendix.shortCircuitFindings) Appendix.shortCircuitFindings(state, F).forEach(add);
+
     // ================= Tổng hợp theo hạng mục =================
     const sec = {};
     for (let i = findings.length - 1; i >= 0; i--) if (Report.isSkipped(state, findings[i].sec)) findings.splice(i, 1);

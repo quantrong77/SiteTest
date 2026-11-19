@@ -210,6 +210,11 @@
       NOLOAD_3PH_NEW: 5,   // Điều 34 mục 3 — MBA 3 pha ≥110 kV sau lắp đặt/sửa chữa: ±5% giá trị xuất xưởng
       NOLOAD_LV_PHASE: 5,  // Điều 34 mục 3 — MBA 3 pha, đo điện áp thấp: Po, Io (nguồn bc, ngắn mạch a) và (nguồn ab, ngắn mạch c) lệch ≤5%
       UK_PHASE: 3,         // Điều 35 — MBA 3 pha: Uk từng pha lệch ≤3% giá trị trung bình 3 pha
+      UK_DEV: 3,           // Điều 35 — Uk sai số cho phép 3% so với giá trị ghi trên mác máy (đối chiếu Test Report)
+      PK_RISE: 15,         // Điều 35 — tổn thất ngắn mạch (quy về cùng điều kiện) không lớn hơn 15% số liệu NSX
+      SC_CURRENT_MIN: 25,  // QĐ 1387/QĐ-EVNNPT Điều 26 — dòng thử ngắn mạch tối thiểu (% In)
+      UK1387_NEW: 5,       // QĐ 1387/QĐ-EVNNPT Điều 27 — sau lắp mới: Uk tại nấc chính lệch ≤5% so với nhãn máy
+      UK1387_INIT: 3,      // QĐ 1387/QĐ-EVNNPT Điều 27 — đại tu / vận hành: Uk lệch ≤3% so với Uk ban đầu
       BCT_IR_MIN: 200,     // Điều 39 — TI chân sứ ≥200 MΩ (khi NSX không quy định)
       BUSHING_AC_PCT: 85,  // Điều 38 — thử AC 1 phút = 85% giá trị xuất xưởng
       KHT_HEALTHY: 1.3,    // Điều 29 — MBA không ẩm: R60/R15 từ 1,3–2 (10–30 °C)
@@ -221,6 +226,11 @@
       NOLOAD_OPER: { sec: 'noload', label: 'Tổn hao không tải — trong vận hành, lệch tối đa so với giá trị khởi đầu', unit: '%', source: 'Điều 34' },
       NOLOAD_LV_PHASE: { sec: 'noload', label: 'MBA 3 pha, đo ở điện áp thấp — Po, Io hai pha biên (nguồn bc / ab) lệch tối đa', unit: '%', source: 'Điều 34 mục 3' },
       UK_PHASE: { sec: 'shortCircuit', label: 'MBA 3 pha — Uk từng pha lệch tối đa so với trung bình 3 pha', unit: '%', source: 'Điều 35' },
+      UK_DEV: { sec: 'shortCircuit', label: 'Điện áp ngắn mạch Uk — sai số tối đa so với mác máy / Test Report', unit: '%', source: 'Điều 35' },
+      PK_RISE: { sec: 'shortCircuit', label: 'Tổn thất ngắn mạch Pk (quy cùng điều kiện) — lớn hơn số liệu NSX tối đa', unit: '%', source: 'Điều 35' },
+      SC_CURRENT_MIN: { sec: 'shortCircuit', label: 'Dòng thử ngắn mạch tối thiểu so với dòng định mức', unit: '% In', source: 'QĐ 1387/QĐ-EVNNPT Điều 26' },
+      UK1387_NEW: { sec: 'shortCircuit', label: 'Sau lắp mới — Uk tại nấc chính lệch tối đa so với nhãn máy', unit: '%', source: 'QĐ 1387/QĐ-EVNNPT Điều 27' },
+      UK1387_INIT: { sec: 'shortCircuit', label: 'Đại tu / vận hành — Uk lệch tối đa so với Uk ban đầu', unit: '%', source: 'QĐ 1387/QĐ-EVNNPT Điều 27' },
       IR_DROP: { sec: 'ir', label: 'R60 quy về 20 °C giảm tối đa so với giá trị khởi đầu / lần trước', unit: '%', source: 'Điều 9 mục 4' },
       KHT_HEALTHY: { sec: 'ir', label: 'Hệ số hấp thụ R60/R15 tối thiểu (MBA không ẩm, 10–30 °C)', unit: '', source: 'Điều 29' },
       CORE_NEW: { sec: 'ir', label: 'R cách điện lõi từ / gông từ tối thiểu — MBA mới, sau lắp đặt', unit: 'MΩ', source: 'Điều 9 Bảng 1 ghi chú a' },

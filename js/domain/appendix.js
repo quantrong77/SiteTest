@@ -81,7 +81,10 @@
   const tapOf = value => String(value || '-').trim().replace(/^Tap\s*/i, '').toUpperCase() || '-';
   const shortCircuitHasData = att => (att && att.rows || []).some(row => ['tempC', 'frequencyHz', 'ratedVoltageKV', 'ratedCurrentA', 'testVoltage', 'testVoltageKV', 'testCurrentA', 'powerKw', 'copperLossKw', 'nameplateUkPct', 'initialUkPct'].some(k => valueOf(row[k]) !== null));
 
+  // Ngưỡng theo bộ tiêu chí đang áp dụng (mặc định QĐ 1901 / QĐ 1387; Admin chỉnh được) — không viết cứng
+  const LIM = () => Criteria.limits();
   function shortCircuitResults(state, factory) {
+    const L = LIM();
     const att = state.att && state.att.shortCircuit || {}, rows = att.rows || [];
     const layout = state.cfg && (state.cfg.template === 'custom' ? state.cfg.layout : state.cfg.template) || '1P';
     const is3Phase = ['3P', '110'].includes(layout);
@@ -103,7 +106,7 @@
       const powerKw = valueOf(row.powerKw), copperLossKw = valueOf(row.copperLossKw), factor = valueOf(row.tempFactor);
       const ratio = ratedCurrentA > 0 && testCurrentA > 0 ? ratedCurrentA / testCurrentA : null;
       const testCurrentPct = ratedCurrentA > 0 && testCurrentA !== null ? testCurrentA / ratedCurrentA * 100 : null;
-      const currentAdequate = testCurrentPct !== null && testCurrentPct >= 25;
+      const currentAdequate = testCurrentPct !== null && testCurrentPct >= L.SC_CURRENT_MIN;
       const ukPct = ratedVoltageKV > 0 && measuredVoltageKV !== null && ratio !== null ? measuredVoltageKV / ratedVoltageKV * ratio * 100 : null;
       const pkAtRatedKw = powerKw !== null && ratio !== null ? powerKw * ratio * ratio : null;
       const reportTempC = valueOf(row.reportTempC) ?? valueOf(ref && ref.pkTempC);
@@ -125,12 +128,12 @@
       const deltaInitialUkPct = ukPct !== null && initialUkPct > 0 ? (ukPct - initialUkPct) / initialUkPct * 100 : null;
       const sameFrequency = frequencyHz !== null && ratedFrequencyHz !== null && frequencyHz === ratedFrequencyHz;
       const conditionsReady = sameFrequency && currentAdequate;
-      const ukStatus = deltaUkPct === null || !conditionsReady ? 'warn' : Math.abs(deltaUkPct) <= 3 ? 'pass' : 'fail';
+      const ukStatus = deltaUkPct === null || !conditionsReady ? 'warn' : Math.abs(deltaUkPct) <= L.UK_DEV ? 'pass' : 'fail';
       let uk1387Status = 'warn';
       if (conditionsReady && testCase === 'new') {
-        uk1387Status = tapRole !== 'main' ? 'na' : deltaUk1387Pct === null ? 'warn' : Math.abs(deltaUk1387Pct) <= 5 ? 'pass' : 'fail';
-      } else if (conditionsReady && deltaInitialUkPct !== null) uk1387Status = Math.abs(deltaInitialUkPct) <= 3 ? 'pass' : 'fail';
-      const pkStatus = deltaPkPct === null || !conditionsReady ? 'warn' : deltaPkPct <= 15 ? 'pass' : 'fail';
+        uk1387Status = tapRole !== 'main' ? 'na' : deltaUk1387Pct === null ? 'warn' : Math.abs(deltaUk1387Pct) <= L.UK1387_NEW ? 'pass' : 'fail';
+      } else if (conditionsReady && deltaInitialUkPct !== null) uk1387Status = Math.abs(deltaInitialUkPct) <= L.UK1387_INIT ? 'pass' : 'fail';
+      const pkStatus = deltaPkPct === null || !conditionsReady ? 'warn' : deltaPkPct <= L.PK_RISE ? 'pass' : 'fail';
       return { row, phase, serial, ref, tempC, frequencyHz, ratedFrequencyHz, sameFrequency, ratedVoltageKV, ratedCurrentA,
         testVoltageInput, testVoltageUnit, measuredVoltageKV, testCurrentA, testCurrentPct, currentAdequate, testCase, tapRole,
         powerKw, copperLossKw, factor, ukPct, pkAtRatedKw, pkAtReportTempKw, reportTempC, deltaUkPct,
@@ -152,8 +155,7 @@
           const values = Array.from(phases.values());
           // Điều 35: Uk từng pha không lệch quá 3% giá trị trung bình 3 pha → độ lệch lớn nhất của một pha so với trung bình
           phaseDeltaPct = mean ? Math.max(...values.map(v => Math.abs(v - mean))) / mean * 100 : null;
-          const ukLim = typeof Criteria !== 'undefined' && Criteria.limits ? Criteria.limits().UK_PHASE : 3;
-          phaseStatus = phaseDeltaPct === null ? 'warn' : phaseDeltaPct <= ukLim ? 'pass' : 'fail';
+          phaseStatus = phaseDeltaPct === null ? 'warn' : phaseDeltaPct <= L.UK_PHASE ? 'pass' : 'fail';
         } else phaseStatus = 'warn';
       }
       if (is3Phase && ['overhaul', 'operation'].includes(x.testCase) && !['pass', 'fail'].includes(phaseStatus)) x.uk1387Status = 'warn';
@@ -162,6 +164,56 @@
         : overallStatuses.every(status => ['pass', 'na'].includes(status)) ? 'pass' : 'warn';
       return Object.assign({}, x, { phaseStatus, phaseDeltaPct, overall });
     });
+  }
+
+  // Dòng đánh giá hạng mục Thí nghiệm ngắn mạch (Evaluate gộp vào kết quả chung của biên bản)
+  function shortCircuitFindings(state, factory) {
+    const L = LIM(), fmt = Common.fmt, out = [];
+    const layout = state.cfg && (state.cfg.template === 'custom' ? state.cfg.layout : state.cfg.template);
+    const is3Phase = ['3P', '110'].includes(layout), phaseGroups = new Set();
+    const add = f => out.push(Object.assign({ sec: 'shortCircuit' }, f));
+    shortCircuitResults(state, factory).forEach(x => {
+      const loc = [x.serial, x.row.pair, `nấc ${x.row.tap || '—'}`, x.phase && `pha ${x.phase}`].filter(Boolean).join(' · ');
+      const conditions = [];
+      if (!x.sameFrequency) conditions.push('Tần số thử chưa khớp tần số định mức');
+      if (!x.currentAdequate) conditions.push(`Dòng thử cần đạt ít nhất ${L.SC_CURRENT_MIN}% In`);
+      const suffix = conditions.length ? `${conditions.join('. ')}.` : '';
+      add({ item: 'Trở kháng ngắn mạch Uk so với Test Report', loc,
+        meas: x.ukPct == null ? 'Chưa đủ số liệu tính Uk' : `${fmt(x.ukPct, 3)} %`,
+        ref: x.ref && x.ref.ukPct != null ? `${fmt(x.ref.ukPct, 3)} % (Test Report)` : '',
+        dev: x.deltaUkPct == null ? '' : `${fmt(x.deltaUkPct, 2)} %`, limit: `|ΔUk| ≤${L.UK_DEV}%; f thử = f định mức; I thử ≥${L.SC_CURRENT_MIN}% In`,
+        status: x.ukStatus, basis: 'QĐ 1901/QĐ-EVNNPT Điều 35; QĐ 1387/QĐ-EVNNPT Điều 25–26',
+        note: [!x.ref && 'Chưa có dữ liệu Test Report tương ứng', suffix].filter(Boolean).join(' ') });
+      if (x.uk1387Status !== 'na') {
+        const baseUk = x.testCase === 'new' ? x.nameplateUkPct : x.initialUkPct;
+        const delta = x.testCase === 'new' ? x.deltaUk1387Pct : x.deltaInitialUkPct;
+        add({ item: x.testCase === 'new' ? 'Uk so với nhãn máy' : 'Uk so với giá trị ban đầu', loc,
+          meas: x.ukPct == null ? 'Chưa đủ số liệu tính Uk' : `${fmt(x.ukPct, 3)} %`,
+          ref: baseUk == null ? '' : `${fmt(baseUk, 3)} %`,
+          dev: delta == null ? '' : `${fmt(delta, 2)} %`,
+          limit: x.testCase === 'new' ? `|ΔUk| ≤${L.UK1387_NEW}% tại nấc chính` : `|ΔUk| ≤${L.UK1387_INIT}% so với Uk ban đầu`,
+          status: x.uk1387Status, basis: 'QĐ 1387/QĐ-EVNNPT Điều 27',
+          note: [baseUk == null && (x.testCase === 'new' ? 'Chưa có Uk nhãn máy/Test Report' : 'Cần nhập Uk ban đầu'), suffix].filter(Boolean).join(' ') });
+      }
+      add({ item: 'Tổn hao có tải Pk so với Test Report', loc,
+        meas: x.pkAtReportTempKw == null ? 'Chưa đủ số liệu quy đổi Pk' : `${fmt(x.pkAtReportTempKw, 3)} kW`,
+        ref: x.ref && x.ref.pkKw != null ? `${fmt(x.ref.pkKw, 3)} kW (Test Report)` : '',
+        dev: x.deltaPkPct == null ? '' : `${fmt(x.deltaPkPct, 2)} %`, limit: `Pk quy đổi ≤${100 + L.PK_RISE}% Test Report`,
+        status: x.pkStatus, basis: 'QĐ 1901/QĐ-EVNNPT Điều 35; QĐ 1387/QĐ-EVNNPT Điều 27',
+        note: [!x.ref && 'Chưa có dữ liệu Test Report tương ứng', x.pkStatus === 'warn' && 'Thiếu dữ liệu hiệu chỉnh Pk theo nhiệt độ', suffix].filter(Boolean).join(' ') });
+      if (is3Phase) {
+        const group = `${x.row.pair}|${x.row.tap}`;
+        if (!phaseGroups.has(group)) {
+          phaseGroups.add(group);
+          add({ item: 'Độ lệch Uk giữa các pha', loc: `${x.row.pair} · nấc ${x.row.tap || '—'}`,
+            meas: x.phaseDeltaPct == null ? 'Chưa đủ số liệu cả ba pha' : `${fmt(x.phaseDeltaPct, 2)} %`,
+            limit: `Độ lệch giữa các pha ≤${L.UK_PHASE}%`, status: x.phaseStatus,
+            basis: 'QĐ 1901/QĐ-EVNNPT Điều 35; QĐ 1387/QĐ-EVNNPT Điều 27',
+            note: x.phaseDeltaPct == null ? 'Cần đủ Uk của pha A, B và C với điều kiện thử đạt' : '' });
+        }
+      }
+    });
+    return out;
   }
 
   // Nội dung kết quả ngắn mạch dùng chung cho phụ lục và mục cuối thân biên bản; num(n) đánh số tiểu mục (1. / 12.1)
@@ -251,5 +303,5 @@
     ];
   }
 
-  window.Appendix = { SFRA_URL, DGA_URL, dgaLink, oilSummary, serialMatch, fraSummary, shortCircuitPairs, shortCircuitHasData, shortCircuitResults, shortCircuitBlocks, shortCircuitAppendix, standardsAppendix, list, fraHeader, oilHeader };
+  window.Appendix = { SFRA_URL, DGA_URL, dgaLink, oilSummary, serialMatch, fraSummary, shortCircuitPairs, shortCircuitHasData, shortCircuitResults, shortCircuitFindings, shortCircuitBlocks, shortCircuitAppendix, standardsAppendix, list, fraHeader, oilHeader };
 })();

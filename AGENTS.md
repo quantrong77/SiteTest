@@ -20,12 +20,13 @@ Repo này do **ba agent cùng làm**: Codex, Gemini (Gemini CLI) và Claude Code
 |---|---|---|---|
 | Nghiệp vụ | `js/domain/` | Hàm thuần: QĐ 1901, bộ tiêu chí, hạng mục dùng chung, mô-đun thiết bị `types/<loại>/` | DOM, `document.`, `localStorage`, `fetch`, gọi `DB.` trực tiếp, `App.`, `Notify` |
 | Dữ liệu | `js/data/` | Supabase (`db.js`), đọc/ghi .docx, bộ đọc máy đo `instruments/`, OCR, kho file | Quyết định Đạt/Không đạt |
-| Giao diện | `js/ui/` | Trang, hộp thoại, `types/<loại>/` cho phần riêng của loại thiết bị | Truy vấn Supabase trực tiếp (đi qua `js/data/db.js`) |
+| Giao diện | `js/ui/` + vỏ React `src/` | Trang, hộp thoại, `types/<loại>/` cho phần riêng của loại thiết bị | Truy vấn Supabase trực tiếp (đi qua `js/data/db.js`); tự dựng dòng đánh giá (`findings.push`), gán / gộp trạng thái Đạt – Không đạt, đọc `QD.LIMITS` |
 
-- `test/layers.test.js` kiểm tra tự động các ranh giới trên. Nó cũng kiểm tra `index.html` nạp đủ mọi file `js/domain|data|ui`, theo thứ tự domain → data → ui.
-- Thêm file mới thì phải thêm thẻ `<script>` vào `index.html` đúng nhóm. File thuộc lớp nghiệp vụ cũng phải thêm vào `DOMAIN` trong `test/harness.js`.
+- `test/layers.test.js` kiểm tra tự động các ranh giới trên. Nó cũng kiểm tra `src/main.jsx` nạp đủ mọi file `js/domain|data|ui`, theo thứ tự domain → data → ui.
+- `index.html` chỉ có `#app-root`; danh sách script cổ điển nằm trong mảng của `src/main.jsx` (nạp tuần tự sau khi vỏ React dựng xong). Thêm file mới thì thêm vào mảng đó đúng nhóm. File thuộc lớp nghiệp vụ cũng phải thêm vào `DOMAIN` trong `test/harness.js`.
+- Mọi dòng đánh giá (kể cả hạng mục có giao diện riêng như Thí nghiệm ngắn mạch) do lớp nghiệp vụ dựng trong `Evaluate.evaluate`; giao diện chỉ hiển thị `res.findings` / `res.sec`.
 - Loại thiết bị đăng ký bằng `EquipmentTypes.register({...})`; xem `js/domain/types/mba/index.js`.
-- Ngưỡng đánh giá lấy từ `Criteria.limits()`, **không** dùng thẳng `QD.LIMITS`. Phép so sánh dùng chung nằm trong `TestItems` (`js/domain/test-items.js`).
+- Ngưỡng đánh giá lấy từ `Criteria.limits()`, **không** dùng thẳng `QD.LIMITS` (chỉ `qd1901.js` khai báo, `criteria.js` ghép; test kiểm tra). Ngưỡng mới khai báo ở `QD.LIMITS` + `QD.LIMIT_INFO` để hiện trên trang Bộ tiêu chí. Phép so sánh dùng chung nằm trong `TestItems` (`js/domain/test-items.js`).
 
 ## Chạy và kiểm tra
 
