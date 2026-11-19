@@ -569,10 +569,12 @@
       h += U.generalTopology ? U.generalTopology(App) : '';
       if (topology !== 'bank1p') h += `<h3>Số chế tạo</h3><div class="fields">${schema.head.filter(f => f.k === 'meta.serial').map(f => fieldHTML(f)).join('')}</div>`;
       h += U.unitSerialFields ? U.unitSerialFields(App) : '';
+      h += SetupUI.reportHTML(App);
     } else if (setupStep === 'specs') {
       h += `<h3>Thông số kỹ thuật (điền vào đầu biên bản)</h3>${U.headTools ? U.headTools(App) : ''}`
         + '<div class="row-actions"><button class="btn" data-act="suFill" title="Theo số chế tạo đang nhập: CSDL trước, thiếu thì test report; ô đã nhập tay được giữ">Điền lại từ CSDL / test report</button></div>'
-        + `${flagBannerHTML()}<div class="fields">${schema.head.filter(f => f.k !== 'meta.serial' && !TEST_KEYS.includes(f.k)).map(f => fieldHTML(f)).join('')}</div>`;
+        + `${flagBannerHTML()}<div class="fields">${schema.head.filter(f => f.k !== 'meta.serial' && !TEST_KEYS.includes(f.k)).map(f => fieldHTML(f)).join('')}</div>`
+        + SetupUI.reportHTML(App);
     } else if (setupStep === 'test') {
       h += `<h3>Lần thí nghiệm</h3><div class="fields">${schema.head.filter(f => TEST_KEYS.includes(f.k)).map(f => fieldHTML(f)).join('')}</div>`;
       h += baselineResetHTML();
@@ -713,6 +715,22 @@
     if (!quiet) toast(`Đã thêm ${name}: ${D.order.length} máy (${D.order.join(', ')})${D.warnings.length ? ' — có cảnh báo, xem mục 0' : ''}`, D.warnings.length > 0);
     return entry;
   }
+  // Bỏ một file xuất xưởng khỏi danh sách trên máy (file nhúng sẵn quay lại khi tải lại trang)
+  function removeFactory(name) {
+    lsSet(LS_FACS, JSON.stringify(factoryFiles().filter(x => x.name !== name)));
+    const wasActive = FX && FXS.some(x => x.name === name && x.api === FX);
+    FXS = FXS.filter(x => x.name !== name);
+    if (wasActive) { if (!pickFactory(true) && FXS.length) setFactory(FXS[FXS.length - 1], true); if (!FXS.length) FX = null; }
+    recompute(); renderNav(); renderMain(); persist(); toast(`Đã bỏ file xuất xưởng ${name}`);
+  }
+  // Chọn file test report (.xlsx) kèm mục đích: trang nhận sự kiện factory:added (FactoryUI: lưu CSDL cho thiết bị; SetupUI: trình khởi tạo)
+  let xlsxPurpose = null;
+  function pickXlsx(purpose) { xlsxPurpose = purpose || null; $('#fileXlsx').click(); }
+  // file gốc đã nạp dưới dạng Blob (lưu kèm số liệu lên CSDL)
+  function factoryBlob(name) {
+    const b64 = factoryFileB64(name);
+    return b64 ? new Blob([Uint8Array.from(atob(b64), ch => ch.charCodeAt(0))], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }) : null;
+  }
   // nội dung gốc của file đã nạp (base64) — để lưu file test report lên CSDL cùng số liệu
   function factoryFileB64(name) {
     const e = FXS.find(x => x.name === name);
@@ -745,7 +763,7 @@
     if (current === 'db' || current === 'trend') DbUI.afterRender(current);
     if (current === 'model3d') MbaModel3DUI.init(main);
     if (current === 'catalog') Catalog.afterRender();
-    if (current === 'general' && setupStep === 'device') SetupUI.afterRender(App);
+    if (current === 'general' && (setupStep === 'device' || setupStep === 'specs')) SetupUI.afterRender(App);
     if (current === 'factory') FactoryUI.afterRender(App);
     if (current === 'kconf') KConf.afterRender();
     if (current === 'appendix') AppendixUI.afterRender(App);
@@ -1050,16 +1068,10 @@
       else if (act === 'help') HelpUI.open(App);
       else if (act === 'save') await saveJson();
       else if (act === 'open') $('#fileJson').click();
-      else if (act === 'loadXlsx') $('#fileXlsx').click();
+      else if (act === 'loadXlsx') pickXlsx(null);
       else if (act === 'loadDocx') $('#fileDocx').click();
       else if (act === 'useFx') { const e = FXS.find(x => x.name === b.dataset.name); if (e) { setFactory(e); recompute(); renderNav(); renderMain(); persist(); } }
-      else if (act === 'delFx') {
-        lsSet(LS_FACS, JSON.stringify(factoryFiles().filter(x => x.name !== b.dataset.name)));
-        const wasActive = FX && FXS.some(x => x.name === b.dataset.name && x.api === FX);
-        FXS = FXS.filter(x => x.name !== b.dataset.name);
-        if (wasActive) { if (!pickFactory(true) && FXS.length) setFactory(FXS[FXS.length - 1], true); if (!FXS.length) FX = null; }
-        recompute(); renderNav(); renderMain(); persist(); toast(`Đã bỏ file xuất xưởng ${b.dataset.name}`);
-      }
+      else if (act === 'delFx') removeFactory(b.dataset.name);
       else if (act === 'docx') await exportDocx();
       else if (act === 'xlsx') exportXlsx();
       else if (act === 'flagsDone') { if (state.att) delete state.att.ocr; renderMain(); persist(); toast('Đã bỏ tô nền các ô đọc từ ảnh'); }
@@ -1173,6 +1185,8 @@
     if (!state || FXS.length < 2) return false;
     const sns = [state.v['meta.serial']].concat(state.cfg.topology === 'bank1p' ? Object.values(state.cfg.ps || {}) : [])
       .map(x => String(x || '').trim()).filter(Boolean);
+    // file đang dùng đã có số chế tạo (vd vừa nạp bản test report mới) → giữ nguyên
+    if (FX && sns.some(sn => FX.has(sn))) return false;
     const hit = sns.map(sn => FXS.find(x => x.api.has(sn))).find(Boolean);
     if (!hit || hit.api === FX) return false;
     setFactory(hit, quiet);
@@ -1346,7 +1360,13 @@
       if (obj.files) await AppendixUI.restoreFiles(obj.files);
       recompute(); current = 'general'; renderMain(); persist(); toast('Đã mở ' + f.name);
     }));
-    $('#fileXlsx').addEventListener('change', e => readFile(e.target, async f => { addFactoryFile(f.name, await f.arrayBuffer()); }));
+    $('#fileXlsx').addEventListener('change', e => {
+      const purpose = xlsxPurpose; xlsxPurpose = null;
+      return readFile(e.target, async f => {
+        const entry = addFactoryFile(f.name, await f.arrayBuffer());
+        document.dispatchEvent(new CustomEvent('factory:added', { detail: { name: f.name, entry, purpose } }));
+      });
+    });
     $('#fileDocx').addEventListener('change', e => readFile(e.target, async f => {
       const buf = await f.arrayBuffer();
       const t = await DocxTemplate.load(buf);
@@ -1373,7 +1393,7 @@
   // API cho các trang khác (js/ui/*.js) và phần giao diện riêng của loại thiết bị (TypeUI)
   const App = window.App = {
     get state() { return state; }, get res() { return res; }, get schema() { return schema; }, get FX() { return FX; }, get type() { return T(); }, EMB,
-    get factories() { return FXS; }, addFactoryFile, factoryFileB64, localFactoryHTML,
+    get factories() { return FXS; }, addFactoryFile, factoryFileB64, factoryBlob, pickXlsx, removeFactory, localFactoryHTML,
     applyTemplate, applyHeadFills, setupGo, pickFactory: quiet => pickFactory(quiet),
     useFactory(name) { const e = FXS.find(x => x.name === name); if (e) { setFactory(e); recompute(); renderNav(); renderMain(); persist(); } return e; },
     exportDocx, exportXlsx, toast, esc, download, safeName, persist, recompute, renderMain, fieldHTML, cfgField, readFile, lsGet, lsSet, abToB64, track,
