@@ -759,3 +759,26 @@ body.is-resizing {
     transition: none;
   }
 }
+
+/* Sơ đồ một sợi (tái sử dụng từ bản main, css/app.css): thanh cái dọc "đóng điện" khi mở app, mỗi mục là một ngăn lộ
+   rẽ từ thanh cái tới ký hiệu máy cắt; mục đang mở có dòng điện chạy trên nhánh. Thanh cái nằm trong lề trái của menu
+   nên không đổi kích thước, vị trí các mục. Thu gọn menu thì ẩn (dải hẹp). */
+.workspace-sidebar .sld .bus {
+  display: block;
+  left: -6px;
+  top: 6px;
+  bottom: 6px;
+  width: 3px;
+}
+
+.workspace-sidebar .sld .nav-item::before,
+.workspace-sidebar .sld .nav-item.active::before {
+  display: block;
+  left: -3px;
+  width: 13px;
+}
+
+.sidebar-collapsed .workspace-sidebar .sld .bus,
+.sidebar-collapsed .workspace-sidebar .sld .nav-item::before {
+  display: none;
+}
