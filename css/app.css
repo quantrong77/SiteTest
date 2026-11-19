@@ -615,3 +615,9 @@ table.grid.fx-table td.fx-act { padding: 3px 6px; width: 1%; white-space: nowrap
 .record-edit:hover, .record-edit.on { border-color: #d5e4ee; background: #f3f8fb; }
 .record-edit:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 .record-edit-icon { color: var(--muted); font-size: 13px; }
+
+/* G5: tiêu chuẩn QĐ 1901 dẫn chiếu (cột Căn cứ, bảng tra) */
+.std-ref { margin-top: 2px; font-size: .85em; color: var(--muted, #667); }
+.std-tbl td > div + div { margin-top: 6px; }
+.std-cited { margin-top: 10px; }
+.std-cited ul { margin: 6px 0 0 18px; }

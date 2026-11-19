@@ -90,6 +90,10 @@
     wtgd: ['wtgd'], dcr: ['dcr'], ratio: ['ratio'], oltc: ['oltc'], moisture: ['moisture'], shortCircuit: ['shortCircuit'], bct: ['bct'],
   }).map(([sec, keys]) => [sec, [
     ...keys.map(k => ({ source: 'QĐ 1901/QĐ-EVNNPT', cite: QD.REF[k] })),
+    // tiêu chuẩn IEC/IEEE QĐ 1901 dẫn chiếu (không trùng lặp trong cùng hạng mục)
+    ...[...new Map(keys.flatMap(k => QD.STANDARDS[k] || []).map(s => [s.code, s])).values()]
+      .sort((a, b) => b.ok - a.ok)
+      .map(s => ({ source: s.code, cite: `${s.scope} — ${s.ok ? `QĐ 1901 dẫn chiếu tại ${s.where}` : `cần xác nhận: chỉ có trong ${s.where}`}` })),
     ...(sec === 'shortCircuit' ? [{ source: 'QĐ 1387/QĐ-EVNNPT (25/04/2015)', cite: 'Điều 25–27' }] : []),
     ...(procedureCites[sec] ? [{ source: trainingSource, cite: procedureCites[sec] }] : []),
   ]]));

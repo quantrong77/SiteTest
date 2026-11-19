@@ -705,6 +705,17 @@ Cách cũ ở trang CSDL vẫn dùng được (ghi mọi máy trong file vào ng
 6. Kết luận tự động có thể nêu ngưỡng khác giá trị gốc.
 7. Không sửa ngưỡng nếu chưa có phê duyệt của đơn vị.
 
+### Bảng tra tiêu chuẩn
+
+Ngay dưới bộ tiêu chí là **Bảng tra tiêu chuẩn**: hạng mục → điều khoản QĐ 1901 → tiêu chuẩn IEC/IEEE mà QĐ 1901 dẫn chiếu.
+
+- Dòng ghi **Dẫn chiếu tại Điều …**: QĐ 1901 nêu tiêu chuẩn đó ngay trong điều khoản của hạng mục (vd PI theo IEEE C57.152 — Điều 9 Bảng 1 ghi chú d; tổn hao không tải theo IEC 60076-1, IEC 60076-19 — Điều 34; sứ xuyên IEC 60137, DFR sứ IEEE C57.12.200 — Điều 38).
+- Dòng có nhãn **cần xác nhận**: tiêu chuẩn chỉ có trong danh mục tài liệu áp dụng của QĐ 1901 (Phụ lục — III), điều khoản của hạng mục không nêu. Cần người có chuyên môn xác nhận trước khi viện dẫn trong biên bản.
+- Mở **Danh mục tiêu chuẩn QĐ 1901 liệt kê** để xem nguyên danh sách mục 17–21 của Phụ lục.
+- Bảng chỉ để tra cứu: app **không** lấy ngưỡng từ các tiêu chuẩn này; ngưỡng đánh giá vẫn theo QĐ 1901 và bộ tiêu chí.
+
+Tiêu chuẩn của từng dòng cũng hiện ở cột **Căn cứ** của bảng đánh giá (dòng nhỏ dưới điều khoản), trong khung cảnh báo xu hướng, khung **Tài liệu tham khảo** của hạng mục và cột cuối của file Excel xuất kết quả đánh giá.
+
 ### Hệ số quy đổi sứ
 
 1. Mở **Hệ số quy đổi sứ**.
