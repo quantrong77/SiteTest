@@ -243,6 +243,9 @@
   const replaceComponent = async (oldId, o) => chk(await need().rpc('replace_component', {
     p_old: oldId, p_serial: o.serial, p_date: o.date, p_old_status: o.oldStatus || 'retired', p_model: o.model || null, p_manufacturer: o.manufacturer || null, p_note: o.note || null }));
 
+  // Các lần thí nghiệm cùng số chế tạo máy chính và ngày (nhập BBTN cũ: báo trùng trước khi lưu)
+  const findSessions = async (serial, date) => chk(await need().from('v_session_list').select('id, status, source, report_no, reason, kind, test_date, serial_no')
+    .eq('serial_no', serial).eq('test_date', date).limit(10));
   // BBTN gần nhất (có biểu mẫu) của thiết bị — nguồn thông số khi CSDL / test report thiếu
   async function latestForm(equipmentId) {
     const r = chk(await need().from('test_sessions').select('id, test_date, app_state').eq('equipment_id', equipmentId)
@@ -295,7 +298,7 @@
   window.DB = {
     connect, cfgGet, checkConfig, siteCfg, refreshUser, signIn, signUp, signOut, signInWithGoogle, resetPassword, updatePassword, onAuthChange, authInit, saveField, importFactory, uploadDoc, downloadDoc,
     listSessions, listFactorySessions, factoryMeasurements, updateFactory, deleteFactory,
-    latestForm, listLocations, updateLocation, listGroups, listGroupMembers, createGroup, replaceGroupMember, replaceComponent, loadSession, deleteSession, listDocs, listEquipment, equipmentRated, trend, trendForSerials, listSubstations, listBays, listClasses, listKTables, listCriteria, saveCriteria, deleteCriteria, listLibrary, saveLibraryDoc, deleteLibraryDoc, uploadLibraryFile, libraryFileUrl, crud,
+    latestForm, findSessions, listLocations, updateLocation, listGroups, listGroupMembers, createGroup, replaceGroupMember, replaceComponent, loadSession, deleteSession, listDocs, listEquipment, equipmentRated, trend, trendForSerials, listSubstations, listBays, listClasses, listKTables, listCriteria, saveCriteria, deleteCriteria, listLibrary, saveLibraryDoc, deleteLibraryDoc, uploadLibraryFile, libraryFileUrl, crud,
     get client() { return client; }, get user() { return user; }, get role() { return role; }, get profile() { return profile; },
     get busy() { return inflight; },
     canEdit: () => role === 'editor' || role === 'admin',
