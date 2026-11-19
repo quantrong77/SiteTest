@@ -76,7 +76,8 @@
     h += `<div class="fe-aux"><button type="button" class="btn small" data-fe-act="empty">Ô trống kế tiếp</button><button type="button" class="btn small" data-fe-act="clear">Xóa ô</button>`
       + (c.kind === 'cell' ? `<button type="button" class="btn small" data-fe-act="order" title="Đổi thứ tự đi ô của bảng này">Thứ tự: ${(F.order[c.grid] || 'auto') === 'auto' ? 'tự động' : F.order[c.grid] === 'row' ? 'theo hàng' : 'theo cột'}</button>` : '')
       + `<button type="button" class="btn small" data-nav="${F.sec}">Trang đầy đủ</button></div>`;
-    h += voice ? '<div class="hint-text">Giọng nói: đọc số (vd “bốn nghìn năm trăm”, “không phẩy ba lăm”, “2 phẩy 5”); lệnh <b>bỏ qua</b>, <b>lùi</b>, <b>xóa</b>, <b>dừng</b>. Cần mạng và cho phép micro; trang phải mở qua https.</div>'
+    h += voice ? `<div class="fe-voiceopt">${VoiceInput.readbackHTML()}</div>` : '';
+    h += voice ? '<div class="hint-text">Mỗi số nhận được: tiếng bíp, rung (Android), ô nháy xanh; không hiểu: hai tiếng bíp thấp. Giọng nói: đọc số (vd “bốn nghìn năm trăm”, “không phẩy ba lăm”, “2 phẩy 5”); lệnh <b>bỏ qua</b>, <b>lùi</b>, <b>xóa</b>, <b>dừng</b>. Cần mạng và cho phép micro; trang phải mở qua https.</div>'
       : '<div class="hint-text">Trình duyệt này không hỗ trợ nhập bằng giọng nói (dùng Chrome / Edge / Safari).</div>';
     h += `<details class="fe-mapbox" ${n <= 60 ? 'open' : ''}><summary>Bản đồ ô — chạm để nhảy tới ô</summary><div class="fe-map">${chipsHTML(cells)}</div></details>`;
     return `<section class="panel fe" data-fe-page>${h}</section>`;
