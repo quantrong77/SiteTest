@@ -34,9 +34,9 @@
     'WTGD:TGD': {
       name: 'tgδ cuộn dây (20 °C)', unit: '%', digits: 3, rowLabel: true, basis: 'QĐ 1901 Điều 30 mục 3 (Điều 9 mục 5)', norm: true,
       // tgδ20 < 1% coi là tốt, không cần so với giá trị khởi đầu (Điều 30 mục 3)
-      judge: c => (c.cur < c.L.WINDING_TGD_OK || !fin(c.fromBase) ? null : {
+      judge: c => (c.cur <= c.L.WINDING_TGD_OK || !fin(c.fromBase) ? null : {
         status: c.fromBase > c.L.WINDING_TGD_RISE ? 'fail' : 'pass',
-        limit: `tăng ≤ ${c.L.WINDING_TGD_RISE}% so với giá trị khởi đầu (tgδ20 < ${c.L.WINDING_TGD_OK}% coi là tốt)`,
+        limit: `tăng ≤ ${c.L.WINDING_TGD_RISE}% so với giá trị khởi đầu (tgδ20 ≤ ${c.L.WINDING_TGD_OK}% coi là tốt)`,
         actions: 'Hướng xử lý: (1) Xét các yếu tố làm tăng kết quả đo (Điều 30 mục 2): độ ẩm cao, môi trường ô nhiễm, sứ đầu ra bẩn, nhiễu của thiết bị mang điện ở gần — loại trừ rồi đo lại. '
           + '(2) Đo ở nhiệt độ cao mà giá trị sau quy đổi lớn bất thường: để MBA nguội rồi đo lại (Điều 30). (3) Gợi ý: đối chiếu R60/Kht/PI, hàm lượng ẩm cách điện cứng, BBTN dầu. (4) ' + REPORT_UP }),
     },
@@ -491,22 +491,43 @@
           rise = devPct(QD.convTgd(tg, tW, tF).val, fref);
           refStr = `${fmt(fref, 3)} % @${fmt(tF, 1)} °C (XX)`;
         }
-        let st, note;
+        let st, note, limit = 'tgδ@20 °C ≤ 1 %', judged = '';
         const k2 = ok(tW) ? QD.convTgd(tg, tW, 20) : null;
         if (!ok(tW)) { st = 'missing'; note = 'Thiếu nhiệt độ đo'; }
         else {
-          st = tg20 <= L.WINDING_TGD_OK ? 'pass' : 'fail';
-          note = `K2 theo Bảng 7 với ∆t = ${k2.dt} °C (${k2.expr}).`
+          // Điều 9 mục 5, Điều 30 mục 3: tgδ20 ≤ 1 % → tốt, không cần so với giá trị khởi đầu.
+          // Lớn hơn: so với giá trị khởi đầu (quy cùng nhiệt độ, tăng ≤ 30 %); không có giá trị khởi đầu → tham khảo Bảng 46.
+          if (tg20 <= L.WINDING_TGD_OK) st = 'pass';
+          else if (ok(rise)) {
+            st = rise > L.WINDING_TGD_RISE ? 'fail' : 'pass';
+            limit = `tgδ@20 °C > ${L.WINDING_TGD_OK} % → tăng ≤ ${L.WINDING_TGD_RISE}% so với giá trị khởi đầu (cùng nhiệt độ)`;
+            judged = ` tgδ20 > ${L.WINDING_TGD_OK} %: so với giá trị khởi đầu (XX) cùng nhiệt độ ${sgn(rise, 1)} % (Điều 30 mục 3).`;
+          } else {
+            const kv = toNum(String(txt('meta.voltage')).split(/[/;,]/)[0]);
+            const cls = ok(kv) && kv >= 300 ? '330-500' : ok(kv) && kv >= 100 ? '110-220' : '';
+            if (cls) {
+              const mx = QD.tgdMax(tW, cls);
+              st = tg <= mx ? 'pass' : 'fail';
+              limit = `tgδ@20 °C > ${L.WINDING_TGD_OK} %, không có giá trị khởi đầu → Bảng 46: ≤ ${fmt(mx, 2)} % @${fmt(tW, 1)} °C (${cls.replace('-', '÷')} kV)`;
+              judged = ` tgδ20 > ${L.WINDING_TGD_OK} %, không có giá trị khởi đầu: tham khảo Bảng 46 — tgδ đo ${fmt(tg, 3)} % @${fmt(tW, 1)} °C so với ${fmt(mx, 2)} % (Điều 30 mục 3).`;
+            } else {
+              st = 'warn';
+              limit = `tgδ@20 °C > ${L.WINDING_TGD_OK} % → so với giá trị khởi đầu (Điều 30 mục 3)`;
+              judged = ` tgδ20 > ${L.WINDING_TGD_OK} %: chưa có giá trị khởi đầu; Bảng 46 cần điện áp cao áp (ô Điện áp định mức) để tra.`;
+            }
+            judged += ' Nếu CSDL có giá trị khởi đầu thì đánh giá theo dòng Xu hướng.';
+          }
+          note = (judged ? judged.trim() + ' ' : '') + `K2 theo Bảng 7 với ∆t = ${k2.dt} °C (${k2.expr}).`
             // QĐ 1901 chỉ nêu "nhân các hệ số tương ứng" (vd 9 = 5 + 4); với ∆t > 16 °C không quy định cách tách
             + (k2.dt > 16 ? ' ∆t > 16 °C: K2 = tích các cột 1…15 của Bảng 7 (không dùng cột 16), theo quy ước đơn vị.' : '')
             // Điều 30: tgδ đo ở nhiệt độ cao, sau hiệu chỉnh lớn bất thường → để MBA nguội và đo lại
             + (st === 'fail' && tW > 20 ? ' QĐ 1901 Điều 30: nếu giá trị sau hiệu chỉnh lớn bất thường khi đo ở nhiệt độ cao, nên để MBA nguội đi rồi đo lại.' : '')
             + (tW < 10 || tW > 40 ? ' Khuyến cáo đo khi nhiệt độ dầu 10–40 °C (Điều 9 mục 4).' : '')
-            + (ok(rise) ? ` Tham khảo: so với XX cùng nhiệt độ ${sgn(rise, 1)} %.` : '');
+            + (ok(rise) && !judged ? ` Tham khảo: so với XX cùng nhiệt độ ${sgn(rise, 1)} %.` : '');
         }
         add({ sec: 'wtgd', item: `tgδ cuộn dây ${row.label || 'đối tượng bổ sung'}`, loc: unitLabel(main), meas: `${fmt(tg, 3)} % @${ok(tW) ? fmt(tW, 1) : '?'} °C`,
           conv: ok(tg20) ? `${fmt(tg20, 3)} % @20 °C (${tW >= 20 ? '÷' : '×'} K2 = ${fmt(k2.k, 3)})` : '', ref: refStr, dev: ok(rise) ? `${sgn(rise, 1)} % (cùng nhiệt độ)` : '',
-          limit: 'tgδ@20 °C ≤ 1 %', status: st, basis: R.wtgd, note, keys: [`${p}.tgd`] });
+          limit, status: st, basis: R.wtgd, note, keys: [`${p}.tgd`], ...(st !== 'missing' && tg20 > L.WINDING_TGD_OK && !ok(rise) ? { tgdNoInit: true } : {}) });
       }
       if (ok(C)) {
         const fref = F && row.fcfg ? F.ins(row.fcfg, 'c', main) : null;
@@ -759,6 +780,12 @@
           dev: pc(worst), limit: j.limit, status: j.status, basis: rule.basis, trend: true, trendFail: bad || undefined,
           note: bad ? `${rule.name} vượt tiêu chí so với ${rule.both ? 'giá trị khởi đầu / lần trước' : 'giá trị khởi đầu'}. ${j.actions}`
             : `So với ${s.history.length} lần đo trước trong CSDL.`, keys: [row.key] });
+        // tgδ cuộn dây > 1 % không có XX: CSDL có giá trị khởi đầu → đánh giá theo dòng xu hướng (Điều 30 mục 3), Bảng 46 chỉ tham khảo
+        if (host && host.tgdNoInit && rule === TREND_RULES['WTGD:TGD']) {
+          host.status = 'info';
+          host.note = host.note.replace(/^tgδ20 > .*?Nếu CSDL có giá trị khởi đầu thì đánh giá theo dòng Xu hướng\. /,
+            `tgδ20 > ${L.WINDING_TGD_OK} %: đánh giá theo giá trị khởi đầu trong CSDL — xem dòng Xu hướng (Điều 30 mục 3); Bảng 46 chỉ tham khảo. `);
+        }
         // dòng so XX ghi "lưu làm giá trị khởi đầu" trong khi CSDL đã có giá trị khởi đầu → trỏ sang dòng xu hướng
         if (host && host.note) Object.values(INIT_NOTE).forEach(n => { host.note = host.note.replace(n.text, n.withHistory); });
       });
