@@ -216,6 +216,7 @@
     const g = groupId => it => Object.assign(it, { groupId });
     return [
       // "Thông tin chung & cấu hình" (trang general) không nằm trên sidebar: mở bằng nút Mới (trình khởi tạo) hoặc bấm thanh thông tin BBTN
+      { id: 'field', no: 'HT', title: 'Nhập hiện trường' },
       { id: 'factory', no: 'XX', title: 'Số liệu xuất xưởng' },
       { id: 'importReport', no: 'NB', title: 'Nhập BBTN cũ' },
     ].map(g('record'))
@@ -434,7 +435,7 @@
     const badge = S ? `<span class="badge ${S.status ? 'st-' + S.status : 'st-none'}">${S.text || 'Chưa nhập'}</span>` : '';
     // ô "Thực hiện": bỏ tích → hạng mục không thực hiện trong lần thí nghiệm này (ẩn vùng nhập liệu)
     const doIt = S ? `<label class="sec-do"><input type="checkbox" data-skipsec="${secId}" ${S.skipped ? '' : 'checked'}> Thực hiện</label>` : '';
-    return `<div class="panel-head"><span class="secno">${esc(no)}</span><h2>${esc(title)}</h2><span class="en">${esc(en || '')}</span><span class="spacer"></span>${doIt}${secId && !(S && S.skipped) ? voiceHTML() : ''}${badge}</div>`;
+    return `<div class="panel-head"><span class="secno">${esc(no)}</span><h2>${esc(title)}</h2><span class="en">${esc(en || '')}</span><span class="spacer"></span>${doIt}${secId && !(S && S.skipped) ? `<button type="button" class="btn small fe-open" data-fe-open="${secId}" title="Nhập từng ô cỡ lớn, có giọng nói — tiện trên điện thoại">📱 Nhập từng ô</button>` + voiceHTML() : ''}${badge}</div>`;
   }
   // Cảnh báo xu hướng tại hiện trường (vd R60@20 giảm >30% so với giá trị khởi đầu / lần trước — QĐ 1901 Điều 29 mục 3):
   // hiện ngay đầu hạng mục khi vừa nhập số, kèm hướng xử lý của từng kết luận
@@ -763,6 +764,7 @@
     else if (current === 'kconf') html = KConf.render();
     else if (current === 'appendix') html = AppendixUI.render(App);
     else if (current === 'criteria') html = CriteriaUI.render();
+    else if (current === 'field') html = FieldUI.render();
     else if (current === 'standards') html = StandardsUI.render();
     else if (current === 'importReport') html = ImportReportUI.render(App);
     else html = renderSection(schema.sections.find(s => s.id === current));
@@ -780,6 +782,7 @@
     if (current === 'criteria') CriteriaUI.afterRender();
     if (current === 'standards') StandardsUI.afterRender();
     if (window.GuideUI && main.querySelector('[data-gimg]')) GuideUI.afterRender();
+    if (current === 'field') FieldUI.afterRender();
   }
 
   function clearPdfReview() {
@@ -861,6 +864,8 @@
     if (flag && secEl) { const c = res.sec[secEl.dataset.sec].counts, n = c.fail + c.warn; flag.textContent = n || ''; flag.hidden = !n; }
     renderNav();
     renderRecordChip();
+    // trang Nhập hiện trường: trạng thái ô, tiến độ, bản đồ ô (không vẽ lại để giữ bàn phím)
+    if (current === 'field' && window.FieldUI) FieldUI.refresh();
   }
 
   let evalT = null;
