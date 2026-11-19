@@ -23,9 +23,11 @@
       }
       return label;
     });
-    return s.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>').replace(/`([^`]+)`/g, '<code>$1</code>');
+    return s.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>').replace(/(^|[^*\w])\*([^*\s][^*]*?)\*(?![*\w])/g, '$1<em>$2</em>')
+      .replace(/`([^`]+)`/g, '<code>$1</code>');
   }
-  function mdToHtml(markdown) {
+  // opts.image(alt, src) → HTML: dòng chỉ có ![alt](src) thành hình (Hướng dẫn đo); không có opts thì giữ dạng chữ
+  function mdToHtml(markdown, opts) {
     const lines = String(markdown || '').replace(/\r/g, '').split('\n');
     const out = []; let para = [], list = '', table = false, headingCount = {};
     const flushPara = () => { if (para.length) { out.push('<p>' + inline(para.join(' ')) + '</p>'); para = []; } };
@@ -49,6 +51,8 @@
         continue;
       }
       closeTable();
+      const img = opts && opts.image ? /^\s*!\[([^\]]*)\]\(([^)\s]+)\)\s*$/.exec(line) : null;
+      if (img) { flushPara(); closeList(); out.push(opts.image(img[1], img[2])); continue; }
       const h = /^(#{1,3})\s+(.+?)\s*$/.exec(line);
       if (h) {
         flushPara(); closeList();

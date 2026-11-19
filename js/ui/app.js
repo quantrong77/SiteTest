@@ -619,7 +619,9 @@
   function renderSection(s) {
     const U = TU(), step = Workflow.stepOf(s.id), S = res.sec[s.id];
     let body = '';
-    if (step === 'prep' || step === 'guide') body = Workflow.procedureHTML(T(), s.id, step, esc, DB.role === 'admin');
+    // Hướng dẫn đo: nội dung có hình, Admin chỉnh được (GuideUI); loại thiết bị chưa khai báo thì dùng danh sách bước
+    if (step === 'guide' && window.GuideUI && GuideUI.has(s.id)) body = GuideUI.html(s.id);
+    else if (step === 'prep' || step === 'guide') body = Workflow.procedureHTML(T(), s.id, step, esc, DB.role === 'admin');
     else if (step === 'eval') body = findingsHTML(s.id);
     else if (s.id === 'shortCircuit') body = AppendixUI.shortCircuitHTML(App) + `<div class="wf-sum" data-fsum="${s.id}"></div>`;
     else {
@@ -774,6 +776,7 @@
     if (current === 'appendix') AppendixUI.afterRender(App);
     if (current === 'criteria') CriteriaUI.afterRender();
     if (current === 'standards') StandardsUI.afterRender();
+    if (window.GuideUI && main.querySelector('[data-gimg]')) GuideUI.afterRender();
   }
 
   function clearPdfReview() {

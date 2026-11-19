@@ -40,6 +40,7 @@ const legacyScripts = [
   'js/domain/types/mba/nameplate.js',
   'js/domain/types/mba/import-report.js',
   'js/domain/types/mba/import-report-pdf.js',
+  'js/domain/types/mba/guide.js',
   'js/domain/types/mba/index.js',
   'js/data/docx.js',
   'js/data/file-store.js',
@@ -74,6 +75,7 @@ const legacyScripts = [
   'js/ui/voice-input.js',
   'js/ui/trend-inline-ui.js',
   'js/ui/help-ui.js',
+  'js/ui/guide-ui.js',
   'js/ui/app.js',
 ];
 
