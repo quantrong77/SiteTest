@@ -149,8 +149,53 @@
     return Object.assign({ raw: r }, to20(r));
   }
 
+  // ---------------------------------------------------------------- lưu test report sứ lên CSDL (lần thí nghiệm FAT của từng sứ)
+  // Ngày trong file: số ngày Excel, Date, dd/mm/yyyy hoặc yyyy-mm-dd → yyyy-mm-dd (không đọc được → '')
+  function isoDate(v) {
+    if (v === null || v === undefined || v === '') return '';
+    if (typeof v === 'number' && v > 20000 && v < 80000) return new Date(Date.UTC(1899, 11, 30) + Math.round(v) * 86400000).toISOString().slice(0, 10);
+    if (v instanceof Date && !Number.isNaN(v.getTime())) return v.toISOString().slice(0, 10);
+    return (window.Common && Common.isoDate(String(v))) || '';
+  }
+  // Tình trạng từng sứ trong các file đã nạp so với danh mục: chỉ lưu sứ đã có trong danh mục (đã gắn vào MBA, có vị trí đầu sứ)
+  // để chuỗi xu hướng khớp với số đo hiện trường (khóa: số chế tạo sứ + vị trí). sessions: các lần FAT (v_session_list).
+  // → [{ serial, date, eq, where, hasFat, pick, reason }]
+  function dbPlan(equipment, sessions) {
+    const su = new Map((equipment || []).filter(e => e.class_code === 'SU').map(e => [norm(e.serial_no), e]));
+    const fat = new Set((sessions || []).map(s => norm(s.serial_no)));
+    return TR.map(r => {
+      const eq = su.get(norm(r.serial)) || null;
+      const hasFat = fat.has(norm(r.serial));
+      const reason = !eq ? 'Chưa có trong danh mục — lưu BBTN / test report MBA có S/N sứ này, hoặc thêm sứ ở danh mục' : !eq.position ? 'Sứ chưa có vị trí đầu sứ' : '';
+      return { serial: r.serial, date: isoDate(r.date), eq, where: eq ? [eq.parent_serial, eq.position ? `đầu ${eq.position}` : ''].filter(Boolean).join(' · ') : '',
+        hasFat, pick: !reason && !hasFat, reason };
+    });
+  }
+  // Gói lần thí nghiệm FAT (cùng dạng MbaRows.factorySessions) cho các sứ được chọn; số liệu quy về 20 °C như số đo hiện trường
+  // (C quy nhiệt độ, tanδ / fc; không cộng ΔC lắp đặt). opts: { equipment, fileName, date (ngày nhập tay khi file không ghi) }
+  function factoryPacks(serials, opts) {
+    const want = new Set((serials || []).map(norm));
+    const su = new Map((opts.equipment || []).filter(e => e.class_code === 'SU').map(e => [norm(e.serial_no), e]));
+    return TR.filter(r => want.has(norm(r.serial))).map(r => {
+      const eq = su.get(norm(r.serial)) || {};
+      const f = to20(r), key = `SU|${r.serial}`, rows = [];
+      const put = (param, value, unit, n) => {
+        if (!ok(value)) return;
+        rows.push({ eq: key, item: 'BUSHING', param, config: eq.position || '', phase: '', tap: '', value, value_text: null, unit,
+          temp_c: ok(f.tB) ? +f.tB.toFixed(2) : null, value_norm: ok(n) ? +n.toFixed(6) : null, norm_temp_c: ok(n) ? 20 : null, status: null,
+          note: `Test report hãng (${isMounted(r.mount) ? 'đã lắp' : 'chưa lắp'})` });
+      };
+      put('C1', r.c1, 'pF', f.c1); put('TGD1', r.tgd1, '%', f.tgd1); put('C2', r.c2, 'pF', f.c2); put('TGD2', r.tgd2, '%', f.tgd2);
+      return {
+        serial: r.serial, mainRef: key, refs: [{ key, class_code: 'SU', serial_no: r.serial }], rows,
+        session: { kind: 'FAT', test_date: isoDate(r.date) || opts.date || null, source: 'factory_import', source_file: opts.fileName || source || null,
+          reason: 'Thí nghiệm xuất xưởng sứ (test report hãng)' },
+      };
+    });
+  }
+
   window.HitachiBushing = {
-    DEFAULTS, bodyTemp, fc, deltaC, to20, compare, load, clear, report, isMounted,
+    DEFAULTS, bodyTemp, fc, deltaC, to20, compare, load, clear, report, isMounted, isoDate, dbPlan, factoryPacks,
     fromBase64(b64, name, opts) { return load(XLSX.read(b64, { type: 'base64' }), name, opts); },
     fromArrayBuffer(buf, name, opts) { return load(XLSX.read(buf, { type: 'array' }), name, opts); },
     get consts() { return K; }, get reports() { return TR; }, get source() { return source; }, get sources() { return sources.slice(); },

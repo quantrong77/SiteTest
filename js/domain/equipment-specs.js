@@ -7,12 +7,19 @@
 
   // Thiết bị gốc (không có parent_id) cùng loại trong một ngăn. Có ≥2 máy mang pha A/B/C khác nhau → tổ 3 máy 1 pha rời.
   // → { bank: { A, B, C } | null, singles: [eq] } (máy của tổ không lặp trong singles)
-  function bayUnits(equipment, bayId, classCode) {
-    const roots = (equipment || []).filter(e => e.bay_id === bayId && !e.parent_id && (!classCode || e.class_code === classCode));
-    const byPhase = {};
-    roots.forEach(e => { const p = str(e.phase).toUpperCase(); if (PHASES.includes(p) && !byPhase[p]) byPhase[p] = e; });
-    const bank = Object.keys(byPhase).length >= 2 ? byPhase : null;
-    const inBank = new Set(bank ? Object.values(bank).map(e => e.id) : []);
+  // groups (tùy chọn): dòng v_equipment_groups (eq_a, eq_b, eq_c) — tổ máy khai trong CSDL được ưu tiên hơn suy theo pha
+  function bayUnits(equipment, bayId, classCode, groups) {
+    const roots = (equipment || []).filter(e => e.bay_id === bayId && !e.parent_id && (!classCode || e.class_code === classCode) && e.status !== 'retired');
+    const byId = new Map((equipment || []).map(e => [e.id, e]));
+    const grp = (groups || []).find(g => g.bay_id === bayId && (!classCode || !g.class_code || g.class_code === classCode));
+    let byPhase = {}, group = null;
+    if (grp) {
+      PHASES.forEach(p => { const e = byId.get(grp[`eq_${p.toLowerCase()}`]); if (e) byPhase[p] = e; });
+      group = { id: grp.id, name: grp.name };
+    } else roots.forEach(e => { const p = str(e.phase).toUpperCase(); if (PHASES.includes(p) && !byPhase[p]) byPhase[p] = e; });
+    if (Object.keys(byPhase).length < 2) { byPhase = {}; group = null; }
+    const bank = Object.keys(byPhase).length >= 2 ? Object.assign(byPhase, group ? { group } : {}) : null;
+    const inBank = new Set(bank ? PHASES.filter(p => bank[p]).map(p => bank[p].id) : []);
     const singles = roots.filter(e => !inBank.has(e.id))
       .sort((a, b) => str(a.name || a.serial_no).localeCompare(str(b.name || b.serial_no), 'vi', { numeric: true }));
     return { bank, singles };

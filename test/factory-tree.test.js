@@ -105,3 +105,17 @@ test('lưu test report: máy mới / đã có FAT, ngăn đề xuất theo ngữ
   assert.equal(J(FT.importPlan(units, eq, ses, { target: 'SN-X' })).missingTarget, true);
   assert.equal(J(FT.importPlan(units.slice(1), [], [])).bayId, '');
 });
+
+test('thiết bị con đã tháo (thay sứ) vẫn hiện, ghi "đã tháo", xếp sau; nút ngăn có bayId', () => {
+  const eqs = [
+    { id: 'm', serial_no: 'SN-M', substation_name: 'Trạm Thử', bay_code: 'AT1', bay_id: 'B1' },
+    { id: 's1', serial_no: 'BU-OLD', parent_id: 'm', position: '1.1', removed_on: '2025-03-02' },
+    { id: 's2', serial_no: 'BU-NEW', parent_id: 'm', position: '1.1' },
+  ];
+  const tree = J(FT.build(eqs, [], [], {}));
+  const bay = tree[0].children[0];
+  assert.equal(bay.bayId, 'B1');
+  const kids = bay.children[0].children.map(c => [c.label, c.removed || false, c.sub]);
+  assert.deepEqual(kids.map(k => k[0]), ['SN-M', 'BU-NEW', 'BU-OLD']);
+  assert.match(kids[2][2], /đã tháo 02\/03\/2025/);
+});

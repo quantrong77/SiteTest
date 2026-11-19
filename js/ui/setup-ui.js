@@ -34,7 +34,7 @@
     const sub = cfg.pickSub || (curBay && curBay.substation_id) || '';
     const bays = (c.bays || []).filter(b => b.substation_id === sub);
     const bayId = curBay && curBay.substation_id === sub ? curBay.id : '';
-    const units = bayId ? EquipmentSpecs.bayUnits(c.eqs, bayId, classCode()) : { bank: null, singles: [] };
+    const units = bayId ? EquipmentSpecs.bayUnits(c.eqs, bayId, classCode(), c.groups) : { bank: null, singles: [] };
     const eqVal = cfg.pickEq || '';
     const opt = (v, t, sel) => `<option value="${esc(v)}" ${sel ? 'selected' : ''}>${esc(t)}</option>`;
     let h = '<div class="fields su-picker">'
@@ -42,7 +42,7 @@
       + `<div class="field"><label for="suBay">Ngăn (vị trí lắp đặt)</label><select id="suBay" data-su="pickBay" ${sub ? '' : 'disabled'}>${opt('', bays.length || !sub ? '— Chọn ngăn —' : 'Trạm chưa có ngăn', !bayId)}`
       + `${bays.map(b => opt(b.id, `${b.code}${b.name ? ` — ${b.name}` : ''}`, b.id === bayId)).join('')}</select></div>`
       + `<div class="field"><label for="suEq">Thiết bị</label><select id="suEq" data-su="pickEq" ${bayId ? '' : 'disabled'}>${opt('', '— Chọn thiết bị —', !eqVal)}`
-      + (units.bank ? opt('bank', `Tổ 3 máy 1 pha: ${PH.filter(p => units.bank[p]).map(p => `${p} ${units.bank[p].serial_no}`).join(' · ')}`, eqVal === 'bank') : '')
+      + (units.bank ? opt('bank', `${units.bank.group ? units.bank.group.name : 'Tổ 3 máy 1 pha'}: ${PH.filter(p => units.bank[p]).map(p => `${p} ${units.bank[p].serial_no}`).join(' · ')}`, eqVal === 'bank') : '')
       + units.singles.map(e => opt(e.id, `${e.name || e.class_name || e.class_code} — ${e.serial_no}${e.phase ? ` (pha ${e.phase})` : ''}`, eqVal === e.id)).join('')
       + (bayId ? opt('new', '＋ Thiết bị mới trong ngăn này', eqVal === 'new') : '') + '</select></div>';
     if (eqVal === 'bank' && units.bank) {
@@ -174,13 +174,13 @@
     const bay = (c.bays || []).find(b => b.id === cfg.pickBay) || (c.bays || []).find(b => b.id === cfg.bayId);
     if (!bay) throw new Error('Chưa chọn ngăn');
     const sub = (c.subs || []).find(s => s.id === bay.substation_id) || {};
-    const units = EquipmentSpecs.bayUnits(c.eqs, bay.id, classCode());
+    const units = EquipmentSpecs.bayUnits(c.eqs, bay.id, classCode(), c.groups);
     cfg.bayId = bay.id;
     let eq = null;
     if (cfg.pickEq === 'bank' && units.bank) {
       PH.forEach(p => { if (units.bank[p]) cfg.ps[p] = units.bank[p].serial_no; });
       const ph = cfg.pickPhase || 'A';
-      if (ph === 'ALL') { await A.applyTemplate('3P'); st.v['meta.serial'] = cfg.ps.A; eq = units.bank.A || Object.values(units.bank)[0]; }
+      if (ph === 'ALL') { await A.applyTemplate('3P'); st.v['meta.serial'] = cfg.ps.A; eq = units.bank[PH.find(p => units.bank[p])]; }
       else { await A.applyTemplate(ph); eq = units.bank[ph]; st.v['meta.serial'] = eq.serial_no; }
     } else if (cfg.pickEq && cfg.pickEq !== 'new') {
       eq = units.singles.find(e => e.id === cfg.pickEq);

@@ -224,6 +224,25 @@
     if (paths.length) { const r = await need().storage.from(BUCKET).remove(paths); if (r.error) fileError = r.error.message; }
     return { files: paths.length, fileError };
   }
+  // ---------------------------------------------------------------- G2: vị trí lắp đặt, tổ máy, thay thiết bị con
+  // CSDL chưa chạy migration G2 (bảng / view chưa có) → danh sách rỗng, không báo lỗi khi chỉ đọc
+  const missing = e => /does not exist|schema cache|Could not find/i.test((e && e.message) || '');
+  async function soft(q) { const r = await q; if (r.error && missing(r.error)) return []; return chk(r); }
+  const listLocations = async equipmentId => soft(need().from('v_equipment_location').select('*').eq('equipment_id', equipmentId).order('from_date'));
+  const updateLocation = async (id, patch) => chk(await need().from('equipment_location').update(patch).eq('id', id).select('id'));
+  const listGroups = async () => soft(need().from('v_equipment_groups').select('*').order('name'));
+  const listGroupMembers = async groupId => soft(need().from('v_equipment_group_members').select('*').eq('group_id', groupId).order('phase').order('from_date'));
+  async function createGroup(group, members) {
+    const g = chk(await need().from('equipment_groups').insert(group).select('id').single());
+    const rows = Object.entries(members || {}).filter(([, id]) => id).map(([phase, equipment_id]) => ({ group_id: g.id, phase, equipment_id }));
+    if (rows.length) chk(await need().from('equipment_group_members').insert(rows).select('id'));
+    return g.id;
+  }
+  const replaceGroupMember = async (groupId, phase, equipmentId, date, note) =>
+    chk(await need().rpc('replace_group_member', { p_group: groupId, p_phase: phase, p_equipment: equipmentId, p_date: date, p_note: note || null }));
+  const replaceComponent = async (oldId, o) => chk(await need().rpc('replace_component', {
+    p_old: oldId, p_serial: o.serial, p_date: o.date, p_old_status: o.oldStatus || 'retired', p_model: o.model || null, p_manufacturer: o.manufacturer || null, p_note: o.note || null }));
+
   const listDocs = async sessionId => chk(await need().from('documents').select('*').eq('session_id', sessionId).order('created_at'));
   const listEquipment = async () => chk(await need().from('v_equipment').select('*').order('class_code').order('serial_no'));
 
@@ -269,7 +288,8 @@
 
   window.DB = {
     connect, cfgGet, checkConfig, siteCfg, refreshUser, signIn, signUp, signOut, signInWithGoogle, resetPassword, updatePassword, onAuthChange, authInit, saveField, importFactory, uploadDoc, downloadDoc,
-    listSessions, listFactorySessions, factoryMeasurements, updateFactory, deleteFactory, loadSession, deleteSession, listDocs, listEquipment, equipmentRated, trend, trendForSerials, listSubstations, listBays, listClasses, listKTables, listCriteria, saveCriteria, deleteCriteria, listLibrary, saveLibraryDoc, deleteLibraryDoc, uploadLibraryFile, libraryFileUrl, crud,
+    listSessions, listFactorySessions, factoryMeasurements, updateFactory, deleteFactory,
+    listLocations, updateLocation, listGroups, listGroupMembers, createGroup, replaceGroupMember, replaceComponent, loadSession, deleteSession, listDocs, listEquipment, equipmentRated, trend, trendForSerials, listSubstations, listBays, listClasses, listKTables, listCriteria, saveCriteria, deleteCriteria, listLibrary, saveLibraryDoc, deleteLibraryDoc, uploadLibraryFile, libraryFileUrl, crud,
     get client() { return client; }, get user() { return user; }, get role() { return role; }, get profile() { return profile; },
     get busy() { return inflight; },
     canEdit: () => role === 'editor' || role === 'admin',
