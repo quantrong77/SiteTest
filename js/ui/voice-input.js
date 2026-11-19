@@ -28,6 +28,10 @@
   function write(cell, value) { cell.value = value; emit(cell, 'input'); emit(cell, 'change'); }
   function command(text) { return text.normalize('NFC').trim().toLocaleLowerCase('vi-VN').replace(/[.!?]+$/, ''); }
   function toast(message) { if (window.App && App.toast) App.toast(message, true); }
+  // Biểu tượng SVG (thay emoji: emoji hiển thị khác nhau theo máy, làm nút cao lệch)
+  const MIC = '<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21M8.5 21h7"/></svg>';
+  const STOP = '<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><rect x="6" y="6" width="12" height="12" rx="2" class="fill"/></svg>';
+  const label = on => (on ? `${STOP}<span>Dừng đọc</span>` : `${MIC}<span>Đọc số</span>`);
   const heard = detail => { document.dispatchEvent(new CustomEvent('voice:heard', { detail })); showHeard(detail); };
 
   // ===== Phản hồi khi nhập bằng giọng nói (không cần nhìn màn hình) =====
@@ -110,7 +114,7 @@
   }
   function syncButtons() {
     document.querySelectorAll('[data-voice]').forEach(b => {
-      b.textContent = active ? '■ Dừng đọc' : '🎙 Đọc số';
+      b.innerHTML = label(active);
       b.classList.toggle('primary', active);
       b.setAttribute('aria-pressed', String(active));
     });
@@ -152,7 +156,7 @@
     try { recognition.start(); } catch (_) {}
   }
   function buttonHTML() {
-    return `<span class="voice-controls"><button type="button" class="btn small${active ? ' primary' : ''}" data-voice aria-pressed="${active}" aria-label="Nhập số liệu bằng giọng nói">${active ? '■ Dừng đọc' : '🎙 Đọc số'}</button><label class="voice-cont"><input type="checkbox" data-voice-continuous> Liên tục</label>${readbackHTML()}<span class="voice-heard" data-voice-heard aria-live="polite"></span></span>`;
+    return `<span class="voice-controls"><button type="button" class="btn small${active ? ' primary' : ''}" data-voice aria-pressed="${active}" aria-label="Nhập số liệu bằng giọng nói">${label(active)}</button><label class="voice-cont"><input type="checkbox" data-voice-continuous> Liên tục</label>${readbackHTML()}<span class="voice-heard" data-voice-heard aria-live="polite"></span></span>`;
   }
   const readbackHTML = () => `<label class="voice-cont" title="Máy đọc lại tên ô và số vừa nhập (micro tạm dừng khi máy nói)"><input type="checkbox" data-voice-readback ${readback ? 'checked' : ''}> Đọc lại</label>`;
   document.addEventListener('change', e => {
@@ -167,5 +171,5 @@
     if (active) stop(); else start(b, b.dataset.voice === 'continuous' ? { continuous: true } : {});
   });
   document.addEventListener('focusin', e => { if (e.target.matches && e.target.matches(selector)) lastCell = e.target; });
-  window.VoiceInput = { buttonHTML, readbackHTML, start, stop, get active() { return active; }, get readback() { return readback; }, _handle: handle };
+  window.VoiceInput = { buttonHTML, readbackHTML, label, start, stop, get active() { return active; }, get readback() { return readback; }, _handle: handle };
 })();

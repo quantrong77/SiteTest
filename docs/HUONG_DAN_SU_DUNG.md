@@ -47,6 +47,7 @@ Ký hiệu ở cột đầu giống ký hiệu trên thanh điều hướng bên
 - **«** hoặc **Ctrl+B** thu gọn thanh; kéo mép phải để đổi độ rộng. Hai nhóm cuối bấm tên nhóm để đóng / mở.
 - **Thanh công cụ:** **Mới**, **Mở ▾** (CSDL / .json), **Lưu ▾** (CSDL / .json), **Xuất BBTN .docx**, **Xuất khác ▾** (bảng so sánh .xlsx).
 - Muốn sửa thông tin chung: bấm **thanh thông tin biên bản** (S/N · ngày · lý do ✎) ở đầu trang.
+- Trang dài: cuộn xuống hơn nửa màn hình thì góc phải dưới hiện nút tròn **↑** — bấm để về đầu trang.
 
 ### Bốn bước của mỗi hạng mục
 

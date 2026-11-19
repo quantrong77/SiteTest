@@ -383,7 +383,7 @@
     const badge = S ? `<span class="badge ${S.status ? 'st-' + S.status : 'st-none'}">${S.text || 'Chưa nhập'}</span>` : '';
     // ô "Thực hiện": bỏ tích → hạng mục không thực hiện trong lần thí nghiệm này (ẩn vùng nhập liệu)
     const doIt = S ? `<label class="sec-do"><input type="checkbox" data-skipsec="${secId}" ${S.skipped ? '' : 'checked'}> Thực hiện</label>` : '';
-    return `<div class="panel-head"><span class="secno">${esc(no)}</span><h2>${esc(title)}</h2><span class="en">${esc(en || '')}</span><span class="spacer"></span>${doIt}${secId && !(S && S.skipped) ? `<button type="button" class="btn small fe-open" data-fe-open="${secId}" title="Nhập từng ô cỡ lớn, có giọng nói — tiện trên điện thoại">📱 Nhập từng ô</button>` + voiceHTML() : ''}${badge}</div>`;
+    return `<div class="panel-head"><span class="secno">${esc(no)}</span><h2>${esc(title)}</h2><span class="en">${esc(en || '')}</span><span class="spacer"></span>${doIt}${secId && !(S && S.skipped) ? `<button type="button" class="btn small fe-open" data-fe-open="${secId}" title="Nhập từng ô cỡ lớn, có giọng nói — tiện trên điện thoại"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><rect x="7" y="2.5" width="10" height="19" rx="2"/><path d="M11 18.5h2"/></svg><span>Nhập từng ô</span></button>` + voiceHTML() : ''}${badge}</div>`;
   }
   // Cảnh báo xu hướng tại hiện trường (vd R60@20 giảm >30% so với giá trị khởi đầu / lần trước — QĐ 1901 Điều 29 mục 3):
   // hiện ngay đầu hạng mục khi vừa nhập số, kèm hướng xử lý của từng kết luận
