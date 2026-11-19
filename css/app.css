@@ -692,3 +692,9 @@ table.grid.fx-table td.fx-act { padding: 3px 6px; width: 1%; white-space: nowrap
 .fe-chip.cur { outline: 3px solid var(--accent, #1663a6); outline-offset: 1px; }
 @media (max-width: 600px) { .fe-top { grid-template-columns: minmax(0, 1fr); } .fe-nav { position: sticky; bottom: 0; z-index: 5; padding: 8px 0; background: var(--bg, #f3f4f1); margin: 8px 0; } }
 @media (min-width: 1101px) { .fe-open { display: none; } }
+
+/* Trang Cấu hình hướng dẫn đo (HD) */
+.gc-h { margin: 18px 0 8px; font-size: 15px; }
+.gc-imgs summary { cursor: pointer; padding: 8px 0; font-weight: 600; }
+.gc-thumb { width: 96px; min-height: 24px; }
+.gc-thumb img { display: block; max-width: 96px; max-height: 72px; width: auto; height: auto; border: 1px solid var(--line, #d6dbe0); border-radius: 4px; background: #fff; }

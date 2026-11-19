@@ -172,7 +172,7 @@
       .concat([{ id: 'appendix', no: 'PL', title: 'Phụ lục BBTN' }, { id: 'trend', no: '↗', title: 'Xu hướng' }, { id: 'summary', no: 'Σ', title: 'Tổng hợp & kết luận' }].map(g('result')))
       .concat([{ id: 'db', no: 'DB', title: 'Biên bản đã lưu' }, { id: 'catalog', no: '≡', title: 'Trạm – Ngăn – Thiết bị' }].map(g('db')))
       .concat([{ id: 'criteria', no: 'TC', title: 'Bộ tiêu chí đánh giá' }, { id: 'kconf', no: 'K', title: 'Hệ số quy đổi sứ' },
-        { id: 'standards', no: 'TV', title: 'Thư viện tài liệu' }].map(g('std')))
+        { id: 'standards', no: 'TV', title: 'Thư viện tài liệu' }, { id: 'guidecfg', no: 'HD', title: 'Cấu hình hướng dẫn đo' }].map(g('std')))
       .concat([{ id: 'help', no: '?', title: 'Hướng dẫn sử dụng' }].map(g('help')));
   }
   // Thanh điều hướng vẽ như sơ đồ một sợi: mỗi hạng mục là một ngăn lộ, trạng thái là ký hiệu máy cắt
@@ -713,6 +713,7 @@
     else if (current === 'appendix') html = AppendixUI.render(App);
     else if (current === 'criteria') html = CriteriaUI.render();
     else if (current === 'field') html = FieldUI.render();
+    else if (current === 'guidecfg') html = GuideUI.renderConfig();
     else if (current === 'standards') html = StandardsUI.render();
     else if (current === 'importReport') html = ImportReportUI.render(App);
     else html = renderSection(schema.sections.find(s => s.id === current));
@@ -731,6 +732,7 @@
     if (current === 'standards') StandardsUI.afterRender();
     if (window.GuideUI && main.querySelector('[data-gimg]')) GuideUI.afterRender();
     if (current === 'field') FieldUI.afterRender();
+    if (current === 'guidecfg') GuideUI.afterRenderConfig();
   }
 
   function clearPdfReview() {
