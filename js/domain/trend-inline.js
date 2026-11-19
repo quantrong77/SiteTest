@@ -1,5 +1,5 @@
 // Xu hướng ngay tại ô nhập (hàm thuần): ghép lịch sử đo của cùng thiết bị và cùng đại lượng với giá trị đang nhập,
-// tính % so với mốc khởi đầu (FAT, không có thì lần sớm nhất — như view v_trend_delta) và so với lần đo trước.
+// tính % so với mốc khởi đầu (như view v_trend_delta) và so với lần đo trước.
 // Chỉ để tham khảo khi nhập; đánh giá chính thức vẫn ở mục kết quả. Không truy cập giao diện hay CSDL.
 (function () {
   'use strict';
@@ -29,9 +29,10 @@
     old = old.filter(r => (r.cmp_basis || 'raw') === basis)
       .sort((a, b) => String(a.test_date || '').localeCompare(String(b.test_date || '')));
     if (!old.length) return null;
-    // mốc khởi đầu: lần sau sửa chữa gần nhất được lấy làm khởi đầu mới; không có thì xuất xưởng; không có thì lần sớm nhất
+    // mốc khởi đầu (QĐ 1901 Điều 2, Điều 3 mục d): lần sau sửa chữa gần nhất được lấy làm khởi đầu mới → xuất xưởng (test report)
+    // → lần sau lắp đặt (sớm nhất) → lần đo sớm nhất
     const resets = old.filter(r => resetCovers(r, target.item));
-    const base = resets[resets.length - 1] || old.find(r => r.kind === 'FAT') || old[0];
+    const base = resets[resets.length - 1] || old.find(r => r.kind === 'FAT') || old.find(r => r.kind === 'SAT') || old[0];
     const previous = old[old.length - 1];
     const points = old.map(r => num(r.value_cmp));
     if (Number.isFinite(cur)) points.push(cur);
@@ -59,5 +60,14 @@
     return r[1] === 'rise' ? fromBase > lim : Math.abs(fromBase) > lim;
   }
 
-  window.TrendInline = { series, warn, pct, KEY, RESET_ITEMS, resetCovers };
+  // Mốc khởi đầu đang dùng: mã, chữ viết tắt (ô xu hướng), tên đầy đủ (dòng đánh giá)
+  function baseInfo(base, item) {
+    if (!base) return null;
+    if (resetCovers(base, item)) return { code: 'RESET', short: 'KĐ', name: 'giá trị khởi đầu sau sửa chữa' };
+    if (base.kind === 'FAT') return { code: 'FAT', short: 'XX', name: 'xuất xưởng' };
+    if (base.kind === 'SAT') return { code: 'SAT', short: 'LĐ', name: 'sau lắp đặt' };
+    return { code: 'FIRST', short: 'Đầu', name: 'lần đo sớm nhất (chưa có test report, số liệu sau lắp đặt)' };
+  }
+
+  window.TrendInline = { series, warn, pct, baseInfo, KEY, RESET_ITEMS, resetCovers };
 })();

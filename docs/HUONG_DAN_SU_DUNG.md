@@ -303,7 +303,7 @@ Hãy dùng đúng nhãn hiển thị trên phiên bản đang chạy.
 11. Kht và PI là chỉ báo; đọc kết hợp tình trạng và hướng dẫn áp dụng.
 12. Căn cứ gồm Điều 9 mục 4, Bảng 4, Bảng 5 và Điều 29.
 13. Mục này nhập thủ công từ máy đo điện trở cách điện.
-14. **Xu hướng theo QĐ 1901 so với số liệu quá khứ:** ngay khi gõ số chế tạo, app tải lịch sử đo của máy và sứ (CSDL khi đã đăng nhập; mất mạng thì dùng bản lưu tạm trên máy). Nhập số đến đâu, app so với **giá trị khởi đầu** (xuất xưởng, không có thì lần đo sớm nhất) và **lần thí nghiệm trước** đến đó, mỗi đại lượng một dòng "Xu hướng …" trong mục:
+14. **Xu hướng theo QĐ 1901 so với số liệu quá khứ:** ngay khi gõ số chế tạo, app tải lịch sử đo của máy và sứ (CSDL khi đã đăng nhập; mất mạng thì dùng bản lưu tạm trên máy). Nhập số đến đâu, app so với **giá trị khởi đầu** (theo thứ tự: lần sau sửa chữa được lấy làm khởi đầu mới → xuất xưởng → lần **sau lắp đặt** → lần đo sớm nhất; ô xu hướng ghi KĐ / XX / LĐ / Đầu, rê chuột xem ngày) và **lần thí nghiệm trước** đến đó, mỗi đại lượng một dòng "Xu hướng …" trong mục:
     - **R60@20** (Điều 29 mục 3): giảm quá 30% so với khởi đầu hoặc lần trước → Không đạt. Hướng xử lý: kiểm tra điều kiện đo theo Điều 29 mục 2 rồi đo lại; đo PI (Điều 9 ghi chú d, IEEE C57.152); gợi ý đối chiếu Kht, tgδ/điện dung, ẩm cách điện cứng, BBTN dầu; nếu các hạng mục khác đạt, người có thẩm quyền quyết định đóng điện.
     - **tgδ cuộn dây @20 °C** (Điều 30 mục 3): tăng quá 30% so với khởi đầu → Không đạt; tgδ20 < 1% coi là tốt, không so. Hướng xử lý: loại trừ yếu tố ẩm, ô nhiễm, sứ bẩn, nhiễu (Điều 30 mục 2); đo ở nhiệt độ cao thì để MBA nguội đo lại.
     - **Điện dung cuộn dây** (Điều 9 mục 5): lệch quá ±5% so với khởi đầu → Không đạt.

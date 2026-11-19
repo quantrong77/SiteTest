@@ -76,3 +76,25 @@ test('fieldRows: withKey kèm khóa ô; mặc định không đổi dòng lưu C
   const dcr = keyed.rows.find(r => r.item === 'DCR' && r.key);
   assert.ok(dcr && dcr.key in state.v, 'khóa ô trỏ đúng số liệu trong biên bản');
 });
+
+test('thứ tự mốc khởi đầu: đặt lại sau sửa chữa → xuất xưởng → sau lắp đặt → lần đo sớm nhất', () => {
+  const w = load(['js/domain/trend-inline.js']).TrendInline;
+  const per = H({ kind: 'PERIODIC', test_date: '2019-01-01', value_cmp: 9 });
+  const sat = H({ kind: 'SAT', test_date: '2020-01-01', value_cmp: 10 });
+  const sat2 = H({ kind: 'SAT', test_date: '2021-01-01', value_cmp: 11 });
+  const fat = H({ kind: 'FAT', test_date: '2018-01-01', value_cmp: 8 });
+  const tgt = Object.assign({}, KEY, { item: 'IR', value_cmp: 12, cmp_basis: 'norm' });
+  const T = rows => rows.map(r => Object.assign({}, r, { item: 'IR' }));
+  let s = w.series(T([per, sat, sat2]), tgt);
+  assert.equal(s.base.test_date, '2020-01-01', 'không có XX: lần sau lắp đặt sớm nhất, không lấy lần định kỳ sớm hơn');
+  assert.deepEqual(JSON.parse(JSON.stringify(w.baseInfo(s.base, 'IR'))), { code: 'SAT', short: 'LĐ', name: 'sau lắp đặt' });
+  s = w.series(T([per, sat, fat]), tgt);
+  assert.equal(w.baseInfo(s.base, 'IR').code, 'FAT');
+  const rep = H({ kind: 'PERIODIC', test_date: '2024-01-01', value_cmp: 7, baseline_reset: 'INSULATION' });
+  s = w.series(T([per, sat, fat, rep]), tgt);
+  assert.equal(w.baseInfo(s.base, 'IR').code, 'RESET');
+  // đặt lại "cách điện" không áp cho điện trở một chiều
+  s = w.series([per, sat, Object.assign({}, rep, { item: 'DCR' })], Object.assign({}, KEY, { value_cmp: 12, cmp_basis: 'norm' }));
+  assert.equal(w.baseInfo(s.base, 'DCR').code, 'SAT');
+  assert.equal(w.baseInfo(w.series([per], Object.assign({}, KEY, { value_cmp: 1, cmp_basis: 'norm' })).base, 'DCR').code, 'FIRST');
+});

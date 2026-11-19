@@ -22,8 +22,8 @@
 
   // Tiêu chí xu hướng QĐ 1901 (so với giá trị khởi đầu / lần trước, theo lịch sử CSDL) — khóa "ITEM:PARAM" của dòng CSDL.
   // judge(ctx) → { status, limit, actions } hoặc null (không áp dụng). ctx: { fromBase, fromPrevious, base, cur, L, isNew, layout, c1Lim }
-  // norm: chỉ so giá trị quy về 20 °C (lịch sử cmp_basis = norm). Mốc "khởi đầu" = xuất xưởng, không có thì lần đo sớm nhất
-  // (QĐ 1901 Điều 2 — định nghĩa; TrendInline.series).
+  // norm: chỉ so giá trị quy về 20 °C (lịch sử cmp_basis = norm). Mốc "khởi đầu": sau sửa chữa (đặt lại) → xuất xưởng → sau lắp đặt
+  // → lần đo sớm nhất (QĐ 1901 Điều 2 — định nghĩa; TrendInline.series).
   const fin = d => d !== null && d !== undefined && Number.isFinite(d);
   const TREND_RULES = {
     'IR:R60': {
@@ -138,6 +138,22 @@
           meas: rows.map((r, i) => ok(ps[i]) ? `${r}: ${fmt(ps[i])} W` : null).filter(Boolean).join('; '),
           status: 'info', basis: R.noload, note: 'Số liệu xuất xưởng không có phép đo ở điện áp thấp → lưu làm giá trị khởi đầu cho các lần sau (Bảng 1 ghi chú c).' });
       }
+      // MBA 3 pha (Điều 34 mục 3): Po, Io khi nguồn bc (ngắn mạch pha a) và nguồn ab (ngắn mạch pha c) lệch ≤5%;
+      // nguồn ca (ngắn mạch pha b) thường lớn hơn 25–50% do kết cấu lõi thép → chỉ ghi để tham khảo.
+      // Độ lệch = |X1 − X2| / trung bình × 100 (cùng cách tính độ lệch pha của Điều 9).
+      if (schema.layout === Schema.LAYOUT_110) [['p', 'Po', 'W'], ['i', 'Io', 'A']].forEach(([c, name, u]) => {
+        const [ab, bc, ca] = rows.map(r => val(`${g}.${r}.${c}`));
+        if (!ok(ab) || !ok(bc)) return;
+        const mean2 = (ab + bc) / 2;
+        const d = mean2 ? Math.abs(ab - bc) / mean2 * 100 : NaN;
+        const mid = ok(ca) && mean2 ? (ca - mean2) / mean2 * 100 : NaN;
+        add({ sec: 'noload', item: `Lệch ${name} giữa các pha — đo ở điện áp thấp (${g === 'nl.lv' ? 'cuộn hạ áp' : 'cuộn cao/trung áp'})`,
+          meas: `${rows[0]}: ${fmt(ab)} ${u}; ${rows[1]}: ${fmt(bc)} ${u}`, dev: ok(d) ? `${fmt(d, 2)} %` : '',
+          limit: `${rows[0]} và ${rows[1]} lệch ≤ ${L.NOLOAD_LV_PHASE}%`, status: ok(d) ? (d <= L.NOLOAD_LV_PHASE ? 'pass' : 'fail') : 'missing', basis: 'QĐ 1901 Điều 34 mục 3',
+          note: `Độ lệch = |${rows[0]} − ${rows[1]}| / trung bình. `
+            + (ok(mid) ? `${rows[2]} (ngắn mạch pha giữa) lớn hơn ${fmt(mid, 1)} % so với trung bình hai pha kia — thường lớn hơn 25–50% do kết cấu lõi thép.` : ''),
+          keys: rows.slice(0, 2).map(r => `${g}.${r}.${c}`) });
+      });
     });
     const iLV = toNum(cfg.iLV), sLV = toNum(cfg.sLV), sR = toNum(cfg.sR);
     // base: 'nl.rated' (mẫu theo pha) | 'nl.A.rated' (mẫu 3 pha); curCols: cột dòng không tải; unit: số chế tạo máy
@@ -730,7 +746,7 @@
         const j = rule.judge({ fromBase: s.fromBase, fromPrevious: s.fromPrevious, base: s.base, cur, L, isNew, layout: schema.layout, c1Lim });
         if (!j) return;
         const pc = d => `${sgn(d, 1)} %`, val = x => `${fmt(+x, rule.digits)} ${rule.unit}`;
-        const baseName = TrendInline.resetCovers(s.base, row.item) ? 'giá trị khởi đầu sau sửa chữa' : s.base.kind === 'FAT' ? 'xuất xưởng' : 'giá trị khởi đầu';
+        const baseName = TrendInline.baseInfo(s.base, row.item).name;
         const refs = [`${baseName} ${isoToVn(s.base.test_date)}: ${val(s.base.value_cmp)} (${pc(s.fromBase)})`]
           .concat(s.fromPrevious !== null ? [`lần trước ${isoToVn(s.previous.test_date)}: ${val(s.previous.value_cmp)} (${pc(s.fromPrevious)})`] : []);
         const devs = (rule.both ? [s.fromBase, s.fromPrevious] : [s.fromBase]).filter(fin);
