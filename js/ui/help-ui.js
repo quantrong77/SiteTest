@@ -6,10 +6,11 @@
     general: 'Mục 0', visual: 'Mục 1', noload: 'Mục 2', ir: 'Mục 3', vector: 'Mục 4', bushing: 'Mục 5',
     wtgd: 'Mục 6', dcr: 'Mục 7', ratio: 'Mục 8', oltc: 'Mục 9', moisture: 'Mục 10', bct: 'Mục 11', shortCircuit: 'Thí nghiệm ngắn mạch MBA',
     summary: 'Tổng hợp', appendix: 'Phụ lục', db: 'CSDL', trend: 'Xu hướng', importReport: 'Nhập BBTN cũ',
-    standards: 'Thư viện', criteria: 'Bộ tiêu chí', kconf: 'hệ số quy đổi sứ'
+    standards: 'Thư viện', criteria: 'Bộ tiêu chí', kconf: 'hệ số quy đổi sứ', guidecfg: 'Cấu hình hướng dẫn đo',
+    field: 'Nhập hiện trường', model3d: 'Mô hình 3D'
   };
   const NAV_CONTEXT = {
-    factory: 'Mục 0', catalog: 'CSDL'
+    factory: 'Số liệu xuất xưởng', catalog: 'Trạm – Ngăn – Thiết bị'
   };
   const slug = s => String(s).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/g, 'd')
     .replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
@@ -18,6 +19,9 @@
     let s = esc(text);
     s = s.replace(/\[([^\]]+)\]\(([^)]+)\)/g, (_, label, raw) => {
       const href = raw.trim();
+      const app = /^#app:([\w]+)(?:\/(prep|guide|data|eval))?$/.exec(href);
+      if (app) return `<button type="button" class="btn small help-go" data-help-go="${app[1]}${app[2] ? '/' + app[2] : ''}">${label}</button>`;
+      if (/^#[\w-]+$/.test(href)) return `<a href="${href}">${label}</a>`;
       if (/^https?:\/\//i.test(href) || /^(?:\.\.\/|\.\/|\/)?[\w.-]+(?:\/[\w.-]+)*(?:#[\w-]+)?$/i.test(href) && !/\.md(?:$|#)/i.test(href)) {
         return `<a href="${esc(href)}"${/^https?:/i.test(href) ? ' target="_blank" rel="noopener noreferrer"' : ''}>${label}</a>`;
       }
@@ -51,6 +55,14 @@
         continue;
       }
       closeTable();
+      const quote = /^\s*>\s?(.*)$/.exec(line);
+      if (quote) {
+        flushPara(); closeList();
+        const q = [quote[1]];
+        while (i + 1 < lines.length && /^\s*>\s?/.test(lines[i + 1])) q.push(lines[++i].replace(/^\s*>\s?/, ''));
+        out.push(`<div class="callout help-note">${inline(q.join(' '))}</div>`);
+        continue;
+      }
       const img = opts && opts.image ? /^\s*!\[([^\]]*)\]\(([^)\s]+)\)\s*$/.exec(line) : null;
       if (img) { flushPara(); closeList(); out.push(opts.image(img[1], img[2])); continue; }
       const h = /^(#{1,3})\s+(.+?)\s*$/.exec(line);
@@ -72,6 +84,12 @@
     }
     flushPara(); closeList(); closeTable();
     return out.join('\n');
+  }
+  // Ảnh minh họa của Hướng dẫn sử dụng: chỉ nhận ảnh trong docs/img (bấm để xem cỡ đầy đủ)
+  function helpImage(alt, src) {
+    if (!/^img\/[\w.-]+\.(?:webp|png|jpe?g)$/i.test(src)) return `<p>${esc(alt)}</p>`;
+    const url = 'docs/' + src;
+    return `<figure class="help-fig"><a href="${esc(url)}" target="_blank" rel="noopener" title="Xem ảnh cỡ đầy đủ"><img src="${esc(url)}" alt="${esc(alt)}" loading="lazy"></a><figcaption>${esc(alt)}</figcaption></figure>`;
   }
   const titleText = el => (el && el.textContent || '').trim();
   function findHeading(title) {
@@ -110,7 +128,7 @@
   let markdownPromise;
   function render() {
     const content = document.getElementById('helpContent'); if (!content) return;
-    content.innerHTML = mdToHtml(HelpUI.markdown || '');
+    content.innerHTML = mdToHtml(HelpUI.markdown || '', { image: helpImage });
     const headings = Array.from(content.querySelectorAll('h2'));
     document.getElementById('helpToc').innerHTML = headings.map(h => `<a href="#${esc(h.id)}">${esc(titleText(h))}</a>`).join('');
     const status = document.getElementById('helpStatus'); if (status) status.hidden = true;
@@ -142,7 +160,18 @@
     else main.innerHTML = prior;
     HelpUI.returnSection = '';
   }
-  const HelpUI = { mdToHtml, open, close, CONTEXT, markdown: '', returnSection: '', target: '' };
+  const HelpUI = { mdToHtml, helpImage, open, close, CONTEXT, markdown: '', returnSection: '', target: '' };
+  // Nút "Mở trang →" trong hướng dẫn: đóng hướng dẫn, mở trang (và bước của hạng mục) trong app
+  document.addEventListener('click', e => {
+    const b = e.target.closest && e.target.closest('[data-help-go]');
+    if (!b || !window.App) return;
+    const [id, step] = b.dataset.helpGo.split('/');
+    const main = document.getElementById('main');
+    if (main) { delete main.dataset.helpPrior; delete main.dataset.helpReturnId; }
+    HelpUI.returnSection = '';
+    if (step && window.Workflow) Workflow.setStep(id, step);
+    App.go(id);
+  });
   window.HelpUI = HelpUI;
   document.addEventListener('click', e => {
     if (e.target.closest('[data-help-back]')) { close(window.App); return; }
@@ -151,6 +180,7 @@
   document.addEventListener('keydown', e => {
     const t = e.target, typing = t && (t.matches('input,textarea,select,[contenteditable="true"]') || t.closest('input,textarea,select,[contenteditable="true"]'));
     if (e.key === 'Escape' && document.querySelector('.help-panel')) { e.preventDefault(); close(window.App); return; }
-    if (!typing && (e.key === 'F1' || (e.shiftKey && e.key === '?'))) { e.preventDefault(); open(window.App); }
+    // F1 mở được cả khi đang ở ô nhập (không gõ ra ký tự); phím ? chỉ khi không gõ
+    if (e.key === 'F1' || (!typing && e.shiftKey && e.key === '?')) { e.preventDefault(); open(window.App); }
   });
 })();

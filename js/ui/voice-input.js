@@ -28,7 +28,53 @@
   function write(cell, value) { cell.value = value; emit(cell, 'input'); emit(cell, 'change'); }
   function command(text) { return text.normalize('NFC').trim().toLocaleLowerCase('vi-VN').replace(/[.!?]+$/, ''); }
   function toast(message) { if (window.App && App.toast) App.toast(message, true); }
-  const heard = detail => document.dispatchEvent(new CustomEvent('voice:heard', { detail }));
+  const heard = detail => { document.dispatchEvent(new CustomEvent('voice:heard', { detail })); showHeard(detail); };
+
+  // ===== Phản hồi khi nhập bằng giọng nói (không cần nhìn màn hình) =====
+  // tiếng bíp (nhận số: một tiếng cao; không hiểu: hai tiếng thấp), rung (Android), ô vừa nhập nháy xanh,
+  // dòng "Nghe: … → giá trị" ở trang đầy đủ, tùy chọn đọc lại "tên ô: số" (micro tạm dừng khi máy nói)
+  const LS_READ = 'bbtn-mba.voiceReadback';
+  let readback = false, speaking = false, audio = null;
+  try { readback = localStorage.getItem(LS_READ) === '1'; } catch (_) { /* bỏ qua */ }
+  function beep(ok) {
+    try {
+      audio = audio || new (window.AudioContext || window.webkitAudioContext)();
+      if (audio.state === 'suspended') audio.resume();
+      const tones = ok ? [[880, 0, 0.09]] : [[260, 0, 0.12], [220, 0.17, 0.12]];
+      tones.forEach(([f, at, dur]) => {
+        const o = audio.createOscillator(), g = audio.createGain(), t = audio.currentTime + at;
+        o.type = 'sine'; o.frequency.value = f;
+        g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.25, t + 0.01); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+        o.connect(g); g.connect(audio.destination); o.start(t); o.stop(t + dur + 0.02);
+      });
+    } catch (_) { /* trình duyệt không cho phát âm thanh */ }
+    try { if (navigator.vibrate) navigator.vibrate(ok ? 40 : [70, 60, 70]); } catch (_) { /* không hỗ trợ rung */ }
+  }
+  function flash(cell) {
+    if (!cell) return;
+    cell.classList.remove('voice-ok'); void cell.offsetWidth; cell.classList.add('voice-ok');
+    setTimeout(() => cell.classList.remove('voice-ok'), 900);
+  }
+  // tên ô ngắn để đọc lại: phần sau "–" của nhãn ô (vd "R60″ (MΩ)", "Pha A-N"), bỏ đơn vị trong ngoặc
+  const shortName = cell => String((cell && (cell.getAttribute('aria-label') || '')) || '').split(' – ').pop().replace(/\s*\([^)]*\)\s*/g, ' ').replace(/[″"]/g, '').trim();
+  function say(text) {
+    if (!readback || !window.speechSynthesis || !window.SpeechSynthesisUtterance) return;
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = 'vi-VN'; u.rate = 1.1;
+    const vi = speechSynthesis.getVoices().find(v => /^vi/i.test(v.lang)); if (vi) u.voice = vi;
+    // micro tạm dừng khi máy nói — không tự nghe nhầm chính giọng đọc lại
+    speaking = true;
+    if (recognition) { try { recognition.stop(); } catch (_) {} }
+    u.onend = u.onerror = () => { speaking = false; if (active && recognition) { try { recognition.start(); } catch (_) {} } };
+    // lỗi giọng đọc không được làm hỏng việc nhập: vẫn nghe tiếp
+    try { speechSynthesis.cancel(); speechSynthesis.speak(u); } catch (_) { u.onend(); }
+  }
+  function showHeard(d) {
+    document.querySelectorAll('[data-voice-heard]').forEach(el => {
+      el.textContent = d.error ? `Nghe: “${d.text}” — ${d.error}` : d.cmd ? `Lệnh: ${d.text}` : `Nghe: “${d.text}” → ${d.value}`;
+      el.classList.toggle('bad', !!d.error);
+    });
+  }
   function handle(spoken) {
     const cmd = command(spoken);
     const focused = document.activeElement;
@@ -41,20 +87,25 @@
     const value = VnNumber.parse(spoken);
     if (value == null) {
       heard({ text: spoken, error: 'Không hiểu — đọc lại' });
-      // trang Nhập hiện trường đã hiện dòng "Nghe: …" dưới ô — không bật thông báo nổi che nút
-      if (!document.querySelector('[data-fe-heard]')) toast(`Không hiểu “${spoken}” — đọc lại.`);
+      beep(false);
+      // đã có dòng "Nghe: …" (trang Nhập hiện trường / thanh giọng nói) — không bật thông báo nổi che nút
+      if (!document.querySelector('[data-fe-heard], [data-voice-heard]')) toast(`Không hiểu “${spoken}” — đọc lại.`);
       return;
     }
+    const name = shortName(cell);
     write(cell, value);
     heard({ text: spoken, value, key: cell.dataset.k });
+    beep(true); flash(cell);
     lastCell = cell;
     if (continuous) move(cell, 1);
+    say(`${name ? name + ': ' : ''}${value}`);
   }
   function onResult(event) {
     // một sự kiện có thể chứa nhiều kết quả (đọc liền nhiều số)
     for (let i = event.resultIndex; i < event.results.length; i++) {
       const r = event.results[i];
-      if (r && r.isFinal && r[0] && r[0].transcript.trim()) handle(r[0].transcript.trim());
+      // đang đọc lại số: bỏ qua (tránh tự nghe giọng máy)
+      if (!speaking && r && r.isFinal && r[0] && r[0].transcript.trim()) handle(r[0].transcript.trim());
     }
   }
   function syncButtons() {
@@ -68,7 +119,8 @@
     document.dispatchEvent(new CustomEvent('voice:state', { detail: { active } }));
   }
   function stop() {
-    continuous = false; active = false;
+    continuous = false; active = false; speaking = false;
+    if (window.speechSynthesis) { try { speechSynthesis.cancel(); } catch (_) {} }
     if (recognition) { try { recognition.stop(); } catch (_) {} }
     syncButtons();
   }
@@ -92,19 +144,28 @@
         else stop();
       };
       // trình duyệt tự dừng sau một lúc im lặng → nghe tiếp khi vẫn đang bật
-      recognition.onend = () => { if (active) { try { recognition.start(); } catch (_) {} } else syncButtons(); };
+      recognition.onend = () => { if (active && !speaking) { try { recognition.start(); } catch (_) {} } else if (!active) syncButtons(); };
     }
     active = true; syncButtons();
+    // âm thanh chỉ phát được sau thao tác của người dùng → khởi tạo ngay lúc bấm nút
+    try { audio = audio || new (window.AudioContext || window.webkitAudioContext)(); if (audio.state === 'suspended') audio.resume(); } catch (_) { /* bỏ qua */ }
     try { recognition.start(); } catch (_) {}
   }
   function buttonHTML() {
-    return `<span class="voice-controls"><button type="button" class="btn small${active ? ' primary' : ''}" data-voice aria-pressed="${active}" aria-label="Nhập số liệu bằng giọng nói">${active ? '■ Dừng đọc' : '🎙 Đọc số'}</button><label class="voice-cont"><input type="checkbox" data-voice-continuous> Liên tục</label></span>`;
+    return `<span class="voice-controls"><button type="button" class="btn small${active ? ' primary' : ''}" data-voice aria-pressed="${active}" aria-label="Nhập số liệu bằng giọng nói">${active ? '■ Dừng đọc' : '🎙 Đọc số'}</button><label class="voice-cont"><input type="checkbox" data-voice-continuous> Liên tục</label>${readbackHTML()}<span class="voice-heard" data-voice-heard aria-live="polite"></span></span>`;
   }
+  const readbackHTML = () => `<label class="voice-cont" title="Máy đọc lại tên ô và số vừa nhập (micro tạm dừng khi máy nói)"><input type="checkbox" data-voice-readback ${readback ? 'checked' : ''}> Đọc lại</label>`;
+  document.addEventListener('change', e => {
+    if (!e.target.matches || !e.target.matches('[data-voice-readback]')) return;
+    readback = e.target.checked;
+    try { localStorage.setItem(LS_READ, readback ? '1' : '0'); } catch (_) { /* bỏ qua */ }
+    document.querySelectorAll('[data-voice-readback]').forEach(x => { x.checked = readback; });
+  });
   document.addEventListener('click', e => {
     const b = e.target.closest('[data-voice]');
     if (!b) return;
     if (active) stop(); else start(b, b.dataset.voice === 'continuous' ? { continuous: true } : {});
   });
   document.addEventListener('focusin', e => { if (e.target.matches && e.target.matches(selector)) lastCell = e.target; });
-  window.VoiceInput = { buttonHTML, start, stop, get active() { return active; }, _handle: handle };
+  window.VoiceInput = { buttonHTML, readbackHTML, start, stop, get active() { return active; }, get readback() { return readback; }, _handle: handle };
 })();
