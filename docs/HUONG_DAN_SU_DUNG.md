@@ -377,7 +377,8 @@ Hãy dùng đúng nhãn hiển thị trên phiên bản đang chạy.
 11. Đánh giá tgδ cuộn dây (Điều 9 mục 5, Điều 30 mục 3):
     - tgδ quy về 20 °C **≤ 1 %**: Đạt, coi là tốt, **không cần so với giá trị khởi đầu** (giá trị so XX chỉ ghi tham khảo).
     - Lớn hơn 1 %: so với **giá trị khởi đầu** quy cùng nhiệt độ, không tăng quá 30 % — dùng số liệu XX; CSDL có giá trị khởi đầu thì đánh giá ở dòng **Xu hướng**.
-    - Lớn hơn 1 % mà không có giá trị khởi đầu: tham khảo **Bảng 46** theo nhiệt độ cuộn dây và cấp điện áp cao áp (lấy từ ô Điện áp định mức); chưa có điện áp thì báo Cần xem xét.
+    - Lớn hơn 1 % mà không có giá trị khởi đầu: tham khảo **Bảng 46** (Điều 30) theo cấp điện áp cao áp (lấy từ ô Điện áp định mức; chưa có điện áp thì báo Cần xem xét). tgδ đo được quy về nhiệt độ **cột Bảng 46 gần nhất** (10, 20 … 70 °C) bằng **K2 theo Bảng 47**: tgδ(t2) = K2 × tgδ(t1) khi t2 > t1, tgδ(t2) = tgδ(t1) ÷ K2 khi t2 < t1; ∆t không có trong bảng thì nhân các hệ số. Không nội suy Bảng 46. Cách đều hai cột (vd 15 °C) lấy cột cao hơn; ngoài 10–70 °C lấy cột biên.
+    - Lưu ý: ghi chú sau Bảng 47 của QĐ 1901 in "tgδ(t2) = tgδ(t1)/K1" là **nhầm** — đúng là chia cho **K2**. App luôn dùng K2.
 12. Nhập thủ công từ cầu đo tgδ hoặc nạp file nếu có luồng phù hợp.
 
 ## 11. Mục 7: Điện trở một chiều

@@ -41,6 +41,8 @@
   // Quy ước đơn vị (đã xác nhận): chênh đúng 16 °C dùng K2 = 2,4; chênh > 16 °C tính bằng tích các cột còn lại (1…15),
   // không dùng cột 16 — vd 18 °C = K(15)×K(3).
   K2.composeFrom = dt => (dt > 16 ? K2.filter(r => r[0] !== 16) : K2);
+  // Điều 30 mục 3 (sau Bảng 47): tgδ(t2) = K2 × tgδ(t1) khi t2 > t1. Ghi chú của QĐ in "t2 < t1 thì tgδ(t2) = tgδ(t1)/K1" là
+  // NHẦM — đúng là chia cho K2 (K1 là hệ số điện trở cách điện, Bảng 4). Chủ dự án xác nhận 19/11/2026; convTgd luôn dùng K2.
 
   function convTgd(v, tFrom, tTo) {
     const f = tableFactor(K2, tTo - tFrom);
@@ -68,6 +70,17 @@
   // Bảng 46 — tgδ lớn nhất cho phép cuộn dây MBA ngâm dầu (dùng khi không có giá trị khởi đầu)
   const TGD_MAX = { '110-220': [0.8, 1, 1.3, 1.7, 2.3, 3, 4], '330-500': [0.8, 1.0, 1.3, 1.7, 2.2, 2.9, 3.8] };
   const tgdMax = (t, cls) => interp(T10_70, TGD_MAX[cls || '330-500'], t);
+  // MBA không có giá trị khởi đầu (Điều 30 mục 3): so với Bảng 46 — quy tgδ đo ở t1 về nhiệt độ cột Bảng 46 gần nhất (t2)
+  // bằng K2 (Bảng 47, nhân các hệ số khi ∆t không có trong bảng); không nội suy Bảng 46.
+  // Quy ước: cách đều hai cột (vd 15 °C) chọn cột cao hơn (chặt hơn); ngoài 10–70 °C dùng cột biên.
+  function tgdTable46(tg, t1, cls) {
+    const row = TGD_MAX[cls];
+    if (!row || !Number.isFinite(tg) || !Number.isFinite(t1)) return null;
+    let i = 0;
+    T10_70.forEach((t, j) => { if (Math.abs(t - t1) <= Math.abs(T10_70[i] - t1)) i = j; });
+    const t2 = T10_70[i], cv = convTgd(tg, t1, t2);
+    return { t2, max: row[i], val: cv.val, k: cv.k, expr: cv.expr, dt: cv.dt, ok: cv.val <= row[i] };
+  }
 
   // Bảng 52 — tgδ cho phép sứ mới ở 10–40 °C (Điều 38)
   const BUSHING_TGD_NEW = { OIP: 0.7, RIP: 0.7, RIS: 0.7, RBP: 1.5, GIF: 0.5 };
@@ -180,7 +193,7 @@
 
   window.QD = {
     STANDARDS, STANDARDS_EXTRA, STANDARDS_NOTE, STANDARDS_LABEL, CITED, stdText, stdKey, stdCode, stdOf,
-    K1, K2, tableFactor, convIR, convTgd, convDCR, irMin, tgdMax, BUSHING_TGD_NEW, ripFc, classifyPI,
+    K1, K2, tableFactor, convIR, convTgd, convDCR, irMin, tgdMax, tgdTable46, BUSHING_TGD_NEW, ripFc, classifyPI,
     classifyMoisture, phaseSpread,
     LIMITS: {
       DCR_DEV: 2,          // Điều 9 mục 7 — ±2% so với pha khác & số liệu NSX cùng nhiệt độ
