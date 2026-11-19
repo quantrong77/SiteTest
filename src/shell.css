@@ -782,3 +782,24 @@ body.is-resizing {
 .sidebar-collapsed .workspace-sidebar .sld .nav-item::before {
   display: none;
 }
+
+/* Nút shadcn: css/app.css đặt lại "button { color: inherit }" ngoài @layer nên thắng lớp tiện ích Tailwind (text-primary-foreground…)
+   → nút chính (Xuất BBTN .docx) chữ tối trên nền xanh. Khôi phục màu chữ của từng biến thể. */
+button.text-primary-foreground, a.text-primary-foreground { color: var(--ui-primary-foreground, #fff); }
+button.text-secondary-foreground { color: var(--color-secondary-foreground, #10283f); }
+button.text-white { color: #fff; }
+button.bg-primary { font-weight: 600; }
+
+/* Mục đang chọn trên thanh điều hướng: nền xanh rõ, vạch nhấn bên trái, chữ đậm */
+.workspace-sidebar .nav-item.active {
+  border-color: #b9d3ea;
+  background: #dcebf8;
+  box-shadow: inset 4px 0 0 var(--accent, #1663a6);
+  color: #0f3f66;
+  font-weight: 700;
+}
+.workspace-sidebar .nav-item.active .nav-no { color: var(--accent, #1663a6); font-weight: 700; }
+.workspace-sidebar .nav-item:hover:not(.active) { background: #edf3f8; color: #10283f; }
+.workspace-sidebar .nav-item:focus-visible { outline: 2px solid var(--accent, #1663a6); outline-offset: 1px; }
+/* Tên nhóm (Biên bản, Hạng mục thí nghiệm, Kết quả…): đậm, tương phản đủ */
+.workspace-sidebar .nav-group { color: #44535f; font-weight: 700; }

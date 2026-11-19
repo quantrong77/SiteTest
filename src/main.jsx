@@ -77,6 +77,7 @@ const legacyScripts = [
   'js/ui/field-ui.js',
   'js/ui/trend-inline-ui.js',
   'js/ui/help-ui.js',
+  'js/ui/back-to-top.js',
   'js/ui/guide-ui.js',
   'js/ui/app.js',
 ];

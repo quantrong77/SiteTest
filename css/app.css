@@ -730,3 +730,33 @@ table.grid.fx-table td.fx-act { padding: 3px 6px; width: 1%; white-space: nowrap
 /* Thanh bước hạng mục: Tài liệu tham khảo, Hoàn tác, Xóa số liệu hạng mục cùng một hàng, căn giữa theo thanh bước */
 .wf-bar-tools { align-items: center; align-self: flex-start; min-height: 36px; margin-top: -4px; }
 .wf-bar-tools .sec-edit { margin: 0; align-items: center; }
+
+/* Bước đang chọn của hạng mục: nền xanh đặc, chữ trắng (trước: nền trắng, khó nhận) */
+.wf-step.on { background: var(--accent); color: #fff; box-shadow: none; }
+.wf-step.on .wf-n { background: #fff; border-color: #fff; color: var(--accent); }
+.wf-step.on .wf-badge { background: #fff; color: var(--fail); }
+
+/* ===== Chuẩn hóa nút: chiều cao cố định, nội dung căn giữa (trước: 14 chiều cao khác nhau theo nội dung) ===== */
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 34px; padding: 0 12px; line-height: 1.2; box-sizing: border-box; vertical-align: middle; }
+.btn.small { min-height: 28px; padding: 0 10px; gap: 5px; }
+.btn.fe-big { min-height: 56px; }
+.fe-aux .btn { min-height: 40px; }
+.filters button { min-height: 28px; display: inline-flex; align-items: center; }
+.btn .ic, .btt svg { width: 16px; height: 16px; flex: none; fill: none; stroke: currentColor; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
+.btn .ic .fill { fill: currentColor; stroke: none; }
+.btn.small .ic { width: 15px; height: 15px; }
+.btn.fe-big .ic { width: 20px; height: 20px; }
+/* Đầu hạng mục: số, tiêu đề, ô tích, nút cùng tâm dọc (trước: baseline → lệch 5 px khi xuống dòng) */
+.panel-head { align-items: center; }
+.panel-head .secno { line-height: 1; }
+
+/* Nút Về đầu trang */
+.btt { position: fixed; right: 20px; bottom: 20px; z-index: 40; width: 44px; height: 44px; display: grid; place-items: center;
+  border: 1px solid var(--accent, #1663a6); border-radius: 50%; background: var(--accent, #1663a6); color: #fff; cursor: pointer;
+  box-shadow: 0 4px 12px rgba(16, 40, 63, .25); }
+.btt[hidden] { display: none; }
+.btt svg { width: 20px; height: 20px; stroke-width: 2.2; }
+.btt:hover { filter: brightness(1.1); }
+.btt:focus-visible { outline: 3px solid #fff; outline-offset: -5px; }
+@media (max-width: 600px) { .btt { right: 14px; bottom: 14px; } .btt.lift { bottom: 92px; } }
+@media print { .btt { display: none !important; } }
