@@ -39,6 +39,25 @@ test('bộ phận sứ chỉ xuất hiện khi nhóm tương ứng có trong sch
   assert.ok(!ids.includes('bush-mv'));
 });
 
+test('sứ trung tính có ở cả ba mẫu MBA (mẫu 1 pha / 110 kV: cột N trong nhóm trung áp)', () => {
+  const ctx = load(DOMAIN.concat(['js/domain/types/mba/model3d-map.js']));
+  const T = ctx.EquipmentTypes.get('MBA');
+  const cfg = T.defaultCfg();
+  for (const c of [cfg, Object.assign({}, cfg, { template: 'custom', layout: '110' }), Object.assign({}, cfg, { template: '3P' })]) {
+    const part = ctx.MbaModel3DMap.partsFor(T.buildSchema(c)).find(p => p.id === 'bush-n');
+    assert.ok(part, `thiếu sứ trung tính: ${c.template}/${c.layout}`);
+    assert.deepEqual(part.items.map(i => i.id).join(), 'bushing');
+  }
+  const oneP = ctx.MbaModel3DMap.partsFor(T.buildSchema(cfg)).find(p => p.id === 'bush-n');
+  assert.match(oneP.items[0].title, /cột N/);
+  // chỉ có cột N ở bảng thử AC sứ hạ áp thì không tính là có sứ trung tính đo tgδ
+  const acOnly = { sections: [{ id: 'bushing', no: 5, title: 'Sứ', groups: [
+    { id: 'hv', grids: [{ id: 'b.hv', cols: [{ k: 'A' }] }] },
+    { id: 'ac', grids: [{ id: 'b.ac', cols: [{ k: 'a' }, { k: 'N' }] }] },
+  ] }] };
+  assert.ok(!ctx.MbaModel3DMap.partsFor(acOnly).some(p => p.id === 'bush-n'));
+});
+
 test('hạng mục của bộ phận xếp theo số thứ tự trong mẫu', () => {
   const ctx = load(DOMAIN.concat(['js/domain/types/mba/model3d-map.js']));
   const T = ctx.EquipmentTypes.get('MBA');
