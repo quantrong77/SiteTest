@@ -39,6 +39,25 @@ test('bộ phận sứ chỉ xuất hiện khi nhóm tương ứng có trong sch
   assert.ok(!ids.includes('bush-mv'));
 });
 
+test('sứ trung tính có ở cả ba mẫu MBA (mẫu 1 pha / 110 kV: cột N trong nhóm trung áp)', () => {
+  const ctx = load(DOMAIN.concat(['js/domain/types/mba/model3d-map.js']));
+  const T = ctx.EquipmentTypes.get('MBA');
+  const cfg = T.defaultCfg();
+  for (const c of [cfg, Object.assign({}, cfg, { template: 'custom', layout: '110' }), Object.assign({}, cfg, { template: '3P' })]) {
+    const part = ctx.MbaModel3DMap.partsFor(T.buildSchema(c)).find(p => p.id === 'bush-n');
+    assert.ok(part, `thiếu sứ trung tính: ${c.template}/${c.layout}`);
+    assert.deepEqual(part.items.map(i => i.id).join(), 'bushing');
+  }
+  const oneP = ctx.MbaModel3DMap.partsFor(T.buildSchema(cfg)).find(p => p.id === 'bush-n');
+  assert.match(oneP.items[0].title, /cột N/);
+  // chỉ có cột N ở bảng thử AC sứ hạ áp thì không tính là có sứ trung tính đo tgδ
+  const acOnly = { sections: [{ id: 'bushing', no: 5, title: 'Sứ', groups: [
+    { id: 'hv', grids: [{ id: 'b.hv', cols: [{ k: 'A' }] }] },
+    { id: 'ac', grids: [{ id: 'b.ac', cols: [{ k: 'a' }, { k: 'N' }] }] },
+  ] }] };
+  assert.ok(!ctx.MbaModel3DMap.partsFor(acOnly).some(p => p.id === 'bush-n'));
+});
+
 test('hạng mục của bộ phận xếp theo số thứ tự trong mẫu', () => {
   const ctx = load(DOMAIN.concat(['js/domain/types/mba/model3d-map.js']));
   const T = ctx.EquipmentTypes.get('MBA');
@@ -57,4 +76,26 @@ test('bình dầu phụ: Kiểm tra bên ngoài, trang Dầu MBA ở Phụ lục
   const oil = part.items.find(i => i.id === 'appendix');
   assert.equal(oil.anchor, 'appx-oil');
   assert.ok(part.items.filter(i => i.extra).length === 2);
+});
+
+test('sứ từng pha: HV A B C, MV Am Bm Cm, N, LV a b c trỏ tới ô tgδ C1 của pha đó', () => {
+  const ctx = load(DOMAIN.concat(['js/domain/types/mba/model3d-map.js']));
+  const T = ctx.EquipmentTypes.get('MBA');
+  const cfg = T.defaultCfg();
+  const lab = r => Object.fromEntries(Object.entries(r).map(([k, v]) => [k, v.map(e => e.label).join()]));
+  for (const c of [cfg, Object.assign({}, cfg, { template: 'custom', layout: '110' })]) {
+    const r = ctx.MbaModel3DMap.bushingPhases(T.buildSchema(c));
+    assert.deepEqual(lab(r), { 'bush-hv': 'A,B,C', 'bush-mv': 'Am,Bm,Cm', 'bush-n': 'N', 'bush-lv': 'a,b,c' });
+    assert.equal(r['bush-hv'][0].cell, 'b.hv.meas.tgd1.A');
+    assert.equal(r['bush-n'][0].cell, 'b.mv.meas.tgd1.N', 'N gộp trong nhóm trung áp');
+    assert.equal(r['bush-lv'][2].cell, 'b.lv.meas.tgd1.c');
+  }
+  // mẫu 3 pha: N của từng máy ở nhóm riêng
+  const r3 = ctx.MbaModel3DMap.bushingPhases(T.buildSchema(Object.assign({}, cfg, { template: '3P' })));
+  assert.equal(r3['bush-n'].map(e => e.cell).join(), 'b.n.meas.tgd1.A,b.n.meas.tgd1.B,b.n.meas.tgd1.C');
+  assert.equal(r3['bush-mv'].length, 3);
+  // ô đích phải có trong schema
+  const keys = new Set();
+  T.buildSchema(cfg).sections.find(s => s.id === 'bushing').groups.forEach(g => (g.grids || []).forEach(gr => (gr.rows || []).forEach(row => (gr.cols || []).forEach(col => keys.add(`${gr.id}.${row.k}.${col.k}`)))));
+  Object.values(ctx.MbaModel3DMap.bushingPhases(T.buildSchema(cfg))).flat().forEach(e => assert.ok(keys.has(e.cell), e.cell));
 });

@@ -13,7 +13,7 @@ Ký hiệu ở cột đầu giống ký hiệu trên thanh điều hướng bên
 | `HT` | [Nhập hiện trường](#ht-nhap-hien-truong) | Nhập từng ô cỡ lớn trên điện thoại, có giọng nói | [Mở →](#app:field) |
 | `XX` | [Số liệu xuất xưởng](#xx-so-lieu-xuat-xuong) | Cây Trạm → Ngăn → Thiết bị; nhập test report làm giá trị khởi đầu | [Mở →](#app:factory) |
 | `NB` | [Nhập BBTN cũ](#nb-nhap-bbtn-cu) | Đưa BBTN .docx / .pdf cũ vào CSDL cho xu hướng | [Mở →](#app:importReport) |
-| `3D` | [Mô hình 3D MBA](#3d-mo-hinh-3d-mba) | Bấm bộ phận để mở hạng mục | [Mở →](#app:model3d) |
+| `3D` | [Mô hình 3D MBA](#3d-mo-hinh-3d-mba) | Bấm bộ phận / sứ từng pha để mở ô nhập | [Mở →](#app:model3d) |
 | `1–12` | [Các hạng mục thí nghiệm](#cac-hang-muc-thi-nghiem) | Hướng dẫn đo, nhập số liệu, đánh giá từng hạng mục | [Mở mục 3 →](#app:ir) |
 | `PL` | [Phụ lục BBTN](#pl-phu-luc-bbtn) | Chụp sóng OLTC, SFRA, dầu, DFR sứ đính kèm | [Mở →](#app:appendix) |
 | `↗` | [Xu hướng](#xu-huong) | Đồ thị các lần đo, dự báo | [Mở →](#app:trend) |
@@ -157,6 +157,10 @@ Số liệu xuất xưởng (FAT) lưu CSDL là **giá trị khởi đầu** đ�
 ![Mô hình 3D: bộ phận tô màu theo kết quả, danh sách hạng mục theo bộ phận](img/16-mo-hinh-3d.webp)
 
 Kéo để xoay, cuộn / chụm để thu phóng; bộ phận tô màu theo kết quả. Bấm bộ phận để mở hạng mục.
+
+- Sứ bố trí như trên nắp máy: **HV** A, B, C dọc mép sau, **N** cuối mép sau bên phải; **MV** Am, Bm, Cm hàng giữa; **LV** a, b, c ở đầu trái.
+- **Bấm một sứ** (hoặc nút pha A · Am · N · a… trong danh sách bên phải) → mở mục 5 ở bước Nhập số liệu, con trỏ đặt sẵn vào ô tgδ C1 của pha đó. Gạch dưới nút pha có màu theo kết quả của sứ đó.
+- Mẫu 3 máy 1 pha: sứ N chung cho N của từng máy — bấm vào sẽ hiện danh sách máy A / B / C để chọn.
 
 ## Các hạng mục thí nghiệm
 
