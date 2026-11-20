@@ -35,5 +35,25 @@
         .sort((a, b) => (Number(a.no) || 0) - (Number(b.no) || 0)).concat(EXTRA[id] || []) }))
       .filter(p => p.items.length);
   }
-  window.MbaModel3DMap = { partsFor };
+  // Sứ từng pha cho mô hình: mỗi sứ trỏ tới cột pha trong bảng "Số liệu đo" của nhóm sứ (ô tgδ C1 để nhảy tới).
+  // Trả { 'bush-hv': [{ k, label, grid, cell }], ... }; sứ N gom cột N (mẫu 1 pha / 110 kV) hoặc cả nhóm 'n' (mẫu 3 pha: N từng máy).
+  function bushingPhases(schema) {
+    const sections = schema && Array.isArray(schema.sections) ? schema.sections : [];
+    const sec = sections.find(s => s.id === 'bushing');
+    const out = { 'bush-hv': [], 'bush-mv': [], 'bush-n': [], 'bush-lv': [] };
+    const partOf = { hv: 'bush-hv', mv: 'bush-mv', n: 'bush-n', lv: 'bush-lv' };
+    (sec && sec.groups || []).forEach(g => {
+      const part = partOf[g.id];
+      if (!part) return;
+      const grid = (g.grids || []).find(gr => /\.meas$/.test(String(gr.id || '')));
+      if (!grid) return;
+      const row = (grid.rows || []).some(r => r.k === 'tgd1') ? 'tgd1' : (grid.rows || [])[0] && grid.rows[0].k;
+      (grid.cols || []).filter(c => c.phase).forEach(c => {
+        const target = g.id !== 'n' && c.k === 'N' ? 'bush-n' : part;
+        out[target].push({ k: c.k, label: c.label, grid: grid.id, group: g.id, cell: `${grid.id}.${row}.${c.k}` });
+      });
+    });
+    return out;
+  }
+  window.MbaModel3DMap = { partsFor, bushingPhases };
 })();

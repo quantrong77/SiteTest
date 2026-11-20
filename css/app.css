@@ -762,3 +762,13 @@ table.grid.fx-table td.fx-act { padding: 3px 6px; width: 1%; white-space: nowrap
 @media print { .btt { display: none !important; } }
 /* Mô hình 3D: tên bộ phận căn trái (sau chuẩn hóa .btn căn giữa) */
 .m3d-part > .btn { justify-content: flex-start; font-weight: 600; }
+/* Mô hình 3D: nút sứ từng pha (A B C, Am Bm Cm, N, a b c) — màu viền theo trạng thái, bấm tới ô nhập */
+.m3d-phases { display: flex; flex-wrap: wrap; gap: 6px; margin-top: .45rem; }
+.m3d-ph { min-width: 40px; min-height: 32px; padding: 0 10px; border: 1px solid var(--line); border-bottom-width: 3px; border-radius: var(--radius); background: #fff; font-weight: 700; font-size: 13px; cursor: pointer; }
+.m3d-ph:hover, .m3d-ph:focus-visible { background: #edf3f8; outline: 2px solid var(--accent); outline-offset: 1px; }
+.m3d-ph.st-pass { border-bottom-color: var(--pass); } .m3d-ph.st-warn { border-bottom-color: var(--warn); }
+.m3d-ph.st-fail { border-bottom-color: var(--fail); color: var(--fail); } .m3d-ph.st-missing { border-bottom-color: var(--missing); }
+/* ô vừa mở từ mô hình 3D */
+.m3d-target { outline: 3px solid var(--accent) !important; outline-offset: 1px; animation: m3d-pulse 1.2s ease-out 2; }
+@keyframes m3d-pulse { from { box-shadow: 0 0 0 0 rgba(22, 99, 166, .5); } to { box-shadow: 0 0 0 10px rgba(22, 99, 166, 0); } }
+@media (prefers-reduced-motion: reduce) { .m3d-target { animation: none; } }
