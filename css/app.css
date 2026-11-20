@@ -760,3 +760,5 @@ table.grid.fx-table td.fx-act { padding: 3px 6px; width: 1%; white-space: nowrap
 .btt:focus-visible { outline: 3px solid #fff; outline-offset: -5px; }
 @media (max-width: 600px) { .btt { right: 14px; bottom: 14px; } .btt.lift { bottom: 92px; } }
 @media print { .btt { display: none !important; } }
+/* Mô hình 3D: tên bộ phận căn trái (sau chuẩn hóa .btn căn giữa) */
+.m3d-part > .btn { justify-content: flex-start; font-weight: 600; }
