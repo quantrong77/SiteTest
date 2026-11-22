@@ -74,9 +74,9 @@
       ['A', 'B', 'C'].forEach((ph, i) => { if (sn[i]) cfg.ps[ph] = sn[i]; });
       v['meta.serial'] = sn[0] || '';
     }
+    const warnings = dcrFrom75(tpl, schema, v);
     let count = 0;
     eachGrid(schema, g => { if (g.tables) count += filled(v, new RegExp(`^${g.id.replace(/\./g, '\\.')}\\.`)); });
-    const warnings = [];
     if (!String(v['meta.serial'] || '').trim()) warnings.push('Không đọc được số chế tạo — nhập tay trước khi lưu CSDL');
     if (!Common.isoDate(v['meta.date'])) warnings.push(`Không đọc được ngày thí nghiệm${v['meta.date'] ? ` (“${v['meta.date']}”)` : ''} — cần dạng dd/mm/yyyy`);
     if (count < 5) warnings.push(`Chỉ đọc được ${count} ô số liệu — kiểm tra file có đúng mẫu không`);
@@ -87,5 +87,40 @@
     return { state, layout, count, warnings };
   }
 
-  window.MbaImportReport = { detectLayout, detectOltcWinding, normDate, read };
+  // BBTN ghi R một chiều đã quy về 75 °C → đổi về giá trị đo theo nhiệt độ đo ghi trên biên bản (app tự quy đổi lại khi
+  // đánh giá / xuất). Dòng nhiệt độ có nhiều số ("28; 30; 31") → nhiệt độ từng pha. Không có nhiệt độ → coi là giá trị
+  // @75 °C (nhiệt độ cuộn dây = 75) và cảnh báo.
+  function dcrFrom75(tpl, schema, v) {
+    const warn = [];
+    const is3P = schema.layout === Schema.LAYOUT_3P;
+    const NUMS = /[-+]?\d+(?:[.,]\d+)?/g;
+    const toN = s => { const n = parseFloat(String(s ?? '').replace(',', '.')); return Number.isFinite(n) ? n : NaN; };
+    const fields = new Map();
+    Common.eachField(schema, f => fields.set(f.k, f));
+    eachGrid(schema, g => {
+      const m = /^dcr\.(hv|mv|lv)$/.exec(g.id);
+      if (!m) return;
+      const phases = g.cols.filter(c => c.phase);
+      const keys = [];
+      g.rows.forEach(r => phases.forEach(c => { const k = `${g.id}.${r.k}.${c.k}`; if (String(v[k] ?? '').trim()) keys.push([k, c.k]); }));
+      if (!keys.length) return;
+      const tk = `${g.id}.t`;
+      const raw = String(Report.readFieldText(tpl, fields.get(tk)) || '');
+      const ts = raw.match(NUMS) || [];
+      if (ts.length === phases.length && ts.length > 1) { phases.forEach((c, i) => { v[`${tk}${c.k}`] = ts[i]; }); delete v[tk]; }
+      let assumed = false;
+      keys.forEach(([k, ph]) => {
+        const text = String(v[k]).trim(), r75 = toN(text);
+        if (!Number.isFinite(r75)) return;
+        let t = Schema.dcrTemp(x => toN(v[x]), g.id, ph, is3P);
+        if (!Number.isFinite(t)) { v[tk] = '75'; t = 75; assumed = true; }
+        const dec = (text.split(/[.,]/)[1] || '').length;
+        v[k] = String(+QD.convDCR(r75, 75, t).toFixed(Math.max(dec, 1))).replace('.', ',');
+      });
+      if (assumed) warn.push(`R một chiều ${g.id.slice(4).toUpperCase()}: không đọc được nhiệt độ đo — coi số trong BBTN là giá trị @75 °C`);
+    });
+    return warn;
+  }
+
+  window.MbaImportReport = { dcrFrom75, detectLayout, detectOltcWinding, normDate, read };
 })();
