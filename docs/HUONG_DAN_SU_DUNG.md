@@ -211,9 +211,10 @@ Mỗi hạng mục có đủ 4 bước; phần dưới chỉ ghi điều riêng.
 
 [Mở →](#app:dcr)
 
-- Mỗi cuộn dây (cao, trung, hạ áp) có ô **Nhiệt độ đo cuộn … (°C)** riêng; nhập R theo nấc, pha.
-- Cột **… @75 °C** (nền xám, tự tính) ngay sau mỗi cột pha: R75 = R·(235 + 75)/(235 + t), t là nhiệt độ của cuộn đó. Đổi nhiệt độ cuộn nào thì cột @75 °C của cuộn đó tính lại. Cột này chỉ hiện trong app, không ghi vào BBTN Word.
-- Mẫu 3 máy 1 pha: ô nhiệt độ cuộn dây để trống thì lấy nhiệt độ đo của máy từng pha.
+- Mỗi cuộn dây (cao, trung, hạ áp) có ô **Nhiệt độ chung cuộn … (°C)** và ô **Nhiệt độ đo** riêng cho từng pha (A-N, B-N, C-N…) — mỗi pha đo vào thời điểm khác nhau. Pha để trống thì dùng nhiệt độ chung của cuộn. Nhập R theo nấc, pha.
+- Cột **… @75 °C** (nền xám, tự tính) ngay sau mỗi cột pha: R75 = R·(235 + 75)/(235 + t), t là nhiệt độ của pha đó (hoặc nhiệt độ chung của cuộn). Đổi nhiệt độ thì cột @75 °C tính lại ngay. Cột này chỉ hiện trong app, không ghi vào BBTN Word.
+- Mẫu 3 máy 1 pha: ô pha và ô chung đều trống thì lấy nhiệt độ đo của máy pha đó.
+- BBTN Word ghi nhiệt độ chung của cuộn (dòng “t = … oC” của mẫu).
 - App tính ΔR giữa pha, so xuất xưởng (≤ 2 %).
 - **Nhập file Haefely 2293…** (CSV / BIN): chọn pha, nấc, có quy đổi nhiệt độ hay không.
 - **BBTN riêng máy pha A / B / C**: **Bổ sung số liệu pha … từ CSDL** lấy lần đo **cùng đợt** (≤ 30 ngày, sửa được) của 2 máy còn lại để so giữa các pha; ô bổ sung không ghi vào lần thí nghiệm này.

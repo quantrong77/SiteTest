@@ -20,8 +20,13 @@ for (const [name, extra] of [['theo pha', {}], ['110 kV', { template: 'custom', 
       const w = g.grids[0].id.split('.')[1];
       const f = g.fields.find(x => x.k === `dcr.${w}.t`);
       assert.ok(f, `thiếu ô nhiệt độ cuộn ${w}`);
-      assert.match(f.label, /^Nhiệt độ đo cuộn (cao|trung|hạ) áp/);
+      assert.match(f.label, /^Nhiệt độ chung cuộn (cao|trung|hạ) áp/);
       const cols = g.grids[0].cols;
+      // mỗi pha một ô nhiệt độ đo riêng, ngay sau ô chung
+      const i = g.fields.indexOf(f);
+      const phases = cols.filter(c => c.phase);
+      assert.equal(g.fields.slice(i + 1, i + 1 + phases.length).map(x => x.k).join(), phases.map(c => `dcr.${w}.t${c.k}`).join());
+      phases.forEach(c => assert.equal(g.fields.find(x => x.k === `dcr.${w}.t${c.k}`).label, `Nhiệt độ đo ${c.label} (°C)`));
       cols.forEach((c, i) => {
         if (!c.phase) return;
         const next = cols[i + 1];
@@ -63,4 +68,26 @@ test('mẫu 3 pha: nhiệt độ cuộn dây để trống lấy nhiệt độ m
   const { rows } = ctx.MbaRows.fieldRows(state, ctx.Evaluate.evaluate(state, null, schema), schema);
   const lvA = rows.find(r => r.item === 'DCR' && r.config === 'LV' && r.phase === 'A');
   assert.equal(lvA.temp_c, 40);
+});
+
+test('nhiệt độ đo riêng từng pha: ưu tiên ô pha, trống thì ô chung của cuộn', () => {
+  const ctx = load(CORE);
+  const { state, schema } = F.fullState(ctx.Schema);
+  Object.assign(state.v, { 'dcr.hv.t': '30', 'dcr.hv.tA': '25', 'dcr.hv.tB': '', 'dcr.hv.tC': '40', 'dcr.hv.t1.A': '200', 'dcr.hv.t1.B': '200', 'dcr.hv.t1.C': '200' });
+  const res = ctx.Evaluate.evaluate(state, null, schema);
+  assert.ok(Math.abs(num(res.calc['dcr.hv.t1.r75A']) - r75(200, 25)) < 0.06, 'pha A theo nhiệt độ pha A');
+  assert.ok(Math.abs(num(res.calc['dcr.hv.t1.r75B']) - r75(200, 30)) < 0.06, 'pha B trống → nhiệt độ chung');
+  assert.ok(Math.abs(num(res.calc['dcr.hv.t1.r75C']) - r75(200, 40)) < 0.06, 'pha C theo nhiệt độ pha C');
+  const fA = res.findings.find(f => (f.keys || []).includes('dcr.hv.t1.A'));
+  assert.match(fA.meas, /@25,0 °C/);
+  // mẫu 3 pha: ô pha → ô chung → nhiệt độ máy
+  const cfg = Object.assign(F.defaultCfg(ctx.Schema), { template: '3P' });
+  const s3 = ctx.Schema.build(cfg);
+  const v = { 'meta.serial': 'SN-T1', 'dcr.A.t': '25', 'dcr.B.t': '30', 'dcr.lv.tB': '45', 'dcr.lv.r.A': '10', 'dcr.lv.r.B': '10' };
+  const st = { type: 'MBA', cfg, v, skip: {} };
+  const r3 = ctx.Evaluate.evaluate(st, null, s3);
+  assert.ok(Math.abs(num(r3.calc['dcr.lv.r.r75A']) - r75(10, 25)) < 0.006);
+  assert.ok(Math.abs(num(r3.calc['dcr.lv.r.r75B']) - r75(10, 45)) < 0.006);
+  const { rows } = ctx.MbaRows.fieldRows(st, r3, s3);
+  assert.equal(rows.find(r => r.item === 'DCR' && r.config === 'LV' && r.phase === 'B').temp_c, 45);
 });
