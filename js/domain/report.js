@@ -87,5 +87,7 @@
   }
   const isSkipped = (state, id) => !!(state && state.cfg && state.cfg.skip && state.cfg.skip[id]);
 
-  window.Report = { readDefaults, readValues, prepare, decimal, performed, isSkipped };
+  // Chữ gốc của một ô trường (chưa lọc số), vd "28; 30; 31" ở dòng nhiệt độ đo
+  const readFieldText = (tpl, f) => (f && f.doc ? tpl.readField(f.doc.re ? looseDoc(f.doc) : f.doc) : null);
+  window.Report = { readDefaults, readValues, readFieldText, prepare, decimal, performed, isSkipped };
 })();
