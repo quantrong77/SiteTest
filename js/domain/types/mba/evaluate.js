@@ -566,8 +566,8 @@
       grid.rows.forEach(row => {
         const vals = [];
         ['A', 'B', 'C'].forEach(ph => {
-          // nhiệt độ đo của cuộn dây; mẫu 3 pha để trống thì lấy nhiệt độ đo của máy pha đó
-          const t = ok(val(G.t)) ? val(G.t) : is3P ? val(`dcr.${ph}.t`) : NaN;
+          // nhiệt độ đo của pha đó trong cuộn dây → nhiệt độ chung của cuộn → (mẫu 3 pha) nhiệt độ máy pha đó
+          const t = Schema.dcrTemp(val, G.g, ph, is3P);
           const k = `${G.g}.${row.k}.${ph}`;
           const m = val(k);
           vals.push(m);
