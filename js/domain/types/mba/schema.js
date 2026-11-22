@@ -454,7 +454,32 @@
     return Object.assign({}, schema, { sections: schema.sections.map(sec), head: schema.head.map(field), tail: schema.tail.map(field) });
   }
 
+  // Điện trở một chiều: nhiệt độ đo riêng từng cuộn dây và cột R quy đổi về 75 °C (tự tính, chỉ hiện trong app)
+  // cạnh mỗi cột pha. Mẫu 3 pha: ô nhiệt độ cuộn dây để trống thì lấy nhiệt độ đo của máy từng pha.
+  const DCR_WINDING = { hv: 'cao áp', mv: 'trung áp', lv: 'hạ áp' };
+  function withDcr75(schema) {
+    const is3P = schema.layout === LAYOUT_3P;
+    const sections = schema.sections.map(s => (s.id !== 'dcr' ? s : Object.assign({}, s, {
+      groups: s.groups.map(g => {
+        const grid = (g.grids || [])[0];
+        const w = grid && String(grid.id).split('.')[1];
+        if (!DCR_WINDING[w]) return g;
+        const tk = `dcr.${w}.t`, name = `Nhiệt độ đo cuộn ${DCR_WINDING[w]} (°C)`;
+        const fields = (g.fields || []).map(f => (f.k === tk ? Object.assign({}, f, { label: name }) : f));
+        if (!fields.some(f => f.k === tk)) fields.push({ k: tk, label: is3P ? `${name} — trống: lấy nhiệt độ đo của máy từng pha` : name, num: true });
+        const grids = g.grids.map(gr => Object.assign({}, gr, {
+          cols: gr.cols.flatMap(c => (c.phase ? [c, col(`r75${c.k}`, `${c.label} @75 °C`, undefined, { calc: true, nodoc: true, r75: true })] : [c])),
+        }));
+        return Object.assign({}, g, { fields, grids });
+      }),
+    })));
+    return Object.assign({}, schema, { sections });
+  }
+
   function build(cfg) {
+    return withDcr75(buildRaw(cfg));
+  }
+  function buildRaw(cfg) {
     const layout = layoutOf(cfg);
     if (layout === LAYOUT_3P) return build3P(cfg);
     if (layout === LAYOUT_110) {
