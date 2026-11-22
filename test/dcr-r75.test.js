@@ -100,7 +100,13 @@ function recTpl(reads = {}) {
     cell: (tables, r, c) => ({ key: `${tables[0]}.${r}.${c}` }),
     setCellText: (cell, text) => { if (cell) log.cells[cell.key] = text; return true; },
     writeField: (doc, text) => { log.fields[doc.before !== undefined ? `p${doc.before}` : JSON.stringify(doc)] = text; return true; },
-    readField: doc => (doc.before !== undefined ? reads[`p${doc.before}`] ?? null : null),
+    readField: doc => {
+      const text = doc.before !== undefined ? reads[`p${doc.before}`] : undefined;
+      if (text === undefined) return null;
+      if (!doc.re) return text;
+      const m = new RegExp(doc.re.source, doc.re.flags.replace('g', '')).exec(text); // như DocxTemplate: khe giá trị theo regex của trường
+      return m && m.groups ? m.groups.v.trim() : null;
+    },
     rows: () => [],
   };
   return new Proxy(known, { get: (o, k) => (k in o ? o[k] : () => null) });
@@ -121,7 +127,7 @@ test('xuất BBTN: bảng R một chiều ghi R@75 °C theo nhiệt độ từng
   assert.ok(Math.abs(num(cellOf(cC)) - r75(200, 40)) < 0.06, `ô C-N nấc 1 = ${cellOf(cC)}`);
   // dòng nhiệt độ cuộn cao áp: chưa nhập nhiệt độ chung → các nhiệt độ pha
   const fT = hv && schema.sections.find(s => s.id === 'dcr').groups[0].fields.find(f => f.k === 'dcr.hv.t');
-  assert.equal(tpl.log.fields[`p${fT.doc.before}`], '25; 30; 40');
+  assert.equal(tpl.log.fields[`p${fT.doc.before}`], '25; 30; 40 oC, quy đổi về 75');
   // cuộn trung áp không có nhiệt độ → không ghi số, báo thiếu
   assert.ok(miss.some(m => /^dcr\.mv\..*thiếu nhiệt độ/.test(m)));
 });
@@ -134,7 +140,7 @@ test('nhập BBTN cũ: số trong bảng là R@75 °C → đổi về giá trị
   const hv = dcr[0];
   const fHV = hv.fields.find(f => f.k === 'dcr.hv.t');
   const v = { 'dcr.hv.t1.A': '241,2', 'dcr.hv.t1.C': '227,3', 'dcr.mv.r.A': '234,0' };
-  const tpl = recTpl({ [`p${fHV.doc.before}`]: '22; 30; 41' });
+  const tpl = recTpl({ [`p${fHV.doc.before}`]: 'Cuộn dây 220kV , đo ở nhiệt độ t = 22; 30; 41 oC.' });
   const warn = ctx.MbaImportReport.dcrFrom75 ? ctx.MbaImportReport.dcrFrom75(tpl, schema, v) : null;
   assert.ok(warn, 'có hàm dcrFrom75');
   assert.equal(v['dcr.hv.tA'], '22'); assert.equal(v['dcr.hv.tC'], '41'); assert.equal(v['dcr.hv.t'], undefined);
@@ -143,4 +149,57 @@ test('nhập BBTN cũ: số trong bảng là R@75 °C → đổi về giá trị
   // cuộn trung áp không đọc được nhiệt độ → coi là @75 °C, cảnh báo
   assert.equal(v['dcr.mv.t'], '75'); assert.equal(v['dcr.mv.r.A'], '234');
   assert.ok(warn.some(w => /MV/.test(w)));
+});
+
+test('nhiệt độ quy đổi tùy chọn (mặc định 75 °C): cột, giá trị, BBTN và nhập lại theo nhiệt độ đã chọn', () => {
+  const ctx = load(CORE);
+  const rT = (r, t, T) => r * (235 + T) / (235 + t);
+  // mặc định 75: ô cấu hình ở nhóm đầu, trống
+  const s75 = ctx.Schema.build(F.defaultCfg(ctx.Schema));
+  const g0 = s75.sections.find(s => s.id === 'dcr').groups[0];
+  assert.ok(g0.fields.some(f => f.k === 'cfg.dcrRefT' && f.cfg === 'dcrRefT'));
+  assert.equal(ctx.Schema.dcrRefOf({}), 75);
+  assert.equal(ctx.Schema.dcrRefOf({ dcrRefT: '20' }), 20);
+  assert.equal(ctx.Schema.dcrRefOf({ dcrRefT: 'abc' }), 75);
+  // chọn 20 °C
+  const { state } = F.fullState(ctx.Schema);
+  state.cfg.dcrRefT = '20';
+  state.sum = state.sum || { tick: {}, ev: {} };
+  const schema = ctx.Schema.build(state.cfg);
+  const hv = schema.sections.find(s => s.id === 'dcr').groups[0].grids[0];
+  assert.equal(hv.cols.find(c => c.k === 'r75A').label.endsWith('@20 °C'), true);
+  Object.assign(state.v, { 'dcr.hv.t': '30', 'dcr.hv.t1.A': '200' });
+  const res = ctx.Evaluate.evaluate(state, null, schema);
+  assert.ok(Math.abs(num(res.calc['dcr.hv.t1.r75A']) - rT(200, 30, 20)) < 0.06);
+  // dòng CSDL vẫn lưu chuẩn 75 °C
+  const { rows } = ctx.MbaRows.fieldRows(state, res, schema);
+  const row = rows.find(r => r.item === 'DCR' && r.config === 'HV' && r.phase === 'A' && r.tap === '1');
+  assert.equal(row.norm_temp_c, 75);
+  // BBTN: ô ghi R@20, dòng nhiệt độ ghi kèm nhiệt độ quy đổi
+  const tpl = recTpl();
+  ctx.MbaReport.fill(tpl, { state, res, schema, assets: {} });
+  const cell = tpl.log.cells[`${hv.tables[0]}.${hv.rows[0].doc}.${hv.cols.find(c => c.k === 'A').doc}`];
+  assert.ok(Math.abs(num(cell) - rT(200, 30, 20)) < 0.06, `ô A-N = ${cell}`);
+  const fT = schema.sections.find(s => s.id === 'dcr').groups[0].fields.find(f => f.k === 'dcr.hv.t');
+  assert.equal(tpl.log.fields[`p${fT.doc.before}`], '30 oC, quy đổi về 20');
+  // nhập lại: đọc "quy đổi về 20" → cfg.dcrRefT = 20, đổi ngược về giá trị đo
+  const v = { 'dcr.hv.t': '30', 'dcr.hv.t1.A': cell };
+  const cfg = {};
+  ctx.MbaImportReport.dcrFrom75(recTpl({ [`p${fT.doc.before}`]: 'Cuộn dây 220kV , đo ở nhiệt độ t = 30 oC, quy đổi về 20 oC.' }), schema, v, cfg);
+  assert.equal(cfg.dcrRefT, '20');
+  assert.ok(Math.abs(num(v['dcr.hv.t1.A']) - 200) < 0.06, `R đo = ${v['dcr.hv.t1.A']}`);
+});
+
+test('mẫu 3 pha: đề mục "qui đổi về … oC" ghi nhiệt độ quy đổi đã chọn', () => {
+  const ctx = load(CORE);
+  const cfg = Object.assign(F.defaultCfg(ctx.Schema), { template: '3P', dcrRefT: '60' });
+  const schema = ctx.Schema.build(cfg);
+  const state = { type: 'MBA', cfg, v: { 'meta.serial': 'SN-T1', 'dcr.A.t': '25' }, sum: { tick: {}, ev: {} }, att: {} };
+  const res = ctx.Evaluate.evaluate(state, null, schema);
+  const log = [];
+  const tpl = recTpl();
+  const orig = tpl.writeField;
+  const spy = new Proxy(tpl, { get: (o, k) => (k === 'writeField' ? (doc, text) => { log.push([doc.re && doc.re.source, text]); return orig(doc, text); } : o[k]) });
+  ctx.MbaReport.fill(spy, { state, res, schema, assets: {} });
+  assert.ok(log.some(([re, text]) => /đổi về/.test(re || '') && text === '60'), JSON.stringify(log.filter(x => /đổi/.test(x[0] || ''))));
 });

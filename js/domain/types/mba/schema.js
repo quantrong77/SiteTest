@@ -466,23 +466,32 @@
     return is3P ? num(`dcr.${ph}.t`) : NaN;
   }
   const DCR_WINDING = { hv: 'cao áp', mv: 'trung áp', lv: 'hạ áp' };
-  function withDcr75(schema) {
+  // Nhiệt độ quy đổi R một chiều (cfg.dcrRefT, chọn ở mục điện trở một chiều); trống / không hợp lệ → 75 °C
+  function dcrRefOf(cfg) {
+    const n = parseFloat(String((cfg && cfg.dcrRefT) ?? '').replace(',', '.'));
+    return Number.isFinite(n) ? n : 75;
+  }
+  const tTxt = t => String(t).replace('.', ',');
+  function withDcr75(schema, cfg) {
     const is3P = schema.layout === LAYOUT_3P;
+    const T = tTxt(dcrRefOf(cfg));
+    const refField = { k: 'cfg.dcrRefT', cfg: 'dcrRefT', num: true, label: 'Quy đổi R về nhiệt độ (°C) — mặc định 75; ghi vào BBTN' };
     const sections = schema.sections.map(s => (s.id !== 'dcr' ? s : Object.assign({}, s, {
-      groups: s.groups.map(g => {
+      groups: s.groups.map((g, gi) => {
         const grid = (g.grids || [])[0];
         const w = grid && String(grid.id).split('.')[1];
         if (!DCR_WINDING[w]) return g;
         const tk = `dcr.${w}.t`;
         const name = `Nhiệt độ chung cuộn ${DCR_WINDING[w]} (°C) — dùng cho pha để trống${is3P ? '; trống: nhiệt độ máy từng pha' : ''}`;
-        const fields = (g.fields || []).map(f => (f.k === tk ? Object.assign({}, f, { label: name }) : f));
+        const fields = (gi ? [] : [refField]).concat((g.fields || []).map(f => (f.k === tk ? Object.assign({}, f, { label: name }) : f)));
         if (!fields.some(f => f.k === tk)) fields.push({ k: tk, label: name, num: true });
         // ô nhiệt độ đo riêng từng pha, đặt ngay sau ô chung
         const at = fields.findIndex(f => f.k === tk) + 1;
         const phaseFields = grid.cols.filter(c => c.phase).map(c => ({ k: `${tk}${c.k}`, label: `Nhiệt độ đo ${c.label} (°C)`, num: true }));
         fields.splice(at, 0, ...phaseFields);
         const grids = g.grids.map(gr => Object.assign({}, gr, {
-          cols: gr.cols.flatMap(c => (c.phase ? [c, col(`r75${c.k}`, `${c.label} @75 °C`, undefined, { calc: true, nodoc: true, r75: true })] : [c])),
+          // khóa r75<pha> giữ tên cũ; giá trị là R quy về nhiệt độ quy đổi đang chọn (mặc định 75 °C)
+          cols: gr.cols.flatMap(c => (c.phase ? [c, col(`r75${c.k}`, `${c.label} @${T} °C`, undefined, { calc: true, nodoc: true, r75: true })] : [c])),
         }));
         return Object.assign({}, g, { fields, grids });
       }),
@@ -491,7 +500,7 @@
   }
 
   function build(cfg) {
-    return withDcr75(buildRaw(cfg));
+    return withDcr75(buildRaw(cfg), cfg);
   }
   function buildRaw(cfg) {
     const layout = layoutOf(cfg);
@@ -832,5 +841,5 @@
   // Duyệt biểu mẫu: hàm chung ở js/domain/common.js (trường đầu/cuối biên bản lấy từ schema.head/tail)
   const { eachGrid, eachField } = Common;
 
-  window.Schema = { dcrTemp, HV_MEAS, OLTC_WINDINGS, BASELINE_RESETS, ATT_SECTIONS, REASONS, LAYOUT_3P, LAYOUT_110, MAP_110, TAPS_19, layoutOf, TAPS_17, build, eachGrid, eachField, META, CLOSING, SUMMARY_ROWS, DEFAULT_TAPS, BCT_SIDES, BCT_TABLES };
+  window.Schema = { dcrTemp, dcrRefOf, HV_MEAS, OLTC_WINDINGS, BASELINE_RESETS, ATT_SECTIONS, REASONS, LAYOUT_3P, LAYOUT_110, MAP_110, TAPS_19, layoutOf, TAPS_17, build, eachGrid, eachField, META, CLOSING, SUMMARY_ROWS, DEFAULT_TAPS, BCT_SIDES, BCT_TABLES };
 })();

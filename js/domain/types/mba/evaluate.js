@@ -561,6 +561,7 @@
       { g: 'dcr.mv', t: 'dcr.mv.t', winding: ['COM'], label: oltcMV ? 'Cuộn trung áp (OLTC)' : 'Cuộn trung áp (chung)', byTap: oltcMV },
       { g: 'dcr.lv', t: 'dcr.lv.t', winding: ['LV'], label: 'Cuộn hạ áp', delta: cfg.lvMode === 'delta' },
     ];
+    const dcrRef = Schema.dcrRefOf(cfg);
     dcrGroups.forEach(G => {
       const grid = findGrid(schema, G.g);
       grid.rows.forEach(row => {
@@ -572,7 +573,8 @@
           const m = val(k);
           vals.push(m);
           if (!ok(m)) return;
-          const r75 = ok(t) ? QD.convDCR(m, t, 75) : NaN;
+          // R quy về nhiệt độ quy đổi đã chọn (mặc định 75 °C) — hiển thị và ghi BBTN; so XX vẫn ở nhiệt độ của XX
+          const r75 = ok(t) ? QD.convDCR(m, t, dcrRef) : NaN;
           vals75.push(r75);
           if (ok(r75)) calc[`${G.g}.${row.k}.r75${ph}`] = fmt(r75);
           const s = serialOf(ph);
@@ -591,7 +593,7 @@
             limit: `±${L.DCR_DEV}% so với NSX cùng nhiệt độ`, status: rd.status,
             basis: R.dcr, note: !ok(t) ? 'Thiếu nhiệt độ đo' : okRef ? 'R75 = R·(235+75)/(235+t)' : 'Không có số liệu XX tương ứng', keys: [k] });
         });
-        // các pha đo ở nhiệt độ khác nhau: so sánh sau khi quy về 75 °C (QĐ 1901 Điều 31: "sau khi quy về cùng nhiệt độ");
+        // các pha đo ở nhiệt độ khác nhau: so sánh sau khi quy về cùng nhiệt độ quy đổi (QĐ 1901 Điều 31);
         // thiếu nhiệt độ ở pha có số đo thì so trên giá trị đo như trước
         const all75 = vals.every((m, i) => !ok(m) || ok(vals75[i]));
         const sp = TestItems.spread(all75 ? vals75.map((x, i) => (ok(vals[i]) ? x : NaN)) : vals, L.DCR_DEV);

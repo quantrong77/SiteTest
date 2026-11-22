@@ -212,11 +212,13 @@ Mỗi hạng mục có đủ 4 bước; phần dưới chỉ ghi điều riêng.
 [Mở →](#app:dcr)
 
 - Mỗi cuộn dây (cao, trung, hạ áp) có ô **Nhiệt độ chung cuộn … (°C)** và ô **Nhiệt độ đo** riêng cho từng pha (A-N, B-N, C-N…) — mỗi pha đo vào thời điểm khác nhau. Pha để trống thì dùng nhiệt độ chung của cuộn. Nhập R theo nấc, pha.
-- Cột **… @75 °C** (nền xám, tự tính) ngay sau mỗi cột pha: R75 = R·(235 + 75)/(235 + t), t là nhiệt độ của pha đó (hoặc nhiệt độ chung của cuộn). Đổi nhiệt độ thì cột @75 °C tính lại ngay. BBTN Word ghi giá trị @75 °C này vào bảng R một chiều.
+- Ô **Quy đổi R về nhiệt độ (°C)** ở đầu mục: mặc định 75; nhập nhiệt độ khác (vd 20) thì cột quy đổi, BBTN đổi theo.
+- Cột **… @75 °C** (nền xám, tự tính; tên cột theo nhiệt độ quy đổi đã chọn) ngay sau mỗi cột pha: R_T = R·(235 + T)/(235 + t), t là nhiệt độ của pha đó (hoặc nhiệt độ chung của cuộn). BBTN Word ghi giá trị quy đổi này vào bảng R một chiều và ghi **nhiệt độ quy đổi**: mẫu theo pha “t = 28 oC, quy đổi về 75 oC”, mẫu 3 pha đề mục “… qui đổi về 75 oC”.
+- So sánh với xuất xưởng vẫn quy về nhiệt độ của số liệu xuất xưởng; CSDL lưu giá trị chuẩn @75 °C.
 - Mẫu 3 máy 1 pha: ô pha và ô chung đều trống thì lấy nhiệt độ đo của máy pha đó.
 - Dòng “t = … oC” của BBTN ghi nhiệt độ chung của cuộn; chưa nhập nhiệt độ chung thì ghi các nhiệt độ pha, vd “22; 30; 41”. Pha thiếu nhiệt độ: ô đó không ghi vào BBTN (báo trong danh sách ô chưa ghi).
 - Độ lệch giữa các pha ΔR(A,B,C) tính trên giá trị đã quy về 75 °C.
-- Nhập BBTN cũ (NB): số trong bảng được hiểu là R@75 °C, app đổi về giá trị đo theo nhiệt độ ghi trên biên bản; không có nhiệt độ thì coi là @75 °C và cảnh báo.
+- Nhập BBTN cũ (NB): số trong bảng được hiểu là R đã quy đổi về nhiệt độ ghi trên biên bản (“quy đổi về … oC”, không ghi → 75 °C); app lấy lại nhiệt độ quy đổi đó và đổi về giá trị đo theo nhiệt độ đo; không có nhiệt độ đo thì coi là giá trị quy đổi và cảnh báo.
 - App tính ΔR giữa pha, so xuất xưởng (≤ 2 %).
 - **Nhập file Haefely 2293…** (CSV / BIN): chọn pha, nấc, có quy đổi nhiệt độ hay không.
 - **BBTN riêng máy pha A / B / C**: **Bổ sung số liệu pha … từ CSDL** lấy lần đo **cùng đợt** (≤ 30 ngày, sửa được) của 2 máy còn lại để so giữa các pha; ô bổ sung không ghi vào lần thí nghiệm này.

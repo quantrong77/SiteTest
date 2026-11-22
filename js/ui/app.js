@@ -612,7 +612,7 @@
   function sectionField(f) {
     const custom = TU().field ? TU().field(f, App) : null;
     // ô cấu hình đặt ngay trong hạng mục (vd 7.1 cách đo cuộn cao áp): ghi vào state.cfg, đồng bộ với mục 0
-    if (!custom && f.cfg) return cfgField(f.cfg, f.label, { options: f.options });
+    if (!custom && f.cfg) return cfgField(f.cfg, f.label, { options: f.options, num: f.num });
     return custom || fieldHTML(f);
   }
 
@@ -921,7 +921,7 @@
           ? 'OLTC ở cuộn trung áp: R một chiều cuộn trung áp và tỷ số MV:LV nhập theo nấc. Số liệu đã nhập theo cấu hình cũ (nấc cuộn cao áp, HV:LV theo nấc) vẫn lưu trong biên bản nhưng không hiện, không đánh giá và không xuất BBTN — đổi lại cấu hình cũ để xem.'
           : 'OLTC ở cuộn cao áp: R một chiều cuộn cao áp và tỷ số HV:LV nhập theo nấc. Số liệu đã nhập theo cấu hình cũ (nấc cuộn trung áp, MV:LV theo nấc) vẫn lưu trong biên bản nhưng không hiện, không đánh giá và không xuất BBTN — đổi lại cấu hình cũ để xem.');
       }
-      if (/^(taps|bctCores|hvMeas|oltcWinding|template|topology|reportScope|ps\.)/.test(el.dataset.cfg)) {
+      if (/^(taps|bctCores|hvMeas|oltcWinding|dcrRefT|template|topology|reportScope|ps\.)/.test(el.dataset.cfg)) {
         if (el.dataset.cfg === 'taps' && state.cfg.taps.length !== 19) toast(`Cần đúng 19 nhãn nấc (đang có ${state.cfg.taps.length}) — tạm dùng mặc định`, true);
         schema = T().buildSchema(state.cfg);
         // đổi giữa mẫu theo pha và mẫu chung 3 pha: biểu mẫu đổi bố cục, lấy giá trị mặc định của template mới cho ô còn trống
@@ -933,7 +933,7 @@
         }
       }
       recompute();
-      if (/^(template|topology|reportScope|ps\.|bctCores|taps|oltcCharts|hvMeas|oltcWinding)/.test(el.dataset.cfg)) renderMain(); else updateComputed();
+      if (/^(template|topology|reportScope|ps\.|bctCores|taps|oltcCharts|hvMeas|oltcWinding|dcrRefT)/.test(el.dataset.cfg)) renderMain(); else updateComputed();
       persist();
     } else if (el.dataset.exportPhase && e.type === 'change') {
       const phase = el.dataset.exportPhase, selected = new Set(state.cfg.reportPhases || []);
