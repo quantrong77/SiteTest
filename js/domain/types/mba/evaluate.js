@@ -566,12 +566,13 @@
       grid.rows.forEach(row => {
         const vals = [];
         ['A', 'B', 'C'].forEach(ph => {
-          // mẫu 3 pha: nhiệt độ đo theo từng máy; mẫu theo pha: theo cuộn dây
-          const t = is3P ? val(`dcr.${ph}.t`) : val(G.t);
+          // nhiệt độ đo của cuộn dây; mẫu 3 pha để trống thì lấy nhiệt độ đo của máy pha đó
+          const t = ok(val(G.t)) ? val(G.t) : is3P ? val(`dcr.${ph}.t`) : NaN;
           const k = `${G.g}.${row.k}.${ph}`;
           const m = val(k);
           vals.push(m);
           if (!ok(m)) return;
+          if (ok(t)) calc[`${G.g}.${row.k}.r75${ph}`] = fmt(QD.convDCR(m, t, 75));
           const s = serialOf(ph);
           const parts = F ? G.winding.map(w => F.dcr(w, row.tap, s, G.byTap ? { byTap: true } : undefined)) : [];
           const okRef = parts.length && parts.every(Boolean);

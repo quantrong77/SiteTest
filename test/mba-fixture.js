@@ -39,7 +39,8 @@ function fullState(Schema, opts = {}) {
   const v = {};
   Schema.eachGrid(schema, g => {
     if (g.readonly) return;
-    g.rows.forEach((r, ri) => g.cols.forEach((c, ci) => {
+    // cột R@75 °C chỉ tự tính trong app: bỏ khỏi thứ tự cột để số liệu mẫu giữ nguyên
+    g.rows.forEach((r, ri) => g.cols.filter(c => !c.r75).forEach((c, ci) => {
       if (c.calc || c.auto || (g.skip && g.skip(r.k, c.k))) return;
       const k = `${g.id}.${r.k}.${c.k}`;
       if (r.text || c.text) { v[k] = r.k === 'serial' ? `S-${g.id.split('.')[1]}-${c.k}` : `${r.k}-${c.k}`; return; }
