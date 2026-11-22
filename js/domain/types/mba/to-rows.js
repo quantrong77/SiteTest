@@ -181,7 +181,8 @@
       const grid = findGrid(schema, g);
       grid.rows.forEach(r => ['A', 'B', 'C'].forEach(ph => {
         // mẫu 3 pha: nhiệt độ đo theo từng máy; mẫu theo pha: theo cuộn dây
-        const t = is3P ? toNum(v[`dcr.${ph}.t`]) : toNum(v[`${g}.t`]);
+        const tw = toNum(v[`${g}.t`]);
+        const t = ok(tw) ? tw : is3P ? toNum(v[`dcr.${ph}.t`]) : NaN;
         const k = `${g}.${r.k}.${ph}`, m = toNum(v[k]);
         put(unitRef(ph), 'DCR', 'R', { config: code, phase: ph, tap: r.tap || '', value: v[k], unit: 'mΩ', temp: t, norm: ok(m) && ok(t) ? QD.convDCR(m, t, 75) : NaN, normT: 75, key: k });
       }));
