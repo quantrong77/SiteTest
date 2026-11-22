@@ -74,7 +74,7 @@
       ['A', 'B', 'C'].forEach((ph, i) => { if (sn[i]) cfg.ps[ph] = sn[i]; });
       v['meta.serial'] = sn[0] || '';
     }
-    const warnings = dcrFrom75(tpl, schema, v);
+    const warnings = dcrFrom75(tpl, schema, v, cfg);
     let count = 0;
     eachGrid(schema, g => { if (g.tables) count += filled(v, new RegExp(`^${g.id.replace(/\./g, '\\.')}\\.`)); });
     if (!String(v['meta.serial'] || '').trim()) warnings.push('Không đọc được số chế tạo — nhập tay trước khi lưu CSDL');
@@ -87,16 +87,29 @@
     return { state, layout, count, warnings };
   }
 
-  // BBTN ghi R một chiều đã quy về 75 °C → đổi về giá trị đo theo nhiệt độ đo ghi trên biên bản (app tự quy đổi lại khi
-  // đánh giá / xuất). Dòng nhiệt độ có nhiều số ("28; 30; 31") → nhiệt độ từng pha. Không có nhiệt độ → coi là giá trị
-  // @75 °C (nhiệt độ cuộn dây = 75) và cảnh báo.
-  function dcrFrom75(tpl, schema, v) {
+  // BBTN ghi R một chiều đã quy về nhiệt độ quy đổi (ghi trên biên bản: "t = 28 oC, quy đổi về 75 oC" ở mẫu theo pha,
+  // "… qui đổi về 75 oC" ở đề mục mẫu 3 pha; không ghi → 75 °C) → đổi về giá trị đo theo nhiệt độ đo trên biên bản
+  // (app tự quy đổi lại khi đánh giá / xuất). Dòng nhiệt độ có nhiều số ("22; 30; 41") → nhiệt độ từng pha.
+  // Không có nhiệt độ đo → coi số là giá trị @nhiệt độ quy đổi và cảnh báo. Ghi nhiệt độ quy đổi đọc được vào cfg.dcrRefT.
+  function dcrFrom75(tpl, schema, v, cfg) {
     const warn = [];
     const is3P = schema.layout === Schema.LAYOUT_3P;
     const NUMS = /[-+]?\d+(?:[.,]\d+)?/g;
+    const REF = /qu[iy] đổi/i;
     const toN = s => { const n = parseFloat(String(s ?? '').replace(',', '.')); return Number.isFinite(n) ? n : NaN; };
     const fields = new Map();
     Common.eachField(schema, f => fields.set(f.k, f));
+    // nhiệt độ quy đổi ghi trên biên bản
+    // "qui đổi về 75 oC" nằm cùng đoạn với dòng nhiệt độ đo (mẫu 3 pha: đề mục "Pha A: t = …"; mẫu theo pha: từng cuộn)
+    let tRef = NaN;
+    ['dcr.A.t', 'dcr.hv.t', 'dcr.mv.t', 'dcr.lv.t'].forEach(k => {
+      const f = fields.get(k);
+      if (!Number.isFinite(tRef) && f && f.doc && f.doc.before !== undefined) tRef = toN(tpl.readField({ before: f.doc.before, re: MbaReport.DCR_REF_RE }));
+    });
+    const rawT = {};
+    ['hv', 'mv', 'lv'].forEach(w => { rawT[w] = String(Report.readFieldText(tpl, fields.get(`dcr.${w}.t`)) || '').split(REF)[0]; });
+    if (!Number.isFinite(tRef)) tRef = 75;
+    if (cfg) cfg.dcrRefT = String(tRef).replace('.', ',');
     eachGrid(schema, g => {
       const m = /^dcr\.(hv|mv|lv)$/.exec(g.id);
       if (!m) return;
@@ -105,19 +118,18 @@
       g.rows.forEach(r => phases.forEach(c => { const k = `${g.id}.${r.k}.${c.k}`; if (String(v[k] ?? '').trim()) keys.push([k, c.k]); }));
       if (!keys.length) return;
       const tk = `${g.id}.t`;
-      const raw = String(Report.readFieldText(tpl, fields.get(tk)) || '');
-      const ts = raw.match(NUMS) || [];
+      const ts = rawT[m[1]].match(NUMS) || [];
       if (ts.length === phases.length && ts.length > 1) { phases.forEach((c, i) => { v[`${tk}${c.k}`] = ts[i]; }); delete v[tk]; }
       let assumed = false;
       keys.forEach(([k, ph]) => {
-        const text = String(v[k]).trim(), r75 = toN(text);
-        if (!Number.isFinite(r75)) return;
+        const text = String(v[k]).trim(), rRef = toN(text);
+        if (!Number.isFinite(rRef)) return;
         let t = Schema.dcrTemp(x => toN(v[x]), g.id, ph, is3P);
-        if (!Number.isFinite(t)) { v[tk] = '75'; t = 75; assumed = true; }
+        if (!Number.isFinite(t)) { v[tk] = String(tRef).replace('.', ','); t = tRef; assumed = true; }
         const dec = (text.split(/[.,]/)[1] || '').length;
-        v[k] = String(+QD.convDCR(r75, 75, t).toFixed(Math.max(dec, 1))).replace('.', ',');
+        v[k] = String(+QD.convDCR(rRef, tRef, t).toFixed(Math.max(dec, 1))).replace('.', ',');
       });
-      if (assumed) warn.push(`R một chiều ${g.id.slice(4).toUpperCase()}: không đọc được nhiệt độ đo — coi số trong BBTN là giá trị @75 °C`);
+      if (assumed) warn.push(`R một chiều ${g.id.slice(4).toUpperCase()}: không đọc được nhiệt độ đo — coi số trong BBTN là giá trị @${String(tRef).replace('.', ',')} °C`);
     });
     return warn;
   }
