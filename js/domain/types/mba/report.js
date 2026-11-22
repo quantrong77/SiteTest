@@ -37,6 +37,11 @@
       const sourceKey = fieldSources[f.k] || f.k;
       if (sourceFieldKeys.has(sourceKey) && sourceV[sourceKey] !== undefined) targetV[f.k] = sourceV[sourceKey];
     }));
+    ['hv', 'mv', 'lv'].forEach(w => {
+      if (!targetFieldKeys.has(`dcr.${w}.t`)) return;
+      const t = Schema.dcrTemp(k => num(sourceV[k]), `dcr.${w}`, phase, true);
+      if (Number.isFinite(t)) targetV[`dcr.${w}.t`] = String(t).replace('.', ',');
+    });
     const moistureKey = `moist.r.${phase}`;
     if (targetFieldKeys.has('moist.val') && sourceV[moistureKey] !== undefined) targetV['moist.val'] = sourceV[moistureKey];
     targetV['meta.serial'] = serial;
@@ -107,6 +112,17 @@
     return projected;
   }
 
+  const DCR_GRID = /^dcr\.(hv|mv|lv)$/;
+  const DCR_REF_RE = /qu[iy] đổi về(?<v>\s*[-+]?\d*(?:[.,]\d+)?\s*)oC/i;
+  const num = x => { const n = parseFloat(String(x ?? '').replace(',', '.')); return Number.isFinite(n) ? n : NaN; };
+  // "28; 30; 31" — nhiệt độ đo từng pha của cuộn dây (theo thứ tự cột pha), khi chưa nhập nhiệt độ chung
+  function dcrPhaseTemps(v, schema, g) {
+    let grid = null;
+    eachGrid(schema, x => { if (x.id === g) grid = x; });
+    const ts = grid ? grid.cols.filter(c => c.phase).map(c => String(v[`${g}.t${c.k}`] ?? '').trim()).filter(Boolean) : [];
+    return ts.join('; ');
+  }
+
   function fill(tpl, { state, res, schema, assets }) {
     state = Report.performed(state, schema, Schema.ATT_SECTIONS); // hạng mục không thực hiện: không ghi số liệu vào BBTN
     const miss = [];
@@ -117,6 +133,7 @@
     };
     const v = state.v;
     const is3P = schema.layout === Schema.LAYOUT_3P;
+    const dcrRefTxt = String(Schema.dcrRefOf(state.cfg)).replace('.', ',');
     Report.prepare(tpl, schema); // chèn hàng template thiếu (vd nhiệt độ từng sứ ở mẫu 3 pha) trước khi ghi
     if (schema.docSwaps) swapHeadings(tpl, schema.docSwaps); // OLTC ở cuộn trung áp: đổi nhãn đề mục trước khi ghi nhiệt độ
     eachField(schema, f => {
@@ -131,9 +148,23 @@
       const m = f.k.match(/^b\.(\w+)\.k$/);
       if (m && !/Nhập/i.test(v[`b.${m[1]}.kmode`] || '')) val = (res.notes[f.k] || '').trim();
       if (/\.btype$/.test(f.k)) val = val || 'RIP';
+      // nhiệt độ đo R một chiều: ô chung trống mà đã nhập nhiệt độ từng pha → ghi các nhiệt độ pha (bảng ghi R@75 °C)
+      const dt = f.k.match(/^dcr\.(hv|mv|lv)\.t$/);
+      if (dt && !String(val ?? '').trim()) val = dcrPhaseTemps(v, schema, `dcr.${dt[1]}`);
+      // mẫu theo pha: dòng "đo ở nhiệt độ t = … oC" ghi thêm nhiệt độ quy đổi → "t = 28 oC, quy đổi về 75 oC"
+      if (dt && !is3P && String(val ?? '').trim()) val = `${String(val).trim()} oC, quy đổi về ${dcrRefTxt}`;
+      // mẫu 3 pha: "Pha X: t = …" là nhiệt độ đã dùng quy đổi cuộn cao áp của pha X (ô pha → ô chung của cuộn → máy)
+      const ut = is3P && f.k.match(/^dcr\.([ABC])\.t$/);
+      if (ut) { const t = Schema.dcrTemp(k => num(v[k]), 'dcr.hv', ut[1], true); if (Number.isFinite(t)) val = String(t).replace('.', ','); }
       write(f, val);
     });
     schema.sections.forEach(s => (s.extraDoc || []).forEach(x => write({ doc: x.doc, k: x.k }, (res.notes[x.k] || '').trim())));
+    // mẫu 3 pha: đề mục "… Pha C: t = oC, qui đổi về 75 oC" → nhiệt độ quy đổi đã chọn
+    if (is3P) {
+      let fA = null;
+      eachField(schema, f => { if (f.k === 'dcr.A.t') fA = f; });
+      if (fA && fA.doc) write({ doc: { before: fA.doc.before, re: DCR_REF_RE }, k: 'cfg.dcrRefT' }, dcrRefTxt);
+    }
     let cells = 0;
     // Mục 6: thêm hàng cho đối tượng đo bổ sung (bảng số liệu đo và bảng quy đổi 20 °C)
     const nExtra = (state.cfg.wtgdRows || []).length;
@@ -151,8 +182,13 @@
       g.rows.forEach(r => g.cols.forEach(c => {
         if (r.nodoc || c.nodoc || c.doc === undefined || (g.skip && g.skip(r.k, c.k))) return;
         const key = `${g.id}.${r.k}.${c.k}`;
-        const val = (g.readonly || c.calc) ? res.calc[key] : ((v[key] ?? '').toString().trim() || res.calc[key]);
+        let val = (g.readonly || c.calc) ? res.calc[key] : ((v[key] ?? '').toString().trim() || res.calc[key]);
         if (val === undefined || val === null || String(val).trim() === '') return;
+        // R một chiều: BBTN ghi giá trị đã quy về 75 °C theo nhiệt độ đo của pha; thiếu nhiệt độ thì không ghi số chưa quy đổi
+        if (DCR_GRID.test(g.id) && c.phase) {
+          val = res.calc[`${g.id}.${r.k}.r75${c.k}`];
+          if (val === undefined) { miss.push(`${key} (thiếu nhiệt độ đo để quy về ${dcrRefTxt} °C)`); return; }
+        }
         // ô có nhãn cố định quanh giá trị (vd "Nấc đến: … (Tap position to)"): chỉ thay phần giá trị
         if (c.slot) { if (tpl.writeField({ t: g.tables[0], r: r.doc, c: c.doc, re: c.slot }, out(val))) cells++; else miss.push(key); return; }
         const tc = tpl.cell(g.tables, r.doc, r.cmap && r.cmap[c.k] !== undefined ? r.cmap[c.k] : c.doc);
@@ -357,5 +393,5 @@
   }
 
   // Template chuẩn MBA 500 kV có 73 bảng; ít hơn 72 thì vị trí điền có thể lệch (mẫu chung 3 pha: 28 bảng, schema.tables)
-  window.MbaReport = { fill, shortCircuitToBody, swapHeadings, phaseState, oltcAppendix, bctAppendix, bctBlocks, bctToBody, hasBct, minTables: 72, stdTables: 73 };
+  window.MbaReport = { DCR_REF_RE, fill, shortCircuitToBody, swapHeadings, phaseState, oltcAppendix, bctAppendix, bctBlocks, bctToBody, hasBct, minTables: 72, stdTables: 73 };
 })();

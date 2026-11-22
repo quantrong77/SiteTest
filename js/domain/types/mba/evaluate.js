@@ -561,18 +561,22 @@
       { g: 'dcr.mv', t: 'dcr.mv.t', winding: ['COM'], label: oltcMV ? 'Cuộn trung áp (OLTC)' : 'Cuộn trung áp (chung)', byTap: oltcMV },
       { g: 'dcr.lv', t: 'dcr.lv.t', winding: ['LV'], label: 'Cuộn hạ áp', delta: cfg.lvMode === 'delta' },
     ];
+    const dcrRef = Schema.dcrRefOf(cfg);
     dcrGroups.forEach(G => {
       const grid = findGrid(schema, G.g);
       grid.rows.forEach(row => {
-        const vals = [];
+        const vals = [], vals75 = [];
         ['A', 'B', 'C'].forEach(ph => {
-          // nhiệt độ đo của cuộn dây; mẫu 3 pha để trống thì lấy nhiệt độ đo của máy pha đó
-          const t = ok(val(G.t)) ? val(G.t) : is3P ? val(`dcr.${ph}.t`) : NaN;
+          // nhiệt độ đo của pha đó trong cuộn dây → nhiệt độ chung của cuộn → (mẫu 3 pha) nhiệt độ máy pha đó
+          const t = Schema.dcrTemp(val, G.g, ph, is3P);
           const k = `${G.g}.${row.k}.${ph}`;
           const m = val(k);
           vals.push(m);
           if (!ok(m)) return;
-          if (ok(t)) calc[`${G.g}.${row.k}.r75${ph}`] = fmt(QD.convDCR(m, t, 75));
+          // R quy về nhiệt độ quy đổi đã chọn (mặc định 75 °C) — hiển thị và ghi BBTN; so XX vẫn ở nhiệt độ của XX
+          const r75 = ok(t) ? QD.convDCR(m, t, dcrRef) : NaN;
+          vals75.push(r75);
+          if (ok(r75)) calc[`${G.g}.${row.k}.r75${ph}`] = fmt(r75);
           const s = serialOf(ph);
           const parts = F ? G.winding.map(w => F.dcr(w, row.tap, s, G.byTap ? { byTap: true } : undefined)) : [];
           const okRef = parts.length && parts.every(Boolean);
@@ -589,7 +593,10 @@
             limit: `±${L.DCR_DEV}% so với NSX cùng nhiệt độ`, status: rd.status,
             basis: R.dcr, note: !ok(t) ? 'Thiếu nhiệt độ đo' : okRef ? 'R75 = R·(235+75)/(235+t)' : 'Không có số liệu XX tương ứng', keys: [k] });
         });
-        const sp = TestItems.spread(vals, L.DCR_DEV);
+        // các pha đo ở nhiệt độ khác nhau: so sánh sau khi quy về cùng nhiệt độ quy đổi (QĐ 1901 Điều 31);
+        // thiếu nhiệt độ ở pha có số đo thì so trên giá trị đo như trước
+        const all75 = vals.every((m, i) => !ok(m) || ok(vals75[i]));
+        const sp = TestItems.spread(all75 ? vals75.map((x, i) => (ok(vals[i]) ? x : NaN)) : vals, L.DCR_DEV);
         if (sp) {
           calc[`${G.g}.${row.k}.dP`] = fmt(sp.sp, 2);
           add({ sec: 'dcr', item: `Độ lệch R giữa các pha – ${G.label}`, loc: row.tap ? `Nấc ${row.tap}` : '', meas: `${fmt(sp.sp, 2)} %`,
