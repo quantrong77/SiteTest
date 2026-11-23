@@ -781,3 +781,8 @@ table.grid.fx-table td.fx-act { padding: 3px 6px; width: 1%; white-space: nowrap
 .trend-inline.is-warning .trend-open { color: var(--warn); }
 .legend i.diamond { border-radius: 0; width: 9px; height: 9px; background: #fff; border: 2px solid var(--accent); transform: rotate(45deg); }
 .ftable tr.tr-current td { background: #eef5fb; }
+
+/* Số liệu trong bảng: căn giữa cột (ô nhập, ô tự tính, bảng số liệu xuất xưởng); chữ (text) vẫn căn trái */
+table.grid input:not(.text):not(.hdr):not(.lbl), table.grid td.calc .cv { text-align: center; }
+table.grid.fx-table td.num, .fx-values table.grid td.num, .fx-values table.grid td input { text-align: center; }
+.trend-inline { text-align: center; }
