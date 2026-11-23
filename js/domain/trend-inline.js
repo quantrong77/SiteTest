@@ -10,11 +10,7 @@
   const RESET_ITEMS = { INSULATION: ['IR', 'WTGD'] };
   const resetCovers = (r, item) => r.baseline_reset === 'ALL' || (RESET_ITEMS[r.baseline_reset] || []).includes(item);
   const same = (a, b) => KEY.every(k => String(a[k] ?? '') === String(b[k] ?? ''));
-  // Nấc giữa 9b, 9c (bộ đổi nấc có bộ chọn đảo chiều) cùng điện áp với 9a; test report xuất xưởng chỉ ghi 9A
-  // → ô 9b / 9c so với nấc 9A của xuất xưởng (như phần đánh giá)
-  const midAlias = t => { const m = String(t ?? '').toUpperCase().match(/^(\d+)[BC]$/); return m ? `${m[1]}A` : null; };
-  const sameOrMid = (r, t) => same(r, t) || (r.kind === 'FAT' && midAlias(t.tap) !== null
-    && KEY.every(k => (k === 'tap' ? String(r.tap ?? '').toUpperCase() === midAlias(t.tap) : String(r[k] ?? '') === String(t[k] ?? ''))));
+  // Nấc trung gian 9b, 9c chạy bypass khi chuyển nấc (vận hành dùng 9a): không so với 9A xuất xưởng — khớp đúng nấc
   const num = x => (x === null || x === undefined || x === '' ? NaN : Number(x));
   const pct = (value, base) => (Number.isFinite(value) && Number.isFinite(base) && base !== 0
     ? Math.round((value - base) / Math.abs(base) * 100000) / 1000 : null);
@@ -26,7 +22,7 @@
     const cur = num(target.value_cmp);
     let old = (history || []).filter(r => (!opts.sessionId || r.session_id !== opts.sessionId)
       && (!target.serial_no || serial(r.serial_no) === serial(target.serial_no))
-      && sameOrMid(r, target) && Number.isFinite(num(r.value_cmp))
+      && same(r, target) && Number.isFinite(num(r.value_cmp))
       && (!opts.testDate || !r.test_date || String(r.test_date) < opts.testDate));
     // không so giá trị quy đổi với giá trị thô; ô trống thì hiện lịch sử theo cơ sở có nhiều số liệu quy đổi (norm) trước
     const basis = Number.isFinite(cur) && target.cmp_basis ? target.cmp_basis
