@@ -1067,8 +1067,14 @@
       else if (act && TU().actions && TU().actions[act]) await track(b.textContent.trim() || act, () => TU().actions[act](b, App));
     } catch (err) {
       console.error(err);
-      toast('Lỗi: ' + err.message, true);
+      toast('Lỗi: ' + err.message + errWhere(err), true);
     }
+  }
+  // Lỗi lập trình (TypeError…): kèm vị trí trong code (tệp:dòng, hàm) để báo lại — lỗi nghiệp vụ (Error) giữ nguyên câu chữ
+  function errWhere(err) {
+    if (!err || !err.stack || !(err instanceof TypeError || err instanceof ReferenceError || err instanceof RangeError)) return '';
+    const m = String(err.stack).split(/\r?\n/).map(l => l.match(/at (?:(\S+) \()?.*?\/(js\/[\w\/.-]+\.js):(\d+)/)).find(Boolean);
+    return m ? ` [${m[2]}:${m[3]}${m[1] ? ' ' + m[1] : ''}]` : '';
   }
 
   // ---------------------------------------------------------------- biên bản mới: chọn loại thiết bị
