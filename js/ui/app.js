@@ -677,13 +677,14 @@
     return entry;
   }
   // Số liệu xuất xưởng dựng lại từ CSDL (không có file gốc): chỉ dùng trong phiên, không lưu vào máy
-  function addFactoryApi(name, api) {
+  function addFactoryApi(name, api, quiet) {
     if (!api.data.order.length) throw new Error('không có máy nào trong số liệu xuất xưởng');
     const entry = { name, api, emb: false, db: true };
     FXS = FXS.filter(x => x.name !== name).concat([entry]);
-    setFactory(entry, true);
+    // biên bản có nhiều máy ở nhiều nguồn: dùng nguồn có máy chính
+    if (!FX || !FX.has(String(state.v['meta.serial'] || '').trim()) || api.has(String(state.v['meta.serial'] || '').trim())) setFactory(entry, true);
     recompute(); renderNav(); renderMain(); persist();
-    toast(`Dùng số liệu xuất xưởng từ CSDL: ${api.data.order.join(', ')} — không có file gốc nên thiếu điện áp nấc (tỷ số HV:LV), thông số sứ, tổn hao ngắn mạch`);
+    if (!quiet) toast(`Dùng số liệu xuất xưởng từ CSDL: ${api.data.order.join(', ')} — không có file gốc nên thiếu điện áp nấc (tỷ số HV:LV), thông số sứ, tổn hao ngắn mạch`);
     return entry;
   }
   // Bỏ một file xuất xưởng khỏi danh sách trên máy (file nhúng sẵn quay lại khi tải lại trang)
@@ -780,6 +781,60 @@
     // lịch sử về (hoặc đổi thiết bị) → đánh giá lại ngay để thấy vi phạm xu hướng tại hiện trường
     TrendInlineUI.load({ state, schema, type: T(), res }, $('#main'), () => { recompute(); renderNav(); renderMain(); })
       .catch(e => console.warn(e));
+    autoFactory().catch(e => console.warn('Tự nạp số liệu xuất xưởng:', e.message));
+  }
+
+  // ---------------------------------------------------------------- tự nạp số liệu xuất xưởng của biên bản từ CSDL
+  // Số chế tạo của biên bản (máy chính, cột pha A/B/C) chưa có trong file xuất xưởng nào trên máy → lấy lần nhập test
+  // report (FAT) mới nhất của từng máy trong CSDL: có file .xlsx gốc thì tải file (đủ dữ liệu, lưu trên máy như file
+  // nạp tay), không có thì dựng lại từ số đã lưu (Factory.fromRows) và lưu tạm dòng đo trên máy để dùng khi mất mạng.
+  const LS_FXDB = 'bbtn-mba.fxdb';
+  let autoFxFor = '';
+  const recordSerials = () => [...new Set([state.v['meta.serial']].concat(Object.values(state.cfg.ps || {}))
+    .map(x => String(x || '').trim()).filter(Boolean))];
+  async function autoFactory() {
+    if (!state || T().code !== 'MBA' || !factoryReader().fromRows) return;
+    const sns = recordSerials();
+    if (!sns.length) return;
+    const covered = sn => FXS.some(x => x.api.has(sn));
+    if (sns.every(covered)) { if (pickFactory(true)) { recompute(); renderMain(); } return; }
+    const key = sns.join('|');
+    if (autoFxFor === key) return;
+    autoFxFor = key;
+    let cache = {};
+    try { cache = JSON.parse(localStorage.getItem(LS_FXDB) || '{}') || {}; } catch (e) { cache = {}; }
+    const missing = sns.filter(sn => !covered(sn));
+    const sessions = [];
+    let files = 0;
+    if (window.DB && DB.user) {
+      const fat = await DB.listFactorySessions();
+      for (const sn of missing) {
+        const ses = fat.filter(s => String(s.serial_no || '').trim() === sn && (s.n_values || 0) > 0)
+          .sort((a, b) => String(b.test_date || '').localeCompare(String(a.test_date || '')))[0];
+        if (!ses) continue;
+        const doc = (await DB.listDocs(ses.id)).find(d => d.kind === 'FACTORY_REPORT' && /\.xlsx?$/i.test(d.file_name || ''));
+        if (doc) {
+          try {
+            const entry = addFactoryFile(doc.file_name, await (await DB.downloadDoc(doc.storage_path)).arrayBuffer(), true);
+            files++;
+            if (entry.api.has(sn)) continue;
+          } catch (e) { console.warn('Tải test report gốc:', e.message); }
+        }
+        const rows = await DB.factoryMeasurements(ses.id);
+        const S = { serial: sn, testDate: ses.test_date, reportNo: ses.report_no || '', rows };
+        sessions.push(S);
+        cache[sn] = S;
+      }
+      try { localStorage.setItem(LS_FXDB, JSON.stringify(cache)); } catch (e) { /* đầy bộ nhớ: chỉ dùng trong phiên */ }
+    } else {
+      missing.forEach(sn => { if (cache[sn] && !covered(sn)) sessions.push(cache[sn]); });
+    }
+    const todo = sessions.filter(S => !covered(S.serial));
+    if (todo.length) {
+      const label = `CSDL ${todo.map(S => S.serial).join(', ')}`;
+      addFactoryApi(label, factoryReader().fromRows(todo, label), true);
+    } else if (files) { pickFactory(true); recompute(); renderMain(); }
+    if (todo.length || files) toast(`Đã nạp số liệu xuất xưởng từ CSDL cho ${(todo.map(S => S.serial).concat(files ? ['file gốc'] : [])).join(', ')} — so sánh ΔR với XX`);
   }
 
   // Cập nhật ô tính toán, trạng thái ô, bảng so sánh mà không render lại form (giữ focus)
