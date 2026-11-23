@@ -654,6 +654,8 @@
         + `<td class="row-actions">${x.api === FX ? '' : `<button class="btn small" data-act="useFx" data-name="${esc(x.name)}">Dùng file này</button>`}${x.emb ? '' : `<button class="btn small danger" data-act="delFx" data-name="${esc(x.name)}">Bỏ</button>`}</td></tr>`; }).join('')
       + '</tbody></table></div>';
     h += TU().factoryUnits ? TU().factoryUnits(App) : '';
+    // số liệu dựng lại từ CSDL (không có file gốc): không có sheet để xem
+    if (!sh || !sh.length) return h + `<p class="muted">Số liệu xuất xưởng đang dùng (${esc(FX.data.fileName)}) dựng lại từ CSDL — không có file .xlsx gốc để xem sheet.</p>`;
     h += `<h4>Xem sheet của file đang dùng: ${esc(FX.data.fileName)}</h4>`;
     h += '<div class="tabs">' + sh.map((s, i) => `<button data-ftab="${i}" class="${i === factoryTab ? 'on' : ''}">${esc(s.name)}</button>`).join('') + '</div>';
     const rows = (sh[factoryTab] || sh[0]).rows;
