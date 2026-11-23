@@ -18,7 +18,9 @@ test('mẫu 110-220: cùng hạng mục với mẫu theo pha, bảng ánh xạ l
     const ga = grids(a), gb = grids(b);
     assert.deepEqual(gb.map(g => g.id), ga.map(g => g.id), 'cùng lưới, cùng thứ tự');
     gb.forEach((g, i) => {
-      assert.deepEqual(g.rows.map(r => r.k), ga[i].rows.map(r => r.k));
+      // R một chiều: mẫu theo pha ẩn nấc bypass 9b, 9c (hàng t10, t11); mẫu 110-220 đánh số 1…19 nên giữ đủ hàng
+      if (/^dcr\.hv$/.test(g.id)) assert.deepEqual(g.rows.map(r => r.k).filter(k => !['t10', 't11'].includes(k)), ga[i].rows.map(r => r.k));
+      else assert.deepEqual(g.rows.map(r => r.k), ga[i].rows.map(r => r.k));
       if (!g.tables) return;
       assert.ok(g.tables.length > 0, `${g.id}: có bảng`);
       g.tables.forEach(t => assert.ok(t >= 0 && t <= 70, `${g.id}: bảng ${t} trong mẫu 71 bảng`));

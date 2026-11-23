@@ -40,7 +40,8 @@ function fullState(Schema, opts = {}) {
   Schema.eachGrid(schema, g => {
     if (g.readonly) return;
     // cột R@75 °C chỉ tự tính trong app: bỏ khỏi thứ tự cột để số liệu mẫu giữ nguyên
-    g.rows.forEach((r, ri) => g.cols.filter(c => !c.r75).forEach((c, ci) => {
+    // hàng theo nấc (t1…t19): số thứ tự theo khóa nấc để số liệu mẫu giữ nguyên khi bảng ẩn nấc 9b, 9c
+    g.rows.forEach((r, ri0) => { const ri = /^t\d+$/.test(r.k) ? Number(r.k.slice(1)) - 1 : ri0; g.cols.filter(c => !c.r75).forEach((c, ci) => {
       if (c.calc || c.auto || (g.skip && g.skip(r.k, c.k))) return;
       const k = `${g.id}.${r.k}.${c.k}`;
       if (r.text || c.text) { v[k] = r.k === 'serial' ? `S-${g.id.split('.')[1]}-${c.k}` : `${r.k}-${c.k}`; return; }
@@ -48,7 +49,7 @@ function fullState(Schema, opts = {}) {
       const b = base(g.id, r.k, c.k);
       if (b === undefined) return;
       v[k] = vn(b * (1 + 0.004 * ri + 0.003 * ci));
-    }));
+    }); });
   });
   Object.assign(v, {
     'meta.serial': 'SN-A', 'meta.reason': opts.reason || 'Sau lắp đặt', 'meta.date': '20/10/2026', 'meta.ambT': '30', 'meta.hum': '70',

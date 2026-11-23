@@ -248,22 +248,24 @@ test('đo cuộn cao áp A-Am (chỉ nối tiếp): dòng CSDL và xu hướng t
   assert.ok(Math.abs(s.fromBase) < 2, `lệch so XX ${s.fromBase} %`);
 });
 
-test('nấc 9b, 9c (bypass khi chuyển nấc): không so với 9A xuất xưởng — ở đánh giá và xu hướng tại ô; nấc 9a vẫn so', () => {
+test('nấc 9b, 9c (bypass khi chuyển nấc): không hiện, không đánh giá, không ghi BBTN; nấc 9a vẫn so với 9A xuất xưởng', () => {
   const ctx = load(CORE);
   const T = ctx.TrendInline;
   const row = (kind, date, tap, v) => ({ session_id: kind + date, kind, test_date: date, item: 'DCR', param: 'R', config: 'HV', phase: 'B', tap, value_cmp: v, cmp_basis: 'norm' });
-  const hist = [row('FAT', '2025-01-01', '9A', 214), row('SAT', '2025-06-01', '9B', 215)];
   const t = tap => ({ item: 'DCR', param: 'R', config: 'HV', phase: 'B', tap, value_cmp: 214, cmp_basis: 'norm' });
-  assert.equal(T.series(hist, t('9A')).base.kind, 'FAT');
-  assert.equal(T.series(hist, t('9B')).base.kind, 'SAT', '9b chỉ so với lần đo 9b trước');
-  assert.equal(T.series(hist, t('9C')), null, '9c không có mốc');
-  // đánh giá: 9a có tham chiếu XX, 9b / 9c không — ghi chú bypass
+  assert.equal(T.series([row('FAT', '2025-01-01', '9A', 214)], t('9A')).base.kind, 'FAT');
+  assert.equal(T.series([row('FAT', '2025-01-01', '9A', 214)], t('9C')), null, 'không ánh xạ 9C → 9A');
   const { state, schema } = F.fullState(ctx.Schema);
+  const hv = schema.sections.find(s => s.id === 'dcr').groups[0].grids[0];
+  assert.deepEqual(hv.rows.map(r => r.tap).filter(x => /^9/.test(x)).join(), '9a');
+  // số cũ còn trong biên bản ở 9b, 9c: không đánh giá, không ghi CSDL
+  Object.assign(state.v, { 'dcr.hv.t10.A': '999', 'dcr.hv.t11.A': '999' });
   const res = ctx.Evaluate.evaluate(state, F.fakeFactory(), schema);
-  const f = tap => res.findings.find(x => x.sec === 'dcr' && /cao áp/.test(x.item) && x.loc.startsWith(`Nấc ${tap} `) && /pha A/.test(x.loc));
-  assert.ok(f('9a').ref, 'nấc 9a so XX');
-  assert.equal(f('9b').ref, ''); assert.match(f('9b').note, /bypass/);
-  assert.equal(f('9c').ref, '');
-  assert.equal(res.calc['dcr.hv.t10.dA'], undefined, 'không có ΔR so XX ở nấc 9b');
-  assert.ok(res.calc['dcr.hv.t10.dP'] !== undefined, 'vẫn tính độ lệch giữa các pha ở nấc 9b');
+  assert.ok(!res.findings.some(x => x.sec === 'dcr' && /Nấc 9[bc]/.test(x.loc || '')));
+  assert.ok(res.findings.some(x => x.sec === 'dcr' && /^Nấc 9a /.test(x.loc || '') && x.ref));
+  const { rows } = ctx.MbaRows.fieldRows(state, res, schema);
+  assert.ok(!rows.some(r => r.item === 'DCR' && /^9[BC]$/.test(r.tap)));
+  // bảng tỷ số biến giữ đủ nấc
+  const ratio = schema.sections.find(s => s.id === 'ratio').groups[0].grids[0];
+  assert.ok(ratio.rows.some(r => r.tap === '9b'));
 });
