@@ -490,6 +490,9 @@
         const phaseFields = grid.cols.filter(c => c.phase).map(c => ({ k: `${tk}${c.k}`, label: `Nhiệt độ đo ${c.label} (°C)`, num: true }));
         fields.splice(at, 0, ...phaseFields);
         const grids = g.grids.map(gr => Object.assign({}, gr, {
+          // nấc trung gian 9b, 9c chạy bypass khi chuyển nấc (vận hành dùng 9a): không nhập, không đánh giá, không ghi BBTN
+          // (giữ chỉ số hàng Word của các nấc còn lại; hàng 9b, 9c của mẫu để trống)
+          rows: gr.rows.filter(r => !/^\d+[bc]$/i.test(String(r.tap || ''))),
           // khóa r75<pha> giữ tên cũ; giá trị là R quy về nhiệt độ quy đổi đang chọn (mặc định 75 °C)
           cols: gr.cols.flatMap(c => (c.phase ? [c, col(`r75${c.k}`, `${c.label} @${T} °C`, undefined, { calc: true, nodoc: true, r75: true })] : [c])),
         }));
