@@ -556,7 +556,7 @@
       return [
         ['fxView', 'Xem số liệu', ''], ['fxEdit', `Sửa giá trị đo${s && s.n_values ? ` (${s.n_values} giá trị)` : ''}…`, can ? '' : 'Tài khoản chỉ xem'],
       ].concat(equipmentItems(ctx, can)).concat([
-        ['fxUse', 'Dùng cho biên bản đang lập', 'Tải file test report gốc từ CSDL'], ['fxDownload', 'Tải file test report', ''],
+        ['fxUse', 'Dùng cho biên bản đang lập', 'Tải file test report gốc từ CSDL; không có file thì dựng lại từ số liệu đã lưu'], ['fxDownload', 'Tải file test report', ''],
         ['fxDelete', 'Xóa số liệu xuất xưởng…', DB.role === 'admin' ? '' : 'Chỉ admin xóa được số liệu đã lưu'],
       ]);
     }
@@ -612,11 +612,29 @@
     refresh('detail');
     const box = $('#fxDetailBox'); if (box) box.scrollIntoView({ block: 'nearest' });
   }
-  async function factoryDoc(sessionId) {
+  async function factoryDoc(sessionId, opts = {}) {
     const docs = await DB.listDocs(sessionId);
     const doc = docs.find(d => d.kind === 'FACTORY_REPORT');
-    if (!doc) throw new Error('Lần nhập này không có file test report gốc trong CSDL');
+    if (!doc) { if (opts.soft) return null; throw new Error('Lần nhập này không có file test report gốc trong CSDL'); }
     return { doc, blob: await DB.downloadDoc(doc.storage_path) };
+  }
+  // Không có file gốc: dựng số liệu xuất xưởng từ các giá trị đã lưu của lần nhập này và các máy cùng lần nhập
+  // (cùng ngày thí nghiệm và số report — một file test report lưu thành một lần thí nghiệm cho từng máy)
+  async function factoryFromDb(sessionId) {
+    const all = data.sessions || [];
+    const cur = all.find(s => s.id === sessionId) || (await DB.loadSession(sessionId));
+    const same = all.filter(s => s.kind === 'FAT' && s.class_code === 'MBA' && s.test_date === cur.test_date && (s.report_no || '') === (cur.report_no || ''));
+    const list = same.some(s => s.id === sessionId) ? same : [cur].concat(same);
+    const sessions = [];
+    for (const s of list) {
+      const rows = await DB.factoryMeasurements(s.id);
+      const main = rows.find(r => r.class_code === 'MBA') || {};
+      sessions.push({ serial: s.serial_no || main.serial_no, testDate: s.test_date, rows });
+    }
+    // máy được chọn đứng đầu
+    sessions.sort((a, b) => (a.serial === (cur.serial_no || '') ? -1 : b.serial === (cur.serial_no || '') ? 1 : 0));
+    const label = `CSDL ${cur.test_date || ''}${cur.report_no ? ` · ${cur.report_no}` : ''} (${sessions.map(x => x.serial).join(', ')})`;
+    return { label, api: Factory.fromRows(sessions, label) };
   }
   function buildConfirm() {
     const d = ui.detail;
@@ -693,7 +711,9 @@
     }
     if (act === 'fxUse' || act === 'fxDownload') {
       await A.track(act === 'fxUse' ? 'Tải test report' : 'Tải file', async () => {
-        const { doc, blob } = await factoryDoc(p.a);
+        const got = await factoryDoc(p.a, { soft: act === 'fxUse' });
+        if (!got) { const { label, api } = await factoryFromDb(p.a); A.addFactoryApi(label, api); return; }
+        const { doc, blob } = got;
         if (act === 'fxDownload') { A.download(blob, doc.file_name); return; }
         A.addFactoryFile(doc.file_name, await blob.arrayBuffer());
       });
