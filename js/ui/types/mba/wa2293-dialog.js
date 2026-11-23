@@ -10,7 +10,7 @@
   const RDC_TARGETS = [['hv', '7.1 Cao áp (theo nấc)'], ['mv', '7.2 Trung áp'], ['lv', '7.3 Hạ áp']];
   const RATIO_TARGETS = [['hm', '8.1 HV : MV (theo nấc)'], ['hl', '8.2 HV : LV (theo nấc)'], ['ml', '8.3 MV : LV']];
   let entries = [];
-  let opt = { mid: 'b', overwrite: true, convT: true };
+  let opt = { mid: 'a', overwrite: true, convT: true };
 
   const base = name => name.replace(/\.[^.]+$/, '').toLowerCase();
 
@@ -117,7 +117,7 @@
         ${opt.convT ? '' : '<p>Không quy đổi: các pha được đánh giá như đo cùng một nhiệt độ — kết quả so sánh lệch pha sẽ sai.</p>'}</div>`;
     }
     h += '<div class="wa-opts">';
-    if (needMid()) h += `<label>Nấc giữa của máy đo (vd 9) ghi vào hàng <select data-wa="mid">${[['a', '9a'], ['b', '9b'], ['c', '9c'], ['all', 'cả 9a, 9b, 9c']].map(([k, t]) => `<option value="${k}" ${k === opt.mid ? 'selected' : ''}>${t}</option>`).join('')}</select></label>`;
+    if (needMid()) h += `<label>Nấc giữa của máy đo (vd 9) — tỷ số biến — ghi vào hàng <select data-wa="mid">${[['a', '9a'], ['b', '9b'], ['c', '9c'], ['all', 'cả 9a, 9b, 9c']].map(([k, t]) => `<option value="${k}" ${k === opt.mid ? 'selected' : ''}>${t}</option>`).join('')}</select></label>`;
     h += `<label class="chk"><input type="checkbox" data-wa="overwrite" ${opt.overwrite ? 'checked' : ''}> Ghi đè ô đã có số liệu</label></div>`;
     h += '<div class="row-actions" style="justify-content:flex-end"><button class="btn" data-wa="cancel">Hủy</button><button class="btn primary" data-wa="apply">Điền vào biểu mẫu</button></div></div>';
     $('#waPanel').innerHTML = h;

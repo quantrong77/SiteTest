@@ -269,3 +269,19 @@ test('nấc 9b, 9c (bypass khi chuyển nấc): không hiện, không đánh gi�
   const ratio = schema.sections.find(s => s.id === 'ratio').groups[0].grids[0];
   assert.ok(ratio.rows.some(r => r.tap === '9b'));
 });
+
+test('nấc 9 từ máy đo ghi vào 9a; số cũ ở hàng 9b / 9c (đã ẩn) chuyển được về 9a khi 9a trống', () => {
+  const ctx = load(CORE);
+  const { Mba2293, Schema } = ctx;
+  const taps = Schema.DEFAULT_TAPS;
+  const g = { rows: [{ tap: '9', r: 0.2064, t: 30, rDec: 4 }, { tap: '10', r: 0.2088, t: 30, rDec: 4 }] };
+  for (const mid of ['a', 'b', 'c', undefined]) {
+    const w = Mba2293.rdcWrites(g, 'hv', 'A', taps, 17, mid);
+    assert.deepEqual(Object.keys(w).sort().join(), 'dcr.hv.t12.A,dcr.hv.t9.A', `mid=${mid}: R một chiều nấc 9 → 9a`);
+  }
+  // biên bản cũ: số ở 9b (A), 9c (B); pha C đã có 9a → không chuyển
+  const v = { 'dcr.hv.t10.A': '206,4', 'dcr.hv.t11.B': '207', 'dcr.hv.t10.C': '1', 'dcr.hv.t9.C': '208', 'dcr.mv.t10.A': '' };
+  const moves = Schema.dcrMidMoves(v, { taps });
+  assert.equal(moves.map(m => `${m.from}>${m.to}`).join(), 'dcr.hv.t10.A>dcr.hv.t9.A,dcr.hv.t11.B>dcr.hv.t9.B');
+  assert.equal(Schema.dcrMidMoves({ 'dcr.hv.t9.A': '1' }, { taps }).length, 0);
+});

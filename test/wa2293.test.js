@@ -101,7 +101,8 @@ test('nấc máy đo → hàng biểu mẫu (19 nhãn có 9a/9b/9c)', () => {
   const taps = Schema.DEFAULT_TAPS;
   same(Mba2293.tapKeys('17', taps, 17), ['t19']);
   same(Mba2293.tapKeys('8', taps, 17), ['t8']);
-  same(Mba2293.tapKeys('9', taps, 17), ['t10']);
+  same(Mba2293.tapKeys('9', taps, 17), ['t9'], 'mặc định nấc 9 → 9a (vận hành), 9b / 9c bypass');
+  same(Mba2293.tapKeys('9', taps, 17, 'b'), ['t10']);
   same(Mba2293.tapKeys('9', taps, 17, 'a'), ['t9']);
   same(Mba2293.tapKeys('9', taps, 17, 'all'), ['t9', 't10', 't11']);
   same(Mba2293.tapKeys('10', taps, 17), ['t12']);
@@ -114,7 +115,8 @@ test('điện trở Ω → mΩ vào đúng ô pha; tỷ số biến; đoán cặ
   const p = Wa2293.parseCsv(csvText({ rdc: TAP_ROWS, ratio: [['HV:17/LV/A-N:a-n', '2.1631'], ['HV:9/LV/A-N:a-n', '2.2387']] }), 'x.csv');
   const [hv, lv] = Mba2293.rdcGroups(p);
   same([hv.winding, hv.target, lv.winding, lv.target], ['HV', 'hv', 'LV', 'mv']);
-  same(Mba2293.rdcWrites(hv, 'hv', 'B', taps, 17, 'b'), { 'dcr.hv.t19.B': '197.53', 'dcr.hv.t10.B': '182.69', 'dcr.hv.t1.B': '197.26' });
+  // R một chiều: nấc giữa luôn 9a (bảng không có 9b, 9c — bypass), kể cả khi chọn 9b cho tỷ số
+  same(Mba2293.rdcWrites(hv, 'hv', 'B', taps, 17, 'b'), { 'dcr.hv.t19.B': '197.53', 'dcr.hv.t9.B': '182.69', 'dcr.hv.t1.B': '197.26' });
   same(Mba2293.rdcWrites(lv, 'lv', 'C', taps, 17, 'b'), { 'dcr.lv.r.C': '59.829' });
   // nhóm "HV" chỉ 61 mΩ giữa các nhóm ~190 mΩ → lệch xa, mặc định không điền
   const odd = Mba2293.rdcGroups(Wa2293.parseCsv(csvText({ rdc: [['HV/17/A-N', '0.061464']] }), 'z.csv'))[0];
