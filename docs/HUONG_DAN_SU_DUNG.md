@@ -134,6 +134,7 @@ Số liệu xuất xưởng (FAT) lưu CSDL là **giá trị khởi đầu** đ�
 1. Cây **Trạm → Ngăn → Thiết bị → Số chế tạo** (cả sứ); ô **Tìm** không cần gõ dấu. Bấm nút trên cây để lọc.
 2. **Nhập test report (.xlsx)…** (thanh công cụ hoặc chuột phải thiết bị) → chọn máy, trạm / ngăn → **Lưu**. File không ghi ngày: nhập tay.
 3. **Chuột phải** một dòng: Xem số liệu · Sửa giá trị đo · Sửa số chế tạo · Gán / đổi trạm – ngăn · Dùng cho biên bản đang lập · Tải file · Xóa (Admin).
+   - **Dùng cho biên bản đang lập**: tải file test report gốc; lần nhập không còn file gốc thì app **dựng lại từ số liệu đã lưu** của các máy cùng lần nhập (cùng ngày, số report) — đủ để so R một chiều, tỷ số HV:MV, MV:LV, cách điện, tgδ, sứ, BCT; thiếu điện áp nấc (tỷ số HV:LV), thông số chịu đựng sứ, tổn hao ngắn mạch. Chỉ dùng trong phiên — tải lại trang thì chọn lại.
 4. Chuột phải **ngăn**: *Khai tổ máy 3 pha* (thay máy một pha có ngày). Chuột phải **máy chính**: *Lịch sử vị trí lắp đặt*. Chuột phải **sứ / OLTC / TI**: *Thay … này*.
 5. **Nhập test report sứ (.xlsx)…**: C1, tgδ sứ xuất xưởng làm giá trị khởi đầu cho xu hướng sứ.
 
