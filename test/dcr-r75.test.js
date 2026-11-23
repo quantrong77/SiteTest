@@ -203,3 +203,23 @@ test('mẫu 3 pha: đề mục "qui đổi về … oC" ghi nhiệt độ quy đ
   ctx.MbaReport.fill(spy, { state, res, schema, assets: {} });
   assert.ok(log.some(([re, text]) => /đổi về/.test(re || '') && text === '60'), JSON.stringify(log.filter(x => /đổi/.test(x[0] || ''))));
 });
+
+test('ΔR giữa các pha: so trên R quy đổi đúng pha, kể cả khi một pha để trống ô R', () => {
+  const ctx = load(CORE);
+  const spread = xs => { const v = xs.filter(Number.isFinite); const avg = v.reduce((a, b) => a + b, 0) / v.length; return (Math.max(...v) - Math.min(...v)) / avg * 100; };
+  const run = extra => {
+    const { state, schema } = F.fullState(ctx.Schema);
+    Object.assign(state.v, { 'dcr.hv.t': '30', 'dcr.hv.t1.A': '200', 'dcr.hv.t1.B': '201', 'dcr.hv.t1.C': '202' }, extra);
+    return num(ctx.Evaluate.evaluate(state, null, schema).calc['dcr.hv.t1.dP']);
+  };
+  // cùng nhiệt độ: như so trên giá trị đo
+  assert.ok(Math.abs(run({}) - spread([200, 201, 202])) < 0.006);
+  // nhiệt độ khác nhau, đủ 3 pha
+  assert.ok(Math.abs(run({ 'dcr.hv.tA': '28', 'dcr.hv.tC': '32' }) - spread([r75(200, 28), r75(201, 30), r75(202, 32)])) < 0.006);
+  // pha B trống: so A với C sau quy đổi
+  assert.ok(Math.abs(run({ 'dcr.hv.tA': '28', 'dcr.hv.tC': '32', 'dcr.hv.t1.B': '' }) - spread([r75(200, 28), r75(202, 32)])) < 0.006);
+  // pha A trống: so B với C sau quy đổi (trước đây lệch vị trí pha → so giá trị đo)
+  assert.ok(Math.abs(run({ 'dcr.hv.tB': '28', 'dcr.hv.tC': '40', 'dcr.hv.t1.A': '' }) - spread([r75(201, 28), r75(202, 40)])) < 0.006);
+  // pha có số đo nhưng thiếu nhiệt độ → so trên giá trị đo (không trộn hai loại)
+  assert.ok(Math.abs(run({ 'dcr.hv.t': '', 'dcr.hv.tA': '28', 'dcr.hv.tB': '30' }) - spread([200, 201, 202])) < 0.006);
+});

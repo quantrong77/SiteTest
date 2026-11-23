@@ -571,11 +571,12 @@
           const t = Schema.dcrTemp(val, G.g, ph, is3P);
           const k = `${G.g}.${row.k}.${ph}`;
           const m = val(k);
+          // R quy về nhiệt độ quy đổi đã chọn (mặc định 75 °C) — hiển thị và ghi BBTN; so XX vẫn ở nhiệt độ của XX.
+          // vals / vals75 luôn cùng vị trí pha A, B, C (ô trống → NaN) để so độ lệch đúng pha
+          const r75 = ok(m) && ok(t) ? QD.convDCR(m, t, dcrRef) : NaN;
           vals.push(m);
-          if (!ok(m)) return;
-          // R quy về nhiệt độ quy đổi đã chọn (mặc định 75 °C) — hiển thị và ghi BBTN; so XX vẫn ở nhiệt độ của XX
-          const r75 = ok(t) ? QD.convDCR(m, t, dcrRef) : NaN;
           vals75.push(r75);
+          if (!ok(m)) return;
           if (ok(r75)) calc[`${G.g}.${row.k}.r75${ph}`] = fmt(r75);
           const s = serialOf(ph);
           const parts = F ? G.winding.map(w => F.dcr(w, row.tap, s, G.byTap ? { byTap: true } : undefined)) : [];
@@ -596,7 +597,7 @@
         // các pha đo ở nhiệt độ khác nhau: so sánh sau khi quy về cùng nhiệt độ quy đổi (QĐ 1901 Điều 31);
         // thiếu nhiệt độ ở pha có số đo thì so trên giá trị đo như trước
         const all75 = vals.every((m, i) => !ok(m) || ok(vals75[i]));
-        const sp = TestItems.spread(all75 ? vals75.map((x, i) => (ok(vals[i]) ? x : NaN)) : vals, L.DCR_DEV);
+        const sp = TestItems.spread(all75 ? vals75 : vals, L.DCR_DEV);
         if (sp) {
           calc[`${G.g}.${row.k}.dP`] = fmt(sp.sp, 2);
           add({ sec: 'dcr', item: `Độ lệch R giữa các pha – ${G.label}`, loc: row.tap ? `Nấc ${row.tap}` : '', meas: `${fmt(sp.sp, 2)} %`,
