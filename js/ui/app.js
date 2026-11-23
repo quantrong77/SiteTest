@@ -674,6 +674,16 @@
     if (!quiet) toast(`Đã thêm ${name}: ${D.order.length} máy (${D.order.join(', ')})${D.warnings.length ? ' — có cảnh báo, xem mục 0' : ''}`, D.warnings.length > 0);
     return entry;
   }
+  // Số liệu xuất xưởng dựng lại từ CSDL (không có file gốc): chỉ dùng trong phiên, không lưu vào máy
+  function addFactoryApi(name, api) {
+    if (!api.data.order.length) throw new Error('không có máy nào trong số liệu xuất xưởng');
+    const entry = { name, api, emb: false, db: true };
+    FXS = FXS.filter(x => x.name !== name).concat([entry]);
+    setFactory(entry, true);
+    recompute(); renderNav(); renderMain(); persist();
+    toast(`Dùng số liệu xuất xưởng từ CSDL: ${api.data.order.join(', ')} — không có file gốc nên thiếu điện áp nấc (tỷ số HV:LV), thông số sứ, tổn hao ngắn mạch`);
+    return entry;
+  }
   // Bỏ một file xuất xưởng khỏi danh sách trên máy (file nhúng sẵn quay lại khi tải lại trang)
   function removeFactory(name) {
     lsSet(LS_FACS, JSON.stringify(factoryFiles().filter(x => x.name !== name)));
@@ -1363,7 +1373,7 @@
   // API cho các trang khác (js/ui/*.js) và phần giao diện riêng của loại thiết bị (TypeUI)
   const App = window.App = {
     get state() { return state; }, get res() { return res; }, get schema() { return schema; }, get FX() { return FX; }, get type() { return T(); }, EMB,
-    get factories() { return FXS; }, addFactoryFile, factoryFileB64, factoryBlob, pickXlsx, removeFactory, localFactoryHTML,
+    get factories() { return FXS; }, addFactoryFile, addFactoryApi, factoryFileB64, factoryBlob, pickXlsx, removeFactory, localFactoryHTML,
     applyTemplate, applyHeadFills, setupGo, pickFactory: quiet => pickFactory(quiet),
     useFactory(name) { const e = FXS.find(x => x.name === name); if (e) { setFactory(e); recompute(); renderNav(); renderMain(); persist(); } return e; },
     exportDocx, exportXlsx, toast, esc, download, safeName, persist, recompute, renderMain, fieldHTML, cfgField, readFile, lsGet, lsSet, abToB64, track,

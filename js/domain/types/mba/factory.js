@@ -422,7 +422,102 @@
     };
   }
 
+  // Dựng lại số liệu xuất xưởng từ các dòng đo đã lưu CSDL (lần nhập test report không còn file .xlsx gốc).
+  // Ngược với MbaRows.factorySessions: DCR SER/COM/LV theo nấc (Ω), tỷ số HV/MV theo nấc + MV/LV (Kđm = K/(1+sai số)),
+  // cách điện / tgδ cuộn dây, sứ (thiết bị con SU), biến dòng chân sứ, P0, độ ẩm, nhiệt độ đo.
+  // Không có trong CSDL: điện áp nấc (hvKV, mvKV, lvKV — tỷ số HV:LV không so được), thông số chịu đựng sứ, bảng tổn hao ngắn mạch.
+  // sessions: [{ serial, phase, testDate, rows: [{ serial_no, item, param, config, phase, tap, value, value_text, temp_c, value_norm, norm_temp_c }] }]
+  function fromRows(sessions, label) {
+    const F = {
+      fileName: label || 'CSDL', units: {}, machines: {}, order: [], overview: [], specs: {}, ratio: { taps: [], mvlv: null, polarity: {} },
+      dcr: { rows: [], refT: 75 }, ins: {}, bushings: [], bushingCriteria: {}, bushingSpecs: [], conditions: {}, bct: [],
+      losses: [], warnings: [], sheets: [], reportDate: null, fromDb: true,
+    };
+    const fin = x => typeof x === 'number' && Number.isFinite(x);
+    const n = x => (x === null || x === undefined || x === '' ? NaN : Number(x));
+    const dcrRow = new Map(), tapRow = new Map();
+    const IRP = { R60: 'r60', KHT: 'kht', PI: 'pi' }, WTP = { C: 'c', TGD: 'tgd' };
+    const setIns = (cfgK, p, s, v) => { const g = F.ins[cfgK] = F.ins[cfgK] || {}; (g[p] = g[p] || {})[s] = v; };
+    (sessions || []).forEach((S, i) => {
+      const s = String(S.serial || '').trim();
+      if (!s || F.units[s]) return;
+      const main = (S.rows || []).filter(r => !r.serial_no || r.serial_no === s);
+      const phase = S.phase || (main.find(r => /^[ABC]$/.test(r.phase || '')) || {}).phase || '';
+      const c = F.conditions[s] = {};
+      const p0 = main.find(r => r.item === 'NOLOAD' && r.param === 'P0');
+      F.units[s] = { serial: s, machine: i + 1, phase, noLoadLoss: p0 ? n(p0.value) : null };
+      F.order.push(s);
+      if (!F.reportDate && S.testDate) F.reportDate = S.testDate;
+      if (p0 && fin(n(p0.temp_c))) c.noload = n(p0.temp_c);
+      main.forEach(r => {
+        const v = n(r.value), t = n(r.temp_c);
+        if (r.item === 'MOISTURE' && r.param === 'WC') { if (fin(v)) c.moisture = v; if (fin(t)) c.dfr = t; }
+        else if (r.item === 'VECTOR' && r.param === 'RESULT') F.specs.vector = F.specs.vector || r.value_text || undefined;
+        else if (r.item === 'DCR' && r.param === 'R' && ['SER', 'COM', 'LV'].includes(r.config)) {
+          // cấu hình HV (= SER+COM), MV (= COM) chỉ là dòng tổng hợp khi lưu — bỏ qua
+          const tap = String(r.tap || '').toUpperCase(), key = `${r.config}|${tap}`;
+          if (!dcrRow.has(key)) {
+            const row = { winding: r.config, tap, label: `Cuộn ${r.config}${tap ? ` - Tap ${tap}` : ''}`, meas: {}, r75: {} };
+            dcrRow.set(key, row); F.dcr.rows.push(row);
+          }
+          const row = dcrRow.get(key);
+          if (fin(v)) row.meas[s] = v / 1000;
+          if (fin(n(r.value_norm))) row.r75[s] = n(r.value_norm) / 1000;
+          if (fin(n(r.norm_temp_c))) F.dcr.refT = n(r.norm_temp_c);
+          if (fin(t)) c.dcr = t;
+        } else if (r.item === 'RATIO' && (r.param === 'ERR' || r.param === 'K')) {
+          if (fin(t)) c.ratio = t;
+          if (r.config === 'MV/LV') {
+            const m = F.ratio.mvlv = F.ratio.mvlv || { nominal: null, err: {}, k: {} };
+            if (fin(v)) m[r.param === 'ERR' ? 'err' : 'k'][s] = v;
+          } else if (r.config === 'HV/MV') {
+            const tk = String(r.tap || '').toUpperCase();
+            if (!tapRow.has(tk)) { const row = { tap: tk, hvKV: null, mvKV: null, nominal: null, err: {}, k: {} }; tapRow.set(tk, row); F.ratio.taps.push(row); }
+            if (fin(v)) tapRow.get(tk)[r.param === 'ERR' ? 'err' : 'k'][s] = v;
+          }
+        } else if (r.item === 'IR' && IRP[r.param]) {
+          setIns(r.config, IRP[r.param], s, v);
+          if (fin(t)) c.ins = t;
+        } else if (r.item === 'WTGD' && WTP[r.param]) {
+          setIns(r.config, WTP[r.param], s, v);
+          if (fin(t) && c.ins === undefined) c.ins = t;
+        } else if ((r.item === 'BCT_RATIO' || r.item === 'BCT_DCR') && r.config) {
+          const [side, ...rest] = String(r.config).split('/');
+          const termLabel = rest.join('/'), terminal = norm(termLabel), ph = r.phase || phase;
+          let b = F.bct.find(x => x.mba === s && x.terminal === terminal && x.phase === ph);
+          if (!b) { b = { mba: s, position: side, ct: '', terminal, terminalLabel: termLabel, ratioText: '', ratio: null, r75: null, err: null, polarity: '', phase: ph }; F.bct.push(b); }
+          if (r.item === 'BCT_RATIO' && r.param === 'ERR' && fin(v)) b.err = v;
+          if (r.item === 'BCT_RATIO' && r.param === 'RATIO' && fin(v)) b.k = v;
+          if (r.item === 'BCT_DCR' && fin(n(r.value_norm))) b.r75 = n(r.value_norm);
+        }
+      });
+      // sứ: thiết bị con (SU) trong cùng lần nhập
+      const bs = new Map();
+      (S.rows || []).filter(r => r.item === 'BUSHING' && r.serial_no && r.serial_no !== s).forEach(r => {
+        if (!bs.has(r.serial_no)) bs.set(r.serial_no, { mba: s, terminal: r.config || '', terminalLabel: r.config || '', serial: r.serial_no, c1np: null, tdnp: null, c1: null, td: null, t: null });
+        const b = bs.get(r.serial_no), v = n(r.value), t = n(r.temp_c);
+        if (r.param === 'C1' && fin(v)) b.c1 = v;
+        if (r.param === 'TGD1' && fin(v)) b.td = v;
+        if ((r.param === 'C1' || r.param === 'TGD1') && fin(t)) b.t = t;
+        if (r.param === 'C1_NP' && fin(v)) b.c1np = v;
+        if (r.param === 'TGD1_NP' && fin(v)) b.tdnp = v;
+      });
+      F.bushings.push(...bs.values());
+    });
+    // tỷ số định mức = K/(1 + sai số)
+    const nominalOf = (k, err) => {
+      const s = Object.keys(k || {}).find(x => Number.isFinite(k[x]) && Number.isFinite(err[x]));
+      return s ? +(k[s] / (1 + err[s] / 100)).toFixed(5) : null;
+    };
+    F.ratio.taps.forEach(t => { t.nominal = nominalOf(t.k, t.err); });
+    if (F.ratio.mvlv) F.ratio.mvlv.nominal = nominalOf(F.ratio.mvlv.k, F.ratio.mvlv.err);
+    F.bct.forEach(b => { if (Number.isFinite(b.k) && Number.isFinite(b.err)) b.ratio = +(b.k / (1 + b.err / 100)).toFixed(4); });
+    if (F.order.length) F.warnings.push('Số liệu dựng lại từ CSDL (không có file test report gốc): thiếu điện áp các nấc (không so được tỷ số HV:LV), thông số chịu đựng sứ, bảng tổn hao ngắn mạch.');
+    return api(F);
+  }
+
   window.Factory = {
+    fromRows,
     fromArrayBuffer(buf, fileName) { return api(parse(XLSX.read(buf, { type: 'array' }), fileName)); },
     fromBase64(b64, fileName) { return api(parse(XLSX.read(b64, { type: 'base64' }), fileName)); },
     norm, num, cfgKey,

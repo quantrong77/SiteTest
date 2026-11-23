@@ -114,3 +114,47 @@ test('test report sứ → lần FAT của từng sứ: chỉ sứ đã có tron
   assert.ok(Math.abs(packs[0].rows.find(r => r.param === 'TGD1').value_norm - f.tgd1) < 1e-6);
   H.clear();
 });
+
+test('dựng lại số liệu xuất xưởng từ CSDL (không có file gốc): khớp số liệu đọc từ file', () => {
+  const ctx = load(CORE);
+  const FX = ctx.Factory.fromBase64(perPhaseBook(ctx), 'may2.xlsx');
+  // lưu CSDL như khi nhập test report: mỗi máy một lần thí nghiệm, dòng của máy chính và các sứ (thiết bị con)
+  const sessions = ctx.MbaRows.factorySessions(FX).map(S => {
+    const serialOf = new Map(S.refs.map(r => [r.key, r]));
+    return { serial: S.serial, testDate: '2026-01-02',
+      rows: S.rows.map(r => Object.assign({}, r, { serial_no: serialOf.get(r.eq).serial_no, class_code: serialOf.get(r.eq).class_code })) };
+  });
+  const DB = ctx.Factory.fromRows(sessions, 'CSDL');
+  same(DB.data.order, ['X-001', 'X-002', 'X-003']);
+  for (const s of DB.data.order) {
+    assert.equal(DB.unit(s).phase, FX.unit(s).phase);
+    assert.equal(DB.unit(s).noLoadLoss, FX.unit(s).noLoadLoss);
+    for (const [w, tap] of [['SER', '9b'], ['COM', ''], ['SER', '9A']]) {
+      const a = FX.dcr(w, tap, s), b = DB.dcr(w, tap, s);
+      assert.ok(a && b, `R ${w} ${tap} ${s}`);
+      assert.ok(Math.abs(a.r75 - b.r75) < 1e-9 && Math.abs(a.meas - b.meas) < 1e-9, `R ${w} ${tap} ${s}: ${a.r75} / ${b.r75}`);
+      assert.equal(b.refT, a.refT);
+    }
+    assert.equal(DB.ratioTap('9b').err[s], FX.ratioTap('9b').err[s]);
+    assert.ok(Math.abs(DB.ratioTap('9b').nominal - FX.ratioTap('9b').nominal) < 1e-4);
+    assert.equal(DB.data.ratio.mvlv.err[s], FX.data.ratio.mvlv.err[s]);
+    assert.ok(Math.abs(DB.data.ratio.mvlv.nominal - FX.data.ratio.mvlv.nominal) < 1e-4);
+    Object.keys(FX.data.ins).forEach(cfg => ['r60', 'kht', 'tgd', 'c'].forEach(p => {
+      if (FX.ins(cfg, p, s) !== null) assert.equal(DB.ins(cfg, p, s), FX.ins(cfg, p, s), `${cfg} ${p} ${s}`);
+    }));
+  }
+  // sứ theo số chế tạo, biến dòng chân sứ
+  const su = FX.data.bushings[0], b2 = DB.bushingBySerial(su.serial);
+  assert.ok(b2 && b2.mba === su.mba && b2.c1 === su.c1 && b2.td === su.td && b2.t === su.t && b2.c1np === su.c1np);
+  const ct = FX.data.bct[0], c2 = DB.bct(ct.mba, ct.terminalLabel);
+  assert.ok(c2 && c2.err === ct.err && c2.r75 === ct.r75 && Math.abs(c2.ratio - ct.ratio) < 1e-3);
+  assert.match(DB.data.warnings.join(' '), /không có file test report gốc/);
+  // dùng được cho đánh giá: so R một chiều với XX như file gốc
+  const F2 = require('./mba-fixture');
+  const { state, schema } = F2.fullState(ctx.Schema);
+  state.cfg.ps = { A: 'X-001', B: 'X-002', C: 'X-003' }; state.v['meta.serial'] = 'X-001';
+  const pick = res => res.findings.filter(f => f.sec === 'dcr' && f.ref).map(f => [f.loc, f.ref, f.dev]);
+  const fromDb = pick(ctx.Evaluate.evaluate(state, DB, schema));
+  assert.ok(fromDb.length > 0);
+  assert.equal(JSON.stringify(fromDb), JSON.stringify(pick(ctx.Evaluate.evaluate(state, FX, schema))));
+});

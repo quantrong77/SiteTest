@@ -203,3 +203,66 @@ test('mẫu 3 pha: đề mục "qui đổi về … oC" ghi nhiệt độ quy đ
   ctx.MbaReport.fill(spy, { state, res, schema, assets: {} });
   assert.ok(log.some(([re, text]) => /đổi về/.test(re || '') && text === '60'), JSON.stringify(log.filter(x => /đổi/.test(x[0] || ''))));
 });
+
+test('ΔR giữa các pha: so trên R quy đổi đúng pha, kể cả khi một pha để trống ô R', () => {
+  const ctx = load(CORE);
+  const spread = xs => { const v = xs.filter(Number.isFinite); const avg = v.reduce((a, b) => a + b, 0) / v.length; return (Math.max(...v) - Math.min(...v)) / avg * 100; };
+  const run = extra => {
+    const { state, schema } = F.fullState(ctx.Schema);
+    Object.assign(state.v, { 'dcr.hv.t': '30', 'dcr.hv.t1.A': '200', 'dcr.hv.t1.B': '201', 'dcr.hv.t1.C': '202' }, extra);
+    return num(ctx.Evaluate.evaluate(state, null, schema).calc['dcr.hv.t1.dP']);
+  };
+  // cùng nhiệt độ: như so trên giá trị đo
+  assert.ok(Math.abs(run({}) - spread([200, 201, 202])) < 0.006);
+  // nhiệt độ khác nhau, đủ 3 pha
+  assert.ok(Math.abs(run({ 'dcr.hv.tA': '28', 'dcr.hv.tC': '32' }) - spread([r75(200, 28), r75(201, 30), r75(202, 32)])) < 0.006);
+  // pha B trống: so A với C sau quy đổi
+  assert.ok(Math.abs(run({ 'dcr.hv.tA': '28', 'dcr.hv.tC': '32', 'dcr.hv.t1.B': '' }) - spread([r75(200, 28), r75(202, 32)])) < 0.006);
+  // pha A trống: so B với C sau quy đổi (trước đây lệch vị trí pha → so giá trị đo)
+  assert.ok(Math.abs(run({ 'dcr.hv.tB': '28', 'dcr.hv.tC': '40', 'dcr.hv.t1.A': '' }) - spread([r75(201, 28), r75(202, 40)])) < 0.006);
+  // pha có số đo nhưng thiếu nhiệt độ → so trên giá trị đo (không trộn hai loại)
+  assert.ok(Math.abs(run({ 'dcr.hv.t': '', 'dcr.hv.tA': '28', 'dcr.hv.tB': '30' }) - spread([200, 201, 202])) < 0.006);
+});
+
+test('đo cuộn cao áp A-Am (chỉ nối tiếp): dòng CSDL và xu hướng tại ô so với SER của xuất xưởng, không phải SER + COM', () => {
+  const ctx = load(CORE);
+  const { state, schema } = F.fullState(ctx.Schema);
+  const hvRows = st => ctx.MbaRows.fieldRows(st, ctx.Evaluate.evaluate(st, null, schema), schema, { withKey: true }).rows.filter(r => r.item === 'DCR' && r.key && r.key.startsWith('dcr.hv.'));
+  const r0 = hvRows(state);
+  assert.ok(r0.length && r0.every(r => r.config === 'HV'), 'đo A-N → HV');
+  state.cfg.hvMeas = 'SER';
+  const s2 = ctx.Schema.build(state.cfg);
+  Object.assign(state.v, { 'dcr.hv.t': '24', 'dcr.hv.t1.B': '131,95' });
+  const pack = ctx.MbaRows.fieldRows(state, ctx.Evaluate.evaluate(state, null, s2), s2, { withKey: true });
+  const rows = pack.rows.filter(r => r.item === 'DCR' && r.key && r.key.startsWith('dcr.hv.'));
+  assert.ok(rows.length && rows.every(r => r.config === 'SER'), 'đo A-Am → SER');
+  assert.ok(pack.rows.filter(r => r.item === 'DCR' && r.key && /^dcr\.(mv|lv)\./.test(r.key)).every(r => r.config !== 'SER'));
+  // xu hướng tại ô: lịch sử xuất xưởng có cả SER (nối tiếp) và HV (= SER + COM) — ô B-Bm nấc 1 lấy SER
+  const b1 = rows.find(r => r.key === 'dcr.hv.t1.B');
+  const hist = [
+    { session_id: 'x', kind: 'FAT', test_date: '2025-01-01', item: 'DCR', param: 'R', config: 'SER', phase: 'B', tap: b1.tap, value_cmp: 159.9, cmp_basis: 'norm' },
+    { session_id: 'x', kind: 'FAT', test_date: '2025-01-01', item: 'DCR', param: 'R', config: 'HV', phase: 'B', tap: b1.tap, value_cmp: 230.0, cmp_basis: 'norm' },
+  ];
+  const s = ctx.TrendInline.series(hist, { item: 'DCR', param: 'R', config: b1.config, phase: 'B', tap: b1.tap, value_cmp: b1.value_norm, cmp_basis: 'norm' });
+  assert.equal(s.base.config, 'SER');
+  assert.ok(Math.abs(s.fromBase) < 2, `lệch so XX ${s.fromBase} %`);
+});
+
+test('xu hướng tại ô: nấc 9b, 9c so với nấc 9A của xuất xưởng; lần đo hiện trường trước vẫn so đúng nấc', () => {
+  const ctx = load(CORE);
+  const T = ctx.TrendInline;
+  const row = (kind, date, tap, v) => ({ session_id: kind + date, kind, test_date: date, item: 'DCR', param: 'R', config: 'HV', phase: 'B', tap, value_cmp: v, cmp_basis: 'norm' });
+  const hist = [row('FAT', '2025-01-01', '9A', 214), row('FAT', '2025-01-01', '10', 216), row('SAT', '2025-06-01', '9B', 215)];
+  const t = tap => ({ item: 'DCR', param: 'R', config: 'HV', phase: 'B', tap, value_cmp: 214, cmp_basis: 'norm' });
+  for (const tap of ['9A', '9B', '9C']) {
+    const s = T.series(hist, t(tap));
+    assert.ok(s && s.base.kind === 'FAT' && s.base.tap === '9A', `nấc ${tap} → mốc XX 9A`);
+    assert.equal(s.fromBase, 0);
+  }
+  // 9B: lần trước là SAT 9B (đúng nấc), không lấy SAT của nấc khác
+  assert.equal(T.series(hist, t('9B')).previous.tap, '9B');
+  assert.equal(T.series(hist, t('9C')).previous.tap, '9A');
+  // nấc khác không bị gán nhầm
+  assert.equal(T.series(hist, t('10')).base.tap, '10');
+  assert.equal(T.series(hist, t('11')), null);
+});
