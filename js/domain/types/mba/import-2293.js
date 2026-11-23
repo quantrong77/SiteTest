@@ -5,8 +5,8 @@
   const ok = Number.isFinite;
 
   // Nấc của máy đo → khóa hàng lưới theo nấc (t1..t19). Máy khai cùng số nấc với biểu mẫu thì theo thứ tự;
-  // khác thì theo nhãn: nấc 9 ↔ "9" hoặc 9a/9b/9c (mid: 'a' | 'b' | 'c' | 'all').
-  function tapKeys(devTap, taps, nDevTaps, mid = 'b') {
+  // khác thì theo nhãn: nấc 9 ↔ "9" hoặc 9a/9b/9c (mid: 'a' | 'b' | 'c' | 'all'); mặc định 9a — vận hành dùng 9a, 9b / 9c bypass.
+  function tapKeys(devTap, taps, nDevTaps, mid = 'a') {
     const n = parseInt(devTap, 10);
     if (!ok(n)) return [];
     if (nDevTaps && nDevTaps === taps.length) return n >= 1 && n <= taps.length ? [`t${n}`] : [];
@@ -52,7 +52,9 @@
     const out = {};
     const val = r => toMilli(ok(toT) ? atTemp(r.r, r.t, toT) : r.r, r.rDec);
     if (target === 'hv') {
-      group.rows.forEach(r => tapKeys(r.tap, taps, nDevTaps, mid).forEach(k => { out[`dcr.hv.${k}.${phase}`] = val(r); }));
+      // bảng R một chiều không có hàng 9b, 9c (bypass) → nấc giữa của máy đo luôn ghi vào 9a
+      const midR = mid === 'all' ? 'all' : 'a';
+      group.rows.forEach(r => tapKeys(r.tap, taps, nDevTaps, midR).forEach(k => { out[`dcr.hv.${k}.${phase}`] = val(r); }));
     } else {
       const r = group.rows[group.rows.length - 1];
       if (r) out[`dcr.${target}.r.${phase}`] = val(r);

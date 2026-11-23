@@ -502,6 +502,26 @@
     return Object.assign({}, schema, { sections });
   }
 
+  // Biên bản nhập trước khi ẩn nấc 9b, 9c (vd file máy đo ghi nấc 9 vào 9b): các ô R một chiều có số ở hàng 9b / 9c
+  // mà hàng 9a cùng cột trống → [{ from, to }] để chuyển về 9a (ưu tiên 9b rồi 9c)
+  function dcrMidMoves(v, cfg) {
+    const taps = (cfg && cfg.taps && cfg.taps.length === 19 ? cfg.taps : DEFAULT_TAPS).map(t => String(t).toLowerCase());
+    const has = k => String(v[k] ?? '').trim() !== '';
+    const out = [];
+    taps.forEach((t, i) => {
+      const m = t.match(/^(\d+)a$/);
+      if (!m) return;
+      const subs = ['b', 'c'].map(x => taps.indexOf(m[1] + x)).filter(j => j >= 0);
+      ['dcr.hv', 'dcr.mv'].forEach(g => ['A', 'B', 'C'].forEach(ph => {
+        const to = `${g}.t${i + 1}.${ph}`;
+        if (has(to)) return;
+        const j = subs.find(x => has(`${g}.t${x + 1}.${ph}`));
+        if (j !== undefined) out.push({ from: `${g}.t${j + 1}.${ph}`, to });
+      }));
+    });
+    return out;
+  }
+
   function build(cfg) {
     return withDcr75(buildRaw(cfg), cfg);
   }
@@ -844,5 +864,5 @@
   // Duyệt biểu mẫu: hàm chung ở js/domain/common.js (trường đầu/cuối biên bản lấy từ schema.head/tail)
   const { eachGrid, eachField } = Common;
 
-  window.Schema = { dcrTemp, dcrRefOf, HV_MEAS, OLTC_WINDINGS, BASELINE_RESETS, ATT_SECTIONS, REASONS, LAYOUT_3P, LAYOUT_110, MAP_110, TAPS_19, layoutOf, TAPS_17, build, eachGrid, eachField, META, CLOSING, SUMMARY_ROWS, DEFAULT_TAPS, BCT_SIDES, BCT_TABLES };
+  window.Schema = { dcrTemp, dcrRefOf, dcrMidMoves, HV_MEAS, OLTC_WINDINGS, BASELINE_RESETS, ATT_SECTIONS, REASONS, LAYOUT_3P, LAYOUT_110, MAP_110, TAPS_19, layoutOf, TAPS_17, build, eachGrid, eachField, META, CLOSING, SUMMARY_ROWS, DEFAULT_TAPS, BCT_SIDES, BCT_TABLES };
 })();
