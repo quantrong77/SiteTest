@@ -247,3 +247,22 @@ test('đo cuộn cao áp A-Am (chỉ nối tiếp): dòng CSDL và xu hướng t
   assert.equal(s.base.config, 'SER');
   assert.ok(Math.abs(s.fromBase) < 2, `lệch so XX ${s.fromBase} %`);
 });
+
+test('xu hướng tại ô: nấc 9b, 9c so với nấc 9A của xuất xưởng; lần đo hiện trường trước vẫn so đúng nấc', () => {
+  const ctx = load(CORE);
+  const T = ctx.TrendInline;
+  const row = (kind, date, tap, v) => ({ session_id: kind + date, kind, test_date: date, item: 'DCR', param: 'R', config: 'HV', phase: 'B', tap, value_cmp: v, cmp_basis: 'norm' });
+  const hist = [row('FAT', '2025-01-01', '9A', 214), row('FAT', '2025-01-01', '10', 216), row('SAT', '2025-06-01', '9B', 215)];
+  const t = tap => ({ item: 'DCR', param: 'R', config: 'HV', phase: 'B', tap, value_cmp: 214, cmp_basis: 'norm' });
+  for (const tap of ['9A', '9B', '9C']) {
+    const s = T.series(hist, t(tap));
+    assert.ok(s && s.base.kind === 'FAT' && s.base.tap === '9A', `nấc ${tap} → mốc XX 9A`);
+    assert.equal(s.fromBase, 0);
+  }
+  // 9B: lần trước là SAT 9B (đúng nấc), không lấy SAT của nấc khác
+  assert.equal(T.series(hist, t('9B')).previous.tap, '9B');
+  assert.equal(T.series(hist, t('9C')).previous.tap, '9A');
+  // nấc khác không bị gán nhầm
+  assert.equal(T.series(hist, t('10')).base.tap, '10');
+  assert.equal(T.series(hist, t('11')), null);
+});
