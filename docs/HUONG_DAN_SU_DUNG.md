@@ -221,6 +221,7 @@ Mỗi hạng mục có đủ 4 bước; phần dưới chỉ ghi điều riêng.
 - Độ lệch giữa các pha ΔR(A,B,C) tính trên giá trị đã quy về 75 °C.
 - Nhập BBTN cũ (NB): số trong bảng được hiểu là R đã quy đổi về nhiệt độ ghi trên biên bản (“quy đổi về … oC”, không ghi → 75 °C); app lấy lại nhiệt độ quy đổi đó và đổi về giá trị đo theo nhiệt độ đo; không có nhiệt độ đo thì coi là giá trị quy đổi và cảnh báo.
 - App tính ΔR giữa pha, so xuất xưởng (≤ 2 %).
+- Nấc trung gian **9b, 9c** chạy bypass khi chuyển nấc (vận hành dùng 9a) nên không có trong bảng R một chiều; nấc 9a so với nấc 9A xuất xưởng. Hàng 9b, 9c trong BBTN để trống.
 - **Nhập file Haefely 2293…** (CSV / BIN): chọn pha, nấc, có quy đổi nhiệt độ hay không.
 - **BBTN riêng máy pha A / B / C**: **Bổ sung số liệu pha … từ CSDL** lấy lần đo **cùng đợt** (≤ 30 ngày, sửa được) của 2 máy còn lại để so giữa các pha; ô bổ sung không ghi vào lần thí nghiệm này.
 

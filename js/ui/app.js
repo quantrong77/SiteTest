@@ -654,6 +654,8 @@
         + `<td class="row-actions">${x.api === FX ? '' : `<button class="btn small" data-act="useFx" data-name="${esc(x.name)}">Dùng file này</button>`}${x.emb ? '' : `<button class="btn small danger" data-act="delFx" data-name="${esc(x.name)}">Bỏ</button>`}</td></tr>`; }).join('')
       + '</tbody></table></div>';
     h += TU().factoryUnits ? TU().factoryUnits(App) : '';
+    // số liệu dựng lại từ CSDL (không có file gốc): không có sheet để xem
+    if (!sh || !sh.length) return h + `<p class="muted">Số liệu xuất xưởng đang dùng (${esc(FX.data.fileName)}) dựng lại từ CSDL — không có file .xlsx gốc để xem sheet.</p>`;
     h += `<h4>Xem sheet của file đang dùng: ${esc(FX.data.fileName)}</h4>`;
     h += '<div class="tabs">' + sh.map((s, i) => `<button data-ftab="${i}" class="${i === factoryTab ? 'on' : ''}">${esc(s.name)}</button>`).join('') + '</div>';
     const rows = (sh[factoryTab] || sh[0]).rows;
@@ -1065,8 +1067,14 @@
       else if (act && TU().actions && TU().actions[act]) await track(b.textContent.trim() || act, () => TU().actions[act](b, App));
     } catch (err) {
       console.error(err);
-      toast('Lỗi: ' + err.message, true);
+      toast('Lỗi: ' + err.message + errWhere(err), true);
     }
+  }
+  // Lỗi lập trình (TypeError…): kèm vị trí trong code (tệp:dòng, hàm) để báo lại — lỗi nghiệp vụ (Error) giữ nguyên câu chữ
+  function errWhere(err) {
+    if (!err || !err.stack || !(err instanceof TypeError || err instanceof ReferenceError || err instanceof RangeError)) return '';
+    const m = String(err.stack).split(/\r?\n/).map(l => l.match(/at (?:(\S+) \()?.*?\/(js\/[\w\/.-]+\.js):(\d+)/)).find(Boolean);
+    return m ? ` [${m[2]}:${m[3]}${m[1] ? ' ' + m[1] : ''}]` : '';
   }
 
   // ---------------------------------------------------------------- biên bản mới: chọn loại thiết bị

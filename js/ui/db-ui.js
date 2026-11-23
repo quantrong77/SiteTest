@@ -295,6 +295,7 @@
         if (!T.eqId) T.eqId = main ? main.id : ((T.equipment.find(e => !e.parent_id) || {}).id || '');
         const sel = $('#trEq'); if (sel) sel.innerHTML = eqOptions();
       }
+      if (!$('#trEq')) return; // đã chuyển trang trong lúc tải danh sách thiết bị
       $('#trEq').onchange = e => { T.eqId = e.target.value; loadTrend(); };
       $('#trKids').onchange = e => { T.withChildren = e.target.checked; loadTrend(); };
       $('#trSeries').onchange = e => { T.series = e.target.value; refreshTrend(); };

@@ -579,7 +579,9 @@
           if (!ok(m)) return;
           if (ok(r75)) calc[`${G.g}.${row.k}.r75${ph}`] = fmt(r75);
           const s = serialOf(ph);
-          const parts = F ? G.winding.map(w => F.dcr(w, row.tap, s, G.byTap ? { byTap: true } : undefined)) : [];
+          // nấc trung gian 9b, 9c: chạy bypass khi chuyển nấc, vận hành chỉ dùng 9a — chỉ 9a so với nấc 9A xuất xưởng
+          const bypass = /^\d+[BC]$/i.test(String(row.tap || ''));
+          const parts = F && !bypass ? G.winding.map(w => F.dcr(w, row.tap, s, G.byTap ? { byTap: true } : undefined)) : [];
           const okRef = parts.length && parts.every(Boolean);
           let ref = okRef ? parts.reduce((a, b) => a + b.r75, 0) * 1000 : NaN; // Ω → mΩ
           if (okRef && G.delta) ref *= 2 / 3;
@@ -592,7 +594,8 @@
             meas: `${fmt(m)} mΩ @${ok(t) ? fmt(t, 1) : '?'} °C`, conv: ok(m75) ? `${fmt(m75)} mΩ @${refT} °C` : '',
             ref: okRef ? `${fmt(ref)} mΩ @${refT} °C (XX ${G.winding.join('+')}${G.delta ? ' ×2/3' : ''})` : '', dev: sgn(d),
             limit: `±${L.DCR_DEV}% so với NSX cùng nhiệt độ`, status: rd.status,
-            basis: R.dcr, note: !ok(t) ? 'Thiếu nhiệt độ đo' : okRef ? 'R75 = R·(235+75)/(235+t)' : 'Không có số liệu XX tương ứng', keys: [k] });
+            basis: R.dcr, note: !ok(t) ? 'Thiếu nhiệt độ đo' : okRef ? 'R75 = R·(235+75)/(235+t)'
+              : bypass ? `Nấc ${row.tap} chạy bypass khi chuyển nấc (vận hành dùng ${String(row.tap).replace(/[BC]$/i, 'a')}) — không so với XX` : 'Không có số liệu XX tương ứng', keys: [k] });
         });
         // các pha đo ở nhiệt độ khác nhau: so sánh sau khi quy về cùng nhiệt độ quy đổi (QĐ 1901 Điều 31);
         // thiếu nhiệt độ ở pha có số đo thì so trên giá trị đo như trước
