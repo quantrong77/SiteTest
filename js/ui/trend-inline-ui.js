@@ -48,7 +48,8 @@
     if (pack) pack.rows.forEach(r => {
       if (!r.key) return;
       const norm = Number.isFinite(r.value_norm) ? r.value_norm : null;
-      out.set(r.key, norm !== null ? { value_cmp: norm, cmp_basis: 'norm' } : { value_cmp: r.value, cmp_basis: 'raw' });
+      out.set(r.key, Object.assign(norm !== null ? { value_cmp: norm, cmp_basis: 'norm' } : { value_cmp: r.value, cmp_basis: 'raw' },
+        { value: r.value, temp_c: r.temp_c, unit: r.unit, norm_temp_c: r.norm_temp_c }));
     });
     return out;
   }
@@ -152,7 +153,13 @@
     if (!target || !window.DbUI) return;
     const sec = window.App && App.currentSection ? App.currentSection() : '';
     const label = [target.config, tapLbl(target), target.phase ? `pha ${target.phase}` : ''].filter(Boolean).join(' · ');
-    DbUI.openSeries(target, sec ? { sec, key, label } : null);
+    // số đang nhập (chưa lưu CSDL) → điểm "Biên bản đang nhập" trên biểu đồ
+    const cur = currentValues().get(key), st = ctx && ctx.state;
+    const current = cur && Number.isFinite(Number(cur.value_cmp)) ? Object.assign({}, target, cur, {
+      test_date: (st && Common.isoDate(st.v['meta.date'])) || new Date().toISOString().slice(0, 10),
+      session_id: st && st.db && st.db.sessionId || null, kind: 'CUR',
+    }) : null;
+    DbUI.openSeries(target, sec ? { sec, key, label } : null, current);
   });
 
   window.TrendInlineUI = { prepare, decorate, load, reset, has, history, cellMap };
