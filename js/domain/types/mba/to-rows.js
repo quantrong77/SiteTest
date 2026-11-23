@@ -177,7 +177,9 @@
     });
 
     // 7. Điện trở một chiều (mΩ, quy đổi 75 °C) & 8. tỷ số biến
-    Object.entries(DCR_CFG).forEach(([g, code]) => {
+    Object.entries(DCR_CFG).forEach(([g, code0]) => {
+      // cuộn cao áp đo A-Am (chỉ cuộn nối tiếp) → mã SER như số liệu xuất xưởng; A-N → HV (= SER + COM)
+      const code = g === 'dcr.hv' && state.cfg && state.cfg.hvMeas === 'SER' ? 'SER' : code0;
       const grid = findGrid(schema, g);
       grid.rows.forEach(r => ['A', 'B', 'C'].forEach(ph => {
         // mẫu 3 pha: nhiệt độ đo theo từng máy; mẫu theo pha: theo cuộn dây
