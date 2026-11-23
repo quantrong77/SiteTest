@@ -64,6 +64,10 @@ Khung **Tài liệu tham khảo** bên phải (màn hình ≥ 1100 px): điều 
 
 > **Lưu ý:** hướng dẫn trong app không thay thế sơ đồ, phương án an toàn và quy trình được đơn vị phê duyệt.
 
+### Xu hướng tại ô
+
+Ô có lịch sử đo trong CSDL (đã đăng nhập) hiện khung nhỏ dưới số: đường các lần đo, **XX / LĐ / KĐ ±%** (so với giá trị khởi đầu), **Trước ±%** (so với lần gần nhất), **Dự báo ⚠** khi xu hướng sắp chạm ngưỡng QĐ 1901; nền vàng khi vượt ngưỡng. Bấm **icon biểu đồ** ở góc trái khung → trang **Xu hướng** mở sẵn đúng máy (số chế tạo cột pha) và chuỗi số liệu của ô (vd R một chiều · HV · nấc 1); biểu đồ có thêm điểm **Biên bản đang nhập** (hình thoi — số đang nhập, đã quy đổi, chưa cần lưu CSDL); nút **← Về ô vừa xem** quay lại đúng ô.
+
 ### Nhập số, màu ô, hoàn tác
 
 ![Bảng nhập số liệu mục 3: ô xám tự tính, viền xanh Đạt, ô Không đạt viền đỏ có dấu ✕](img/04-nhap-so-lieu.webp)

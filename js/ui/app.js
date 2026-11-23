@@ -657,7 +657,7 @@
     // số liệu dựng lại từ CSDL (không có file gốc): không có sheet để xem
     if (!sh || !sh.length) return h + `<p class="muted">Số liệu xuất xưởng đang dùng (${esc(FX.data.fileName)}) dựng lại từ CSDL — không có file .xlsx gốc để xem sheet.</p>`;
     h += `<h4>Xem sheet của file đang dùng: ${esc(FX.data.fileName)}</h4>`;
-    h += '<div class="tabs">' + sh.map((s, i) => `<button data-ftab="${i}" class="${i === factoryTab ? 'on' : ''}">${esc(s.name)}</button>`).join('') + '</div>';
+    h += '<div class="tabs" role="tablist" aria-label="Các sheet của file">' + sh.map((s, i) => `<button type="button" role="tab" aria-selected="${i === factoryTab}" data-ftab="${i}" class="${i === factoryTab ? 'on' : ''}">${esc(s.name)}</button>`).join('') + '</div>';
     const rows = (sh[factoryTab] || sh[0]).rows;
     h += '<div class="raw"><table>' + rows.map(r => '<tr>' + (r || []).map(c => `<td title="${esc(c)}">${esc(typeof c === 'number' ? +c.toFixed(6) : c)}</td>`).join('') + '</tr>').join('') + '</table></div>';
     return h;
@@ -733,7 +733,7 @@
     if (activePdfReview) html = pdfReviewHTML(html);
     main.innerHTML = html + dl;
     updateComputed();
-    if (current === 'db' || current === 'trend') DbUI.afterRender(current);
+    DbUI.afterRender(current); // trang khác: chỉ bỏ điểm “biên bản đang nhập” đã gửi sang trang Xu hướng
     if (current === 'model3d') MbaModel3DUI.init(main);
     if (current === 'catalog') Catalog.afterRender();
     if (current === 'general' && (setupStep === 'device' || setupStep === 'specs')) SetupUI.afterRender(App);
@@ -1034,7 +1034,15 @@
     if (b.dataset.setup) setupStep = b.dataset.setup;
     if (b.dataset.nav) { current = b.dataset.nav; renderNav(); renderMain(); $('#main').scrollTop = 0; window.scrollTo(0, 0); return; }
     if (b.dataset.filter) { filters[b.dataset.fsec] = b.dataset.filter; updateComputed(); return; }
-    if (b.dataset.ftab !== undefined) { factoryTab = +b.dataset.ftab; renderMain(); return; }
+    if (b.dataset.ftab !== undefined) {
+      // chỉ vẽ lại khối file trên máy (giữ khối mở, giữ vị trí cuộn); không vẽ lại cả trang XX
+      factoryTab = +b.dataset.ftab;
+      const body = b.closest('.fx-local-body');
+      if (!body) { renderMain(); return; }
+      body.innerHTML = localFactoryHTML();
+      const on = body.querySelector(`[data-ftab="${factoryTab}"]`); if (on) on.focus({ preventScroll: true });
+      return;
+    }
     if (b.dataset.wfstep) { Workflow.setStep(b.dataset.sec, b.dataset.wfstep); renderMain(); return; }
     if (b.dataset.newtype) { chooseTypeDone(b.dataset.newtype); return; }
     if (b.dataset.undo) { undoSection(b.dataset.undo); return; }
@@ -1390,6 +1398,13 @@
     render() { renderNav(); renderMain(); },
     go(id) { current = id; renderNav(); renderMain(); window.scrollTo(0, 0); },
     currentSection() { return current; },
+    // mở mục ở bước Nhập số liệu, cuộn tới ô và đặt con trỏ (dùng khi quay lại từ trang Xu hướng)
+    focusCell(sec, key) {
+      if (typeof Workflow !== 'undefined') Workflow.setStep(sec, 'data');
+      App.go(sec);
+      const el = document.querySelector(`[data-k="${CSS.escape(key)}"]`);
+      if (el) { el.scrollIntoView({ block: 'center' }); el.focus({ preventScroll: true }); }
+    },
     openState(st, db, pdfReview) {
       clearPdfReview();
       loadState(st); state.db = db;

@@ -57,7 +57,9 @@
   // Công cụ đầu hạng mục (mục 7, 8, 9: nhập file Haefely 2293; mục 11: số cuộn thứ cấp, nhập XML CPC 100)
   function sectionTools(id, A) {
     if (['dcr', 'ratio', 'oltc'].includes(id)) {
-      return phaseFillHTML(id, A) + `<div class="bct-tools"><div class="fields"><div class="field"><label>Số liệu từ máy đo</label><button class="btn primary" data-act="load2293">Nhập file Haefely 2293…</button></div>${id === 'oltc' ? A.cfgField('oltcCharts', 'Đồ thị chụp sóng trong phụ lục BBTN', { options: [['all', 'Từng lần chuyển nấc (2 đồ thị/hàng)'], ['overlay', 'Gộp theo chiều tăng / giảm nấc']] }) : ''}</div>`
+      const moves = id === 'dcr' && Schema.layoutOf(A.state.cfg) === '1P' ? Schema.dcrMidMoves(A.state.v, A.state.cfg) : [];
+      const midNote = moves.length ? `<div class="callout warn">Có ${moves.length} ô R một chiều đang nằm ở hàng nấc <b>9b / 9c</b> (đã ẩn — chạy bypass, vận hành dùng 9a) trong khi hàng <b>9a</b> cùng cột trống. <button class="btn small primary" data-act="moveDcrMid">Chuyển sang nấc 9a</button></div>` : '';
+      return midNote + phaseFillHTML(id, A) + `<div class="bct-tools"><div class="fields"><div class="field"><label>Số liệu từ máy đo</label><button class="btn primary" data-act="load2293">Nhập file Haefely 2293…</button></div>${id === 'oltc' ? A.cfgField('oltcCharts', 'Đồ thị chụp sóng trong phụ lục BBTN', { options: [['all', 'Từng lần chuyển nấc (2 đồ thị/hàng)'], ['overlay', 'Gộp theo chiều tăng / giảm nấc']] }) : ''}</div>`
         + '<div class="hint-text">Chọn cùng lúc các file <b>.csv</b> xuất từ máy (điện trở một chiều, tỷ số biến, chuyển nấc) và file <b>.bin</b> cùng tên (dạng sóng chụp OLTC); có thể chọn file của cả ba pha. Bỏ qua các file .dat, .mat.</div></div>';
     }
     // mục 5: test report sứ của hãng (tra theo S/N sứ) — nạp ngay tại mục dùng nó
@@ -338,6 +340,12 @@
   }
 
   const actions = {
+    moveDcrMid(b, A) {
+      const moves = Schema.dcrMidMoves(A.state.v, A.state.cfg);
+      moves.forEach(({ from, to }) => { A.state.v[to] = A.state.v[from]; delete A.state.v[from]; });
+      A.recompute(); A.renderMain(); A.persist();
+      A.toast(`Đã chuyển ${moves.length} ô R một chiều từ nấc 9b / 9c sang 9a`);
+    },
     fillBushingSN: (b, A) => fillBushingSN(A),
     addWtgdRow(b, A) {
       A.state.cfg.wtgdRows.push({ k: 'x' + Date.now().toString(36) });
