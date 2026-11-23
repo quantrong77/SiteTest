@@ -733,7 +733,7 @@
     if (activePdfReview) html = pdfReviewHTML(html);
     main.innerHTML = html + dl;
     updateComputed();
-    if (current === 'db' || current === 'trend') DbUI.afterRender(current);
+    DbUI.afterRender(current); // trang khác: chỉ bỏ điểm “biên bản đang nhập” đã gửi sang trang Xu hướng
     if (current === 'model3d') MbaModel3DUI.init(main);
     if (current === 'catalog') Catalog.afterRender();
     if (current === 'general' && (setupStep === 'device' || setupStep === 'specs')) SetupUI.afterRender(App);

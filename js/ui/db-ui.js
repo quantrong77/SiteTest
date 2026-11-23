@@ -13,7 +13,8 @@
   const COLORS = ['#0d5aa7', '#c2410c', '#15803d', '#7c3aed', '#b91c1c', '#0e7490', '#a16207', '#be185d'];
 
   let sessions = null, docs = {}, busy = false;
-  const T = { equipment: null, eqId: '', withChildren: true, data: null, series: '', loadedFor: '', fcYears: 3, pending: null, back: null };
+  const T = { equipment: null, eqId: '', withChildren: true, data: null, series: '', loadedFor: '', fcYears: 3, pending: null, back: null, current: null };
+  const CUR_LABEL = 'Biên bản đang nhập';
 
   // ------------------------------------------------------------------ trang CSDL
   function renderDb() {
@@ -123,9 +124,28 @@
     }).join('');
   }
 
+  // Điểm của biên bản đang nhập (chưa lưu, hoặc đã lưu nhưng đang sửa): thay dòng CSDL cùng lần thí nghiệm,
+  // mốc khởi đầu lấy theo các lần đo đã lưu của cùng máy · pha
+  function withCurrent(pts) {
+    const c = T.current;
+    if (!c || seriesKey(c) !== T.series) return pts;
+    const eq = (T.equipment || []).find(e => e.id === T.eqId);
+    if (!eq || String(eq.serial_no || '').trim() !== String(c.serial_no || '').trim()) return pts;
+    const rest = pts.filter(r => !(c.session_id && r.session_id === c.session_id));
+    const same = rest.filter(r => r.serial_no === c.serial_no && (r.phase || '') === (c.phase || '')).sort((a, b) => a.test_date.localeCompare(b.test_date));
+    const last = same[same.length - 1] || {};
+    const base = Number(last.base_value);
+    const v = Number(c.value_cmp);
+    return rest.concat([Object.assign({}, c, {
+      value_cmp: v, value: Number(c.value), base_value: Number.isFinite(base) ? base : null, base_date: last.base_date || null, base_kind: last.base_kind,
+      change_pct: Number.isFinite(base) && base !== 0 ? (v - base) / Math.abs(base) * 100 : null, status: null,
+      value_norm: c.cmp_basis === 'norm' ? v : null, norm_temp_c: c.cmp_basis === 'norm' ? c.norm_temp_c : null, temp_c: c.temp_c ?? null,
+    })]);
+  }
+
   function chartHTML() {
     if (!T.data) return '<div class="empty">Chọn thiết bị để tải dữ liệu.</div>';
-    const pts = T.data.filter(r => seriesKey(r) === T.series && r.value_cmp !== null);
+    const pts = withCurrent(T.data.filter(r => seriesKey(r) === T.series && r.value_cmp !== null));
     if (!pts.length) return '<div class="empty">Chưa có số liệu cho chuỗi này.</div>';
     const lines = {};
     pts.forEach(r => { const k = `${r.serial_no}${r.phase ? ' · pha ' + r.phase : ''}`; (lines[k] = lines[k] || []).push(r); });
@@ -185,16 +205,22 @@
       svg += `<polyline fill="none" stroke="${col}" stroke-width="2" points="${s.map(r => `${sx(t(r.test_date))},${sy(Number(r.value_cmp))}`).join(' ')}"/>`;
       s.forEach(r => {
         const fat = r.kind === 'FAT';
+        // biên bản đang nhập: hình thoi viền đậm
+        if (r.kind === 'CUR') {
+          const cx = sx(t(r.test_date)), cy = sy(Number(r.value_cmp)), d = 7;
+          svg += `<polygon points="${cx},${cy - d} ${cx + d},${cy} ${cx},${cy + d} ${cx - d},${cy}" fill="#fff" stroke="${col}" stroke-width="3"><title>${esc(n)} — ${esc(r.test_date)} (${CUR_LABEL}, chưa lưu CSDL)\n${esc(fmt(r.value_cmp))} ${esc(unit)}${r.change_pct !== null ? `\nThay đổi so với khởi đầu: ${esc(fmt(r.change_pct, 2))} %` : ''}</title></polygon>`;
+          return;
+        }
         svg += `<circle cx="${sx(t(r.test_date))}" cy="${sy(Number(r.value_cmp))}" r="${fat ? 5 : 4}" fill="${fat ? '#fff' : col}" stroke="${col}" stroke-width="2"><title>${esc(n)} — ${esc(r.test_date)} (${esc(Common.KIND_LABEL[r.kind] || r.kind)})\n${esc(fmt(r.value_cmp))} ${esc(unit)}${r.change_pct !== null ? `\nThay đổi so với khởi đầu: ${esc(fmt(r.change_pct, 2))} %` : ''}</title></circle>`;
       });
     });
     svg += '</svg>';
     const hasFc = Object.values(fcs).some(f => f.fc.ok);
-    const legend = `<div class="legend">${names.map((n, i) => `<span><i style="background:${COLORS[i % COLORS.length]}"></i>${esc(n)}</span>`).join('')}<span><i class="hollow"></i>Xuất xưởng (FAT)</span>`
+    const legend = `<div class="legend">${names.map((n, i) => `<span><i style="background:${COLORS[i % COLORS.length]}"></i>${esc(n)}</span>`).join('')}<span><i class="hollow"></i>Xuất xưởng (FAT)</span>${pts.some(r => r.kind === 'CUR') ? `<span><i class="diamond"></i>${CUR_LABEL}</span>` : ''}`
       + (hasFc ? '<span>— — dự báo (độ dốc Sen) · vùng mờ: khoảng dự báo 95% · <span style="color:#b91c1c">- - ngưỡng QĐ 1901</span></span>' : '') + '</div>';
     let tbl = '<div style="overflow-x:auto"><table class="ftable"><thead><tr><th>Ngày</th><th>Lần TN</th><th>Thiết bị / pha</th><th>Giá trị đo</th><th>Nhiệt độ</th><th>Giá trị so sánh</th><th>Khởi đầu</th><th>% thay đổi</th><th>Đánh giá lúc đo</th></tr></thead><tbody>';
     pts.slice().sort((a, b) => a.test_date.localeCompare(b.test_date) || a.serial_no.localeCompare(b.serial_no)).forEach(r => {
-      tbl += `<tr><td class="num">${esc(r.test_date)}</td><td>${esc(Common.KIND_LABEL[r.kind] || r.kind)}</td><td>${esc(r.serial_no)}${r.phase ? ' · ' + esc(r.phase) : ''}</td>
+      tbl += `<tr${r.kind === 'CUR' ? ' class="tr-current"' : ''}><td class="num">${esc(r.test_date)}</td><td>${r.kind === 'CUR' ? `<b>${CUR_LABEL}</b>` : esc(Common.KIND_LABEL[r.kind] || r.kind)}</td><td>${esc(r.serial_no)}${r.phase ? ' · ' + esc(r.phase) : ''}</td>
         <td class="num">${esc(fmt(r.value))} ${esc(r.unit || '')}</td><td class="num">${r.temp_c !== null ? esc(fmt(r.temp_c, 1)) + ' °C' : ''}</td>
         <td class="num">${esc(fmt(r.value_cmp))}${r.norm_temp_c !== null && r.value_norm !== null ? ` @${esc(fmt(r.norm_temp_c, 0))} °C` : ''}</td>
         <td class="num">${esc(fmt(r.base_value))}</td><td class="num">${r.change_pct !== null ? esc(fmt(r.change_pct, 2)) + ' %' : ''}</td>
@@ -284,6 +310,8 @@
   }
 
   async function afterRender(page) {
+    // rời trang Xu hướng: bỏ điểm "biên bản đang nhập" và nút quay lại (mở lại từ icon ô sẽ lấy số mới)
+    if (page !== 'trend') { T.current = null; T.back = null; }
     if (page === 'db' && DB.user && !sessions && !busy) loadSessions();
     if (page === 'db' && DB.user) {
       await Catalog.load(false);
@@ -418,9 +446,10 @@
 
   function reset() { sessions = null; docs = {}; T.equipment = null; T.data = null; T.loadedFor = ''; T.eqId = ''; }
   // Mở trang Xu hướng cho chuỗi số liệu của một ô (icon xu hướng tại ô): target { item, param, config, tap, serial_no, phase }
-  function openSeries(target, back) {
+  function openSeries(target, back, current) {
     T.pending = { serial_no: target.serial_no, series: seriesKey(target) };
     T.back = back || null;
+    T.current = current || null;
     App.go('trend');
   }
 

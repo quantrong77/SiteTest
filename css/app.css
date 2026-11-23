@@ -779,3 +779,5 @@ table.grid.fx-table td.fx-act { padding: 3px 6px; width: 1%; white-space: nowrap
 .trend-open:hover, .trend-open:focus-visible { background: #e6f0f9; border-color: #b9d3ea; outline: none; }
 .trend-open .ti-ic { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 .trend-inline.is-warning .trend-open { color: var(--warn); }
+.legend i.diamond { border-radius: 0; width: 9px; height: 9px; background: #fff; border: 2px solid var(--accent); transform: rotate(45deg); }
+.ftable tr.tr-current td { background: #eef5fb; }
