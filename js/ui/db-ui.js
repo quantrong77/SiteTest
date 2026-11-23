@@ -13,7 +13,7 @@
   const COLORS = ['#0d5aa7', '#c2410c', '#15803d', '#7c3aed', '#b91c1c', '#0e7490', '#a16207', '#be185d'];
 
   let sessions = null, docs = {}, busy = false;
-  const T = { equipment: null, eqId: '', withChildren: true, data: null, series: '', loadedFor: '', fcYears: 3 };
+  const T = { equipment: null, eqId: '', withChildren: true, data: null, series: '', loadedFor: '', fcYears: 3, pending: null, back: null };
 
   // ------------------------------------------------------------------ trang CSDL
   function renderDb() {
@@ -86,7 +86,8 @@
 
   // ------------------------------------------------------------------ trang Xu hướng
   function renderTrend() {
-    let h = `<div class="panel-head"><span class="secno">↗</span><h2>Xu hướng số liệu thí nghiệm</h2><span class="en">FAT → sau lắp đặt → định kỳ</span></div>`;
+    let h = `<div class="panel-head"><span class="secno">↗</span><h2>Xu hướng số liệu thí nghiệm</h2><span class="en">FAT → sau lắp đặt → định kỳ</span>`
+      + (T.back ? `<span class="spacer"></span><button type="button" class="btn small" data-act="dbTrendBack">← Về ô vừa xem (${esc(T.back.label)})</button>` : '') + '</div>';
     if (!DB.user) return `<section class="panel">${h}<div class="empty">Kết nối và đăng nhập CSDL ở trang “CSDL” để xem xu hướng.</div></section>`;
     h += '<div class="fields">';
     h += `<div class="field"><label for="trEq">Thiết bị</label><select id="trEq">${eqOptions()}</select></div>`;
@@ -295,6 +296,13 @@
         if (!T.eqId) T.eqId = main ? main.id : ((T.equipment.find(e => !e.parent_id) || {}).id || '');
         const sel = $('#trEq'); if (sel) sel.innerHTML = eqOptions();
       }
+      // mở từ icon xu hướng của một ô: chọn máy theo số chế tạo của cột pha và chuỗi số liệu của ô đó
+      if (T.pending) {
+        const p = T.pending; T.pending = null;
+        const eq = T.equipment.find(e => !e.parent_id && String(e.serial_no || '').trim() === String(p.serial_no || '').trim());
+        if (eq) { T.eqId = eq.id; T.series = p.series; const sel = $('#trEq'); if (sel) sel.innerHTML = eqOptions(); }
+        else App.toast(`Chưa có thiết bị số chế tạo ${p.serial_no} trong CSDL`, true);
+      }
       if (!$('#trEq')) return; // đã chuyển trang trong lúc tải danh sách thiết bị
       $('#trEq').onchange = e => { T.eqId = e.target.value; loadTrend(); };
       $('#trKids').onchange = e => { T.withChildren = e.target.checked; loadTrend(); };
@@ -384,6 +392,10 @@
       } else if (act === 'dbTrendOf') {
         T.eqId = btn.dataset.eq; T.loadedFor = '';
         busy = false; App.go('trend'); return;
+      } else if (act === 'dbTrendBack') {
+        const back = T.back; T.back = null; busy = false;
+        if (back) App.focusCell(back.sec, back.key);
+        return;
       } else if (act === 'dbSeries') {
         T.series = btn.dataset.key; refreshTrend(); window.scrollTo(0, 0);
         busy = false; return;
@@ -405,5 +417,12 @@
   });
 
   function reset() { sessions = null; docs = {}; T.equipment = null; T.data = null; T.loadedFor = ''; T.eqId = ''; }
-  window.DbUI = { renderDb, renderTrend, afterRender, action, reset, ITEM };
+  // Mở trang Xu hướng cho chuỗi số liệu của một ô (icon xu hướng tại ô): target { item, param, config, tap, serial_no, phase }
+  function openSeries(target, back) {
+    T.pending = { serial_no: target.serial_no, series: seriesKey(target) };
+    T.back = back || null;
+    App.go('trend');
+  }
+
+  window.DbUI = { renderDb, renderTrend, afterRender, action, reset, ITEM, openSeries };
 })();

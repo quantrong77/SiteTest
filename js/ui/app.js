@@ -1390,6 +1390,13 @@
     render() { renderNav(); renderMain(); },
     go(id) { current = id; renderNav(); renderMain(); window.scrollTo(0, 0); },
     currentSection() { return current; },
+    // mở mục ở bước Nhập số liệu, cuộn tới ô và đặt con trỏ (dùng khi quay lại từ trang Xu hướng)
+    focusCell(sec, key) {
+      if (typeof Workflow !== 'undefined') Workflow.setStep(sec, 'data');
+      App.go(sec);
+      const el = document.querySelector(`[data-k="${CSS.escape(key)}"]`);
+      if (el) { el.scrollIntoView({ block: 'center' }); el.focus({ preventScroll: true }); }
+    },
     openState(st, db, pdfReview) {
       clearPdfReview();
       loadState(st); state.db = db;
