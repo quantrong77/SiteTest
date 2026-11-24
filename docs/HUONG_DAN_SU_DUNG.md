@@ -152,6 +152,7 @@ Số liệu xuất xưởng (FAT) lưu CSDL là **giá trị khởi đầu** đ�
 
 1. **Chọn file BBTN…** hoặc **Chọn cả thư mục…** (.docx mẫu PTC3/BM.01, .pdf có chữ, .pdf scan — OCR ngay trên máy).
 2. Kiểm tra số chế tạo, ngày, **lý do** (lần *Sau lắp đặt* ghi **khởi đầu**), số biên bản, số ô số liệu.
+   Cột **Trạm / ngăn**: app gợi ý ngăn theo tên trạm và vị trí lắp đặt ghi trên BBTN (vd "Máy biến áp AT1" → ngăn AT1); chọn lại nếu sai. Lưu CSDL sẽ gắn thiết bị vào ngăn này để lần sau chọn được ở bước ① (Trạm → Ngăn → Thiết bị). Thiết bị đã gắn ngăn thì giữ nguyên.
 3. **Trùng** số chế tạo + ngày với CSDL hoặc file khác trong lô: không tự lưu — chọn **Ghi đè** hoặc **Lưu thành lần mới**.
 4. PDF: **Soát cạnh PDF** (bản gốc bên trái, biểu mẫu bên phải) → nhập / sửa số liệu → **Đã soát** → **Lưu CSDL**.
 5. **BBTN cũ theo pha (máy 1 pha 500 kV, PDF):** app nhận ra pha của máy ("Vị trí lắp đặt … (Pha A)"), đọc các bảng đã xóa bớt cột theo nhãn tiêu đề (cao áp "A", trung áp "Am | N", hạ áp "3.1 | 3.2", BCT "Pha A"), thông số kỹ thuật MBA và mọi sứ xuyên. Khi lưu CSDL, sứ được lưu thành thiết bị con của máy (vị trí, kiểu loại, hãng, loại cách điện) để lần sau tự nạp.
