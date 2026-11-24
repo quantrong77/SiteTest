@@ -154,6 +154,7 @@ Số liệu xuất xưởng (FAT) lưu CSDL là **giá trị khởi đầu** đ�
 2. Kiểm tra số chế tạo, ngày, **lý do** (lần *Sau lắp đặt* ghi **khởi đầu**), số biên bản, số ô số liệu.
 3. **Trùng** số chế tạo + ngày với CSDL hoặc file khác trong lô: không tự lưu — chọn **Ghi đè** hoặc **Lưu thành lần mới**.
 4. PDF: **Soát cạnh PDF** (bản gốc bên trái, biểu mẫu bên phải) → nhập / sửa số liệu → **Đã soát** → **Lưu CSDL**.
+5. **Số liệu xuất xưởng:** app chỉ so sánh với test report của **đúng số chế tạo** của biên bản (file trên máy, hoặc tự tìm trong CSDL theo số chế tạo); không dùng test report của máy khác dù cùng chủng loại. Máy chưa có test report: tích **Chưa có số liệu xuất xưởng** ở dòng của file (hoặc ở *Thông tin chung → Mẫu & cấu hình*) — app không so với XX, không tìm trong CSDL; giá trị khởi đầu lấy theo lần sau lắp đặt / lần trước.
 
 ## `3D` Mô hình 3D MBA
 

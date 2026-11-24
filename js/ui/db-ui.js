@@ -45,8 +45,8 @@
           <button class="btn" data-act="dbSaveFinal" ${DB.canEdit() ? '' : 'disabled'}>Lưu & chốt (final)</button>
           ${saved ? '<button class="btn" data-act="dbSaveAsNew">Lưu thành biên bản mới</button>' : ''}
         </div></div>`;
-      h += `<h3>Test report xuất xưởng</h3><div class="callout">Nạp số liệu xuất xưởng (<b>${esc(App.FX ? App.FX.data.fileName : '—')}</b>) vào CSDL làm lần thí nghiệm <b>FAT</b>
-        cho ${App.FX ? App.FX.data.order.length : 0} máy (kèm sứ xuyên, BCT) — mốc khởi đầu để đánh giá xu hướng. Chạy lại sẽ cập nhật, không tạo trùng.
+      h += `<h3>Test report xuất xưởng</h3><div class="callout">Nạp số liệu xuất xưởng (<b>${esc(App.FXfile ? App.FXfile.data.fileName : '—')}</b>) vào CSDL làm lần thí nghiệm <b>FAT</b>
+        cho ${App.FXfile ? App.FXfile.data.order.length : 0} máy (kèm sứ xuyên, BCT) — mốc khởi đầu để đánh giá xu hướng. Chạy lại sẽ cập nhật, không tạo trùng.
         Các máy được gắn vào ngăn lộ chọn ở mục “Biên bản đang mở” phía trên.
         <div class="row-actions"><button class="btn" data-act="dbImportFactory" ${DB.canEdit() ? '' : 'disabled'}>Nhập Test report vào CSDL</button></div></div>`;
       h += `<h3>Biên bản đã lưu</h3><div class="row-actions"><button class="btn small" data-act="dbRefresh">Tải lại danh sách</button></div><div id="dbSessions">${sessionsHTML()}</div>`;
@@ -377,7 +377,7 @@
         App.persist(); sessions = null; T.loadedFor = '';
         App.toast(`Đã lưu biên bản lên CSDL: ${r.n} giá trị đo`);
       } else if (act === 'dbImportFactory') {
-        const FX = App.FX;
+        const FX = App.FXfile;
         if (!FX) throw new Error('Chưa nạp file số liệu xuất xưởng (.xlsx) — nạp ở mục 0');
         // file gốc đang dùng (nhúng hoặc nạp trên máy) lưu kèm số liệu
         const cur = (App.factories || []).find(x => x.api === FX);
