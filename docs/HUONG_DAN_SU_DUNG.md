@@ -155,6 +155,7 @@ Số liệu xuất xưởng (FAT) lưu CSDL là **giá trị khởi đầu** đ�
 3. **Trùng** số chế tạo + ngày với CSDL hoặc file khác trong lô: không tự lưu — chọn **Ghi đè** hoặc **Lưu thành lần mới**.
 4. PDF: **Soát cạnh PDF** (bản gốc bên trái, biểu mẫu bên phải) → nhập / sửa số liệu → **Đã soát** → **Lưu CSDL**.
 5. **BBTN cũ theo pha (máy 1 pha 500 kV, PDF):** app nhận ra pha của máy ("Vị trí lắp đặt … (Pha A)"), đọc các bảng đã xóa bớt cột theo nhãn tiêu đề (cao áp "A", trung áp "Am | N", hạ áp "3.1 | 3.2", BCT "Pha A"), thông số kỹ thuật MBA và mọi sứ xuyên. Khi lưu CSDL, sứ được lưu thành thiết bị con của máy (vị trí, kiểu loại, hãng, loại cách điện) để lần sau tự nạp.
+6. **Số liệu xuất xưởng:** app chỉ so sánh với test report của **đúng số chế tạo** của biên bản (file trên máy, hoặc tự tìm trong CSDL theo số chế tạo); không dùng test report của máy khác dù cùng chủng loại. Máy chưa có test report: tích **Chưa có số liệu xuất xưởng** ở dòng của file (hoặc ở *Thông tin chung → Mẫu & cấu hình*) — app không so với XX, không tìm trong CSDL; giá trị khởi đầu lấy theo lần sau lắp đặt / lần trước.
 
 ## `3D` Mô hình 3D MBA
 

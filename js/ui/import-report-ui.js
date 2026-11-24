@@ -38,6 +38,22 @@
     } catch (e) { it.dup = null; }
   }
 
+  // Số liệu xuất xưởng cho biên bản nhập: chỉ file có đúng số chế tạo; "Chưa có số liệu xuất xưởng" → không dùng.
+  // Không lấy test report của máy khác (dù cùng chủng loại).
+  function fxFor(st, A) {
+    const sn = String(st && st.v && st.v['meta.serial'] || '').trim();
+    if (!sn || st.cfg.noFactory) return null;
+    const hit = (A.factories || []).find(x => x.api && x.api.has && x.api.has(sn));
+    return hit ? hit.api : null;
+  }
+  function fxCell(it, A) {
+    const st = activeState(it, A);
+    if (!st || it.error || it.processing || !String(st.v && st.v['meta.serial'] || '').trim()) return '';
+    if (fxFor(st, A)) return '<div class="note">Có số liệu xuất xưởng của máy này trên máy tính.</div>';
+    return `<div class="note"><label class="imp-nofx"><input type="checkbox" data-impnofx="${it.id}"${st.cfg.noFactory ? ' checked' : ''}> Chưa có số liệu xuất xưởng</label>`
+      + `${st.cfg.noFactory ? ' — không so sánh với XX' : ' — chưa thấy test report của máy này trên máy tính (app không dùng test report của máy khác)'}</div>`;
+  }
+
   function canSave(it, A) {
     const st = activeState(it, A);
     if (!it || it.error || (it.saved && it.saved.status !== 'draft') || !it.reviewed || !st || dupPending(it)) return false;
@@ -83,7 +99,7 @@
       const kind = v['meta.reason'] ? Common.kindOf(v['meta.reason']) : '';
       return `<tr><td>${esc(it.file)}</td><td>${format}</td><td>${esc(v['meta.serial'] || '—')}</td><td>${esc(v['meta.date'] || '—')}</td>`
         + `<td>${esc(v['meta.reason'] || '—')}${kind === 'SAT' ? ' <span class="badge st-pass" title="Lần sau lắp đặt: giá trị khởi đầu khi không có test report">khởi đầu</span>' : ''}</td><td>${esc(it.reportNo || st && st.imported && st.imported.reportNo || '—')}</td>
-        <td class="num">${Number(it.count) || 0}</td><td>${status}${warnings}</td><td><div class="row-actions" style="margin:0">
+        <td class="num">${Number(it.count) || 0}</td><td>${status}${warnings}${fxCell(it, A)}</td><td><div class="row-actions" style="margin:0">
         ${it.state && !it.error && !it.processing ? `<button class="btn small" data-act="impOpen" data-id="${it.id}">${it.format === 'pdf' ? 'Soát cạnh PDF' : 'Mở để soát'}</button>` : ''}
         ${it.state && !it.error && !it.processing && !it.reviewed ? `<button class="btn small" data-act="impReviewDone" data-id="${it.id}">Đã soát</button>` : ''}
         ${dupPending(it) && it.dup ? `<button class="btn small" data-act="impDupOver" data-id="${it.id}"${busy ? ' disabled' : ''} title="Ghi số liệu file này vào lần thí nghiệm đã có (thay số liệu cũ)">Ghi đè</button>` : ''}
@@ -167,8 +183,7 @@
   function evalOf(it, A) {
     const T = EquipmentTypes.get('MBA'), state = activeState(it, A);
     const schema = T.buildSchema(state.cfg);
-    const FX = A.FX && A.FX.unit && A.FX.unit(state.v['meta.serial']) ? A.FX : null;
-    return { state, schema, res: T.evaluate(state, FX, schema) };
+    return { state, schema, res: T.evaluate(state, fxFor(state, A), schema) };
   }
 
   async function save(it, A, status) {
@@ -290,6 +305,16 @@
   }
 
   function init(A) {
+    // tích "Chưa có số liệu xuất xưởng" của một file trong lô (ghi vào cấu hình biên bản, lưu kèm khi lưu CSDL)
+    document.addEventListener('change', e => {
+      const el = e.target;
+      if (!el.dataset || el.dataset.impnofx === undefined) return;
+      const it = items.find(x => x.id === el.dataset.impnofx), st = activeState(it, A);
+      if (!st) return;
+      [st, it.state].forEach(s => { if (!s || !s.cfg) return; if (el.checked) s.cfg.noFactory = true; else delete s.cfg.noFactory; });
+      if (st === A.state) { A.recompute(); A.persist(); }
+      A.render();
+    });
     ['fileImpDocx', 'dirImpDocx'].forEach(id => $('#' + id).addEventListener('change', async e => {
       await readFiles(e.target.files, A);
       e.target.value = '';
