@@ -168,7 +168,10 @@
       try { hist = await DB.latestForm(eq.id); } catch (err) { hist = null; }
       if (hist && A.state.db && hist.id === A.state.db.sessionId) hist = null;
     }
-    const plan = A.applyHeadFills(EquipmentSpecs.headFrom(eq, fx, where, hist));
+    // sứ xuyên của máy (thiết bị con SU trong CSDL, thiếu thì BBTN gần nhất) và nhãn cột sứ / chỉ danh BCT của BBTN gần nhất
+    if (hist && hist.cfg && EquipmentSpecs.cfgFromHist(A.state.cfg, hist.cfg)) A.rebuild(true);
+    const kids = eq ? (C().eqs || []).filter(e => e.parent_id === eq.id) : [];
+    const plan = A.applyHeadFills(Object.assign(EquipmentSpecs.headFrom(eq, fx, where, hist), EquipmentSpecs.bushingFrom(kids, A.schema, hist)));
     const n = { CSDL: 0, 'Test report': 0, BBTN: 0 };
     Object.values(plan).forEach(f => { n[/^BBTN/.test(f.src) ? 'BBTN' : f.src] += 1; });
     return { n, report, fx: !!fx, hist };

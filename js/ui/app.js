@@ -305,9 +305,11 @@
     // cột pha: gắn mã pha để tô vạch màu A vàng · B xanh · C đỏ
     g.cols.forEach(c => {
       const ph = c.phase ? String(c.k).charAt(0).toUpperCase() : '';
-      const lbl = g.editHdr
-        ? `<input class="hdr" data-hk="${g.id}.${c.k}" value="${esc(c.label)}" placeholder="${esc(c.defLabel)}" title="Sửa đề mục cột — để trống để dùng lại “${esc(c.defLabel)}”" autocomplete="off">`
-        : esc(c.label);
+      // đề mục cột sửa được (cột có defLabel); khóa lưu c.hk (dùng chung nhiều bảng, vd chỉ danh BCT theo phía) hoặc lưới.cột
+      const hk = c.hk || `${g.id}.${c.k}`;
+      const lbl = g.editHdr && c.defLabel !== undefined && !c.noEdit
+        ? `<input class="hdr" data-hk="${esc(hk)}" value="${esc(c.label)}" placeholder="${esc(c.defLabel)}" title="Sửa đề mục cột — để trống để dùng lại “${esc(c.defLabel)}”" aria-label="Đề mục cột ${esc(c.label)}" autocomplete="off">`
+        : c.hk ? `<span data-hkm="${esc(c.hk)}">${esc(c.label)}</span>` : esc(c.label);
       h += `<th${ph ? ` data-ph="${ph}" title="Pha ${ph}"` : ''}>${lbl}</th>`;
     });
     h += '</tr></thead><tbody>';
@@ -509,7 +511,19 @@
     // ô tự điền lần trước (thiết bị khác) mà nguồn mới không có → trả về mặc định template
     Object.keys(auto).forEach(k => { if (!fills[k]) { state.v[k] = tpl[k] ?? ''; delete ocr[k]; } });
     const plan = EquipmentSpecs.fillPlan(state.v, fills, Object.assign({}, tpl, auto));
-    const label = k => ((schema.head.find(f => f.k === k) || {}).label || k);
+    // nhãn ô: trường đầu biên bản, hoặc ô bảng (vd sứ xuyên: "Sứ phía cao áp (HV) · A · Kiểu loại")
+    const label = k => {
+      const f = schema.head.find(x => x.k === k);
+      if (f) return f.label;
+      let out = k;
+      Common.eachGrid(schema, g => {
+        if (!k.startsWith(g.id + '.')) return;
+        const [rk, ck] = k.slice(g.id.length + 1).split('.');
+        const r = g.rows.find(x => x.k === rk), c = g.cols.find(x => x.k === ck);
+        if (r && c) out = `${(schema.sections.find(s => (s.groups || []).some(gr => (gr.grids || []).includes(g))) || {}).title || ''} · ${c.label} · ${r.label}`.replace(/^ · /, '');
+      });
+      return out;
+    };
     Object.entries(plan).forEach(([k, f]) => { state.v[k] = f.value; ocr[k] = { status: 'check', label: label(k), src: f.src }; });
     // ô không có trong CSDL / test report mà còn giá trị mẫu của template → để trống, tô đỏ "nhập tay"
     EquipmentSpecs.staleKeys(state.v, fills, tpl).forEach(k => { state.v[k] = ''; ocr[k] = { status: 'missing', label: label(k), src: 'CSDL / test report' }; });
@@ -933,6 +947,11 @@
       const id = el.dataset.hk || el.dataset.lbl;
       if (t && t !== el.placeholder) map[id] = t; else delete map[id];
       if (el.dataset.lbl) $$(`[data-lblm="${id}"]`).forEach(x => { x.textContent = t || el.placeholder; });
+      // cùng khóa ở bảng khác (bảng quy đổi 20 °C, các bảng BCT cùng phía): cập nhật ngay
+      if (el.dataset.hk) {
+        $$(`[data-hk="${CSS.escape(id)}"]`).forEach(x => { if (x !== el) x.value = t || el.placeholder; });
+        $$(`[data-hkm="${CSS.escape(id)}"]`).forEach(x => { x.textContent = t || el.placeholder; });
+      }
       if (!t) el.value = el.dataset.hk ? el.placeholder : '';
       schema = T().buildSchema(state.cfg); recompute(); updateComputed(); persist();
     } else if (el.dataset.skipsec && e.type === 'change') {

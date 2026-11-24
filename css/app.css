@@ -786,3 +786,6 @@ table.grid.fx-table td.fx-act { padding: 3px 6px; width: 1%; white-space: nowrap
 table.grid input:not(.text):not(.hdr):not(.lbl), table.grid td.calc .cv { text-align: center; }
 table.grid.fx-table td.num, .fx-values table.grid td.num, .fx-values table.grid td input { text-align: center; }
 .trend-inline { text-align: center; }
+
+/* Màn hẹp: nút có chữ dài trong hàng nút được xuống dòng, không đẩy trang cuộn ngang */
+@media (max-width: 600px) { .row-actions .btn { white-space: normal; max-width: 100%; text-align: left; } }
