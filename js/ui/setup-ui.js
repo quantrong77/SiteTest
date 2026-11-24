@@ -27,6 +27,10 @@
   };
   const activeFile = () => (A.factories || []).find(x => x.api === A.FX) || null;
 
+  // Máy chính đã có trong CSDL nhưng chưa gắn ngăn (vd lưu từ trang Nhập BBTN cũ) — chọn được trực tiếp theo số chế tạo
+  const orphans = () => (C().eqs || []).filter(e => !e.parent_id && !e.bay_id && e.class_code === classCode() && e.status !== 'retired')
+    .sort((a, b) => String(a.serial_no || '').localeCompare(String(b.serial_no || ''), 'vi', { numeric: true }));
+  const orphanLabel = e => `${e.serial_no}${e.phase ? ` · pha ${e.phase}` : ''}${e.name ? ` · ${e.name}` : ''}${e.manufacturer ? ` · ${e.manufacturer}` : ''}`;
   function pickerHTML() {
     const c = C(), cfg = A.state.cfg;
     const bayOf = id => (c.bays || []).find(b => b.id === id);
@@ -51,8 +55,15 @@
         + PH.filter(p => units.bank[p]).map(p => opt(p, `Pha ${p} — ${units.bank[p].serial_no} (BBTN riêng máy pha ${p})`, ph === p)).join('')
         + opt('ALL', 'Cả tổ A+B+C — một BBTN chung (mẫu 3 pha)', ph === 'ALL') + '</select></div>';
     }
-    const ready = bayId && eqVal && (eqVal !== 'bank' || units.bank);
+    // thiết bị chưa gắn ngăn: chọn ở đây (ngăn ở trên để trống, hoặc chọn ngăn để gắn khi lưu CSDL)
+    const orph = orphans(), orphVal = cfg.pickOrphan || '';
+    if (orph.length) {
+      h += `<div class="field"><label for="suOrph">Hoặc thiết bị chưa gắn ngăn (${orph.length})</label><select id="suOrph" data-su="pickOrphan">${opt('', '— Chọn theo số chế tạo —', !orphVal)}`
+        + orph.map(e => opt(e.id, orphanLabel(e), orphVal === e.id)).join('') + '</select></div>';
+    }
+    const ready = (bayId && eqVal && (eqVal !== 'bank' || units.bank)) || (orphVal && orph.some(e => e.id === orphVal));
     h += `<div class="field"><label>&nbsp;</label><button class="btn primary" data-act="suApply" ${ready ? '' : 'disabled'}>Chọn thiết bị này →</button></div></div>`;
+    if (orphVal) h += `<div class="hint-text">Thiết bị này chưa gắn ngăn. ${bayId ? `Khi lưu CSDL sẽ gắn vào ngăn <b>${esc((bayOf(bayId) || {}).code || '')}</b>.` : 'Chọn Trạm → Ngăn ở trên (để trống Thiết bị) nếu muốn gắn ngăn khi lưu CSDL; hoặc gán sau ở mục XX (chuột phải thiết bị → Gán trạm / ngăn).'}</div>`;
     if (eqVal === 'new') h += '<div class="hint-text">Thiết bị mới: nhập số chế tạo bên dưới, hoặc bấm <b>Nhập Test Report (.xlsx)…</b> (file một máy: số chế tạo tự điền). Có test report thì thông số kỹ thuật được tự nạp; chưa có thì nhập tay ở bước ②.</div>';
     const applied = bayOf(cfg.bayId);
     if (applied) {
@@ -177,8 +188,30 @@
     return { n, report, fx: !!fx, hist };
   }
 
+  // Thiết bị chưa gắn ngăn → điền như thiết bị trong ngăn; ngăn đang chọn (nếu có) gắn khi lưu CSDL
+  async function applyOrphan() {
+    const c = C(), st = A.state, cfg = st.cfg;
+    const eq = orphans().find(e => e.id === cfg.pickOrphan);
+    if (!eq) throw new Error('Không còn thiết bị này trong CSDL');
+    const bay = (c.bays || []).find(b => b.id === cfg.pickBay);
+    const sub = bay ? (c.subs || []).find(s => s.id === bay.substation_id) || {} : {};
+    if (bay) cfg.bayId = bay.id;
+    const p = String(eq.phase || '').toUpperCase();
+    if (eq.rated && eq.rated.oltc_winding) await A.applyTemplate('110');
+    else if (PH.includes(p) && ['1P', '3P'].includes(Schema.layoutOf(cfg))) await A.applyTemplate(p);
+    st.v['meta.serial'] = eq.serial_no;
+    if (cfg.topology === 'bank1p') cfg.ps.A = eq.serial_no;
+    const r = await fillSpecs(eq, bay ? { substation: sub.name, bay: bay.name || bay.code } : {});
+    A.rebuild(true);
+    A.loadTrend();
+    A.setupGo('specs');
+    const n = r.n.CSDL + r.n['Test report'] + r.n.BBTN;
+    A.toast(`Đã chọn ${eq.serial_no}${p ? ` (pha ${p})` : ''} — ${n ? `tự điền ${n} ô (CSDL ${r.n.CSDL}, BBTN cũ ${r.n.BBTN}${r.n['Test report'] ? `, test report ${r.n['Test report']}` : ''}); ô tô nền cần kiểm tra` : 'chưa có thông số, nhập tay'}${bay ? `; lưu CSDL sẽ gắn ngăn ${bay.code}` : ''}`);
+  }
+
   async function apply() {
     const c = C(), st = A.state, cfg = st.cfg;
+    if (cfg.pickOrphan && !(cfg.pickEq && cfg.pickBay)) return applyOrphan();
     // ngăn đang chọn trên bộ chọn trước, ngăn đã gắn của biên bản sau
     const bay = (c.bays || []).find(b => b.id === cfg.pickBay) || (c.bays || []).find(b => b.id === cfg.bayId);
     if (!bay) throw new Error('Chưa chọn ngăn');
@@ -240,6 +273,9 @@
     cfg[k] = t.value;
     if (k === 'pickSub') { cfg.pickBay = ''; cfg.pickEq = ''; }
     if (k === 'pickBay') cfg.pickEq = '';
+    // chọn thiết bị trong ngăn và thiết bị chưa gắn ngăn loại trừ nhau
+    if (k === 'pickEq' && t.value) cfg.pickOrphan = '';
+    if (k === 'pickOrphan' && t.value) cfg.pickEq = '';
     if (k === 'pickEq') cfg.pickPhase = cfg.pickPhase || 'A';
     A.persist();
     const w = $('#suPicker');

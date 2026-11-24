@@ -132,7 +132,7 @@
     if (!state.v['meta.reason']) state.v['meta.reason'] = T().report.defaultReason || '';
     rememberTemplateHead();
     // biên bản mới: chưa gắn ngăn / thiết bị của danh mục
-    ['bayId', 'pickSub', 'pickBay', 'pickEq', 'pickPhase'].forEach(k => { delete state.cfg[k]; });
+    ['bayId', 'pickSub', 'pickBay', 'pickEq', 'pickPhase', 'pickOrphan'].forEach(k => { delete state.cfg[k]; });
   }
 
   // Lấy giá trị sẵn có trong template (thông tin chung, Uo = 10 kV…) làm mặc định
