@@ -1360,9 +1360,12 @@
         toast(`Đã xuất ${doc.name} (${doc.cells} ô số liệu)${doc.miss.length ? ` — không định vị được: ${doc.miss.slice(0, 4).join(', ')}${doc.miss.length > 4 ? '…' : ''}` : ''}`, doc.miss.length > 0);
       });
       if (state.db && state.db.sessionId && DB.user && DB.canEdit()) {
+        // BBTN từng pha gắn vào máy của pha đó (danh mục đã tải, tìm theo số chế tạo); không thấy thì gắn máy chính của lần thí nghiệm
+        const up = x => String(x || '').trim().toUpperCase();
+        const eqOf = sn => ((window.Catalog && Catalog.data && Catalog.data.eqs) || []).find(e => !e.parent_id && up(e.serial_no) === up(sn));
         for (const doc of docs) {
           try {
-            await DB.uploadDoc(state.db.sessionId, state.db.equipmentId || null, 'BBTN_DOCX', `${doc.serial}/${state.db.sessionId}/${doc.name}`, doc.name, doc.blob);
+            await DB.uploadDoc(state.db.sessionId, (eqOf(doc.serial) || {}).id || state.db.equipmentId || null, 'BBTN_DOCX', `${doc.serial}/${state.db.sessionId}/${doc.name}`, doc.name, doc.blob);
           } catch (err) { toast(`Đã tải ${doc.name} nhưng chưa lưu được vào CSDL: ${err.message}`, true); }
         }
       }

@@ -44,6 +44,28 @@
     });
     // Vị trí lắp đặt có chữ "pha X" (vd mặc định mẫu pha A) → pha của biên bản đang tách
     if (targetV['meta.site'] !== undefined) targetV['meta.site'] = Common.sitePhase(targetV['meta.site'], phase);
+    if (sourceSchema.layout === Schema.LAYOUT_3P) {
+      const txt = k => String(sourceV[k] ?? '').trim();
+      // Nhiệt độ sứ: mẫu theo pha có một ô cho mỗi phía (cao áp / trung áp + trung tính / hạ áp); mẫu 3 pha có nhiệt độ riêng
+      // từng sứ (hàng t) và ô chung theo phía, ô chung trống thì lấy nhiệt độ sứ cao áp (như đánh giá) →
+      // nhiệt độ sứ của pha đang tách → ô chung của phía → ô sứ cao áp
+      ['hv', 'mv', 'lv'].forEach(side => {
+        const k = `b.${side}.t`;
+        if (!targetFieldKeys.has(k)) return;
+        const own = side === 'lv' ? [`b.lv.meas.t.${phase.toLowerCase()}`, `b.lv2.meas.t.${phase.toLowerCase()}`] : [`b.${side}.meas.t.${phase}`];
+        const t = own.concat([k, 'b.hv.t']).map(txt).find(Boolean);
+        if (t) targetV[k] = t;
+      });
+      // Kiểm tra bên ngoài: mẫu theo pha là một dòng chữ; mẫu 3 pha là bảng hạng mục có đánh giá → ô chữ trống thì tóm tắt
+      // từ bảng (cùng một đánh giá → ghi đánh giá đó; khác nhau → "hạng mục: đánh giá; …")
+      const vg = targetFieldKeys.has('visual.text') && !txt('visual.text') && Common.findGrid(sourceSchema, 'visual.items');
+      if (vg) {
+        const items = vg.rows.map(r => [r.label, txt(`visual.items.${r.k}.e`)]).filter(x => x[1]);
+        const evs = [...new Set(items.map(x => x[1]))];
+        if (evs.length === 1) targetV['visual.text'] = evs[0];
+        else if (evs.length > 1) targetV['visual.text'] = items.map(([l, e]) => `${l}: ${e}`).join('; ');
+      }
+    }
     const moistureKey = `moist.r.${phase}`;
     if (targetFieldKeys.has('moist.val') && sourceV[moistureKey] !== undefined) targetV['moist.val'] = sourceV[moistureKey];
     targetV['meta.serial'] = serial;

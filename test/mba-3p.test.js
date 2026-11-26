@@ -237,3 +237,23 @@ test('mẫu chung 3 pha → BBTN riêng từng pha: Vị trí lắp đặt "PHA 
   assert.equal(out['meta.site'], 'MBA 500kV AT9 PHA C (Trạm Thử)');
   assert.equal(out['meta.serial'], 'SN-C');
 });
+
+test('mẫu chung 3 pha → BBTN riêng từng pha: nhiệt độ sứ theo pha, ô chung trống lấy sứ cao áp; kiểm tra bên ngoài tóm tắt từ bảng', () => {
+  const ctx = load(CORE);
+  const M = ctx.EquipmentTypes.get('MBA');
+  const cfg3 = Object.assign(M.defaultCfg(), { template: '3P', ps: { A: 'SN-A', B: 'SN-B', C: 'SN-C' } });
+  const src = M.buildSchema(cfg3), tgt = M.buildSchema(Object.assign(M.defaultCfg(), { template: 'B', topology: 'bank1p' }));
+  const proj = v => ctx.MbaReport.phaseState({ type: 'MBA', v, cfg: cfg3, sum: { tick: {}, ev: {} }, att: {} }, src, tgt, 'B').v;
+  // chỉ có nhiệt độ chung sứ cao áp → cả ba phía
+  let out = proj({ 'b.hv.t': '35' });
+  same(['hv', 'mv', 'lv'].map(s => out[`b.${s}.t`]), ['35', '35', '35']);
+  // nhiệt độ riêng sứ của pha B (cột b của sứ hạ áp) ưu tiên; ô chung trung áp có giá trị thì dùng khi pha B trống
+  out = proj({ 'b.hv.t': '35', 'b.mv.t': '33', 'b.hv.meas.t.A': '40', 'b.hv.meas.t.B': '36', 'b.lv2.meas.t.b': '31' });
+  same(['hv', 'mv', 'lv'].map(s => out[`b.${s}.t`]), ['36', '33', '31']);
+  // kiểm tra bên ngoài
+  const items = {};
+  src.sections.find(s => s.id === 'visual').grids[0].rows.forEach(r => { items[`visual.items.${r.k}.e`] = 'Đạt/Pass'; });
+  assert.equal(proj(items)['visual.text'], 'Đạt/Pass');
+  assert.match(proj(Object.assign({}, items, { 'visual.items.i9.e': 'Không đạt' }))['visual.text'], /Cánh tản nhiệt: Đạt\/Pass; Độ kín: Đạt\/Pass; Tiếp địa: Không đạt$/);
+  assert.equal(proj(Object.assign({}, items, { 'visual.text': 'Bình thường' }))['visual.text'], 'Bình thường', 'ô chữ đã nhập thì giữ');
+});
