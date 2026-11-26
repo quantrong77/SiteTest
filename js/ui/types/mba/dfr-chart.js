@@ -102,7 +102,9 @@
       g.beginPath();
       s.pts.forEach(([f, y], i) => (i ? g.lineTo(px(f), py(y)) : g.moveTo(px(f), py(y))));
       g.stroke();
-      s.pts.forEach(([f, y]) => { g.beginPath(); g.arc(px(f), py(y), 4, 0, Math.PI * 2); g.fill(); });
+      // nhiều điểm đo (vd 10 điểm/decade) thì chấm nhỏ để không che đường
+      const r = s.pts.length > 50 ? 2.5 : 4;
+      s.pts.forEach(([f, y]) => { g.beginPath(); g.arc(px(f), py(y), r, 0, Math.PI * 2); g.fill(); });
     });
     g.restore();
 

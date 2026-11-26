@@ -1,7 +1,10 @@
 // DFR cách điện cuộn dây (mục độ ẩm cách điện rắn): phép đo CHL / CLT / CHT đọc từ CSV DIRANA, chọn lần đo đại diện,
 // dựng phụ lục BBTN. MBA 3 cuộn dây: CHL, CLT; MBA tự ngẫu (tổ 3 máy 1 pha rời hoặc 3 pha chung vỏ): CHT.
 // Có phép đo nào thì trình bày phép đo đó; chỉ trình bày số liệu đo, không đánh giá đạt / không đạt.
-// Số liệu ở state.att.dfrw.items: { id, name, date, temp, file, ins, phase, f[], tan[] (%), c[] (pF), use, insManual, phaseManual, useManual }
+// Số liệu ở state.att.dfrw.items: { id, name, date, temp, file, objType, ins, phase, f[], tan[] (%), c[] (pF), ci[] (|C″|, pF),
+//   oilCond (độ dẫn dầu pS/m, nhập tay theo phân tích DIRANA), use, insManual, phaseManual, useManual }
+// Bảng tại tần số con trỏ 50 Hz: độ ẩm (ô độ ẩm của mục, phân loại theo Điều 28), độ dẫn dầu, tgδ, C, tổng trở |Z| = 1/(ω·|C*|).
+// Độ ẩm, độ dẫn dầu là kết quả phân tích của phần mềm DIRANA (không có trong file CSV) → nhập tay, không tự tính.
 (function () {
   'use strict';
   const INS = ['CHL', 'CLT', 'CHT'];
@@ -13,6 +16,10 @@
   function insOf(name) {
     const m = String(name || '').toUpperCase().match(/(?:^|[^A-Z])(CHL|CLT|CHT)(?![A-Z])/);
     return m ? m[1] : '';
+  }
+  // Cách điện khi tên phép đo không ghi (vd "PHA C"): kiểu đối tượng đo MBA tự ngẫu, hoặc tổ 3 máy 1 pha rời (500 kV tự ngẫu) → CHT
+  function insFor(p, cfg) {
+    return insOf(p.name) || (/auto\s*transformer/i.test(p.objType || '') ? 'CHT' : '') || ((cfg || {}).topology === 'bank1p' ? 'CHT' : '');
   }
   // Pha ghi cuối tên phép đo hoặc tên file (vd "CHT_A", "CHT pha B", "AT1_C.csv"); không có thì rỗng
   function phaseIn(text) {
@@ -39,8 +46,9 @@
       const i = merged.findIndex(x => x.file === p.file && x.name === p.name && x.date === p.date);
       const old = i >= 0 ? merged[i] : null;
       const next = Object.assign({ name: p.name, date: p.date, temp: p.temp || '', serial: p.serial || '', file: p.file, f: p.f, tan: p.tan, c: p.c },
-        { id: old ? old.id : newId(), ins: insOf(p.name), phase: defaultPhase(p, cfg), use: old ? old.use : false });
-      if (old) ['insManual', 'phaseManual', 'useManual'].forEach(k => { if (old[k]) next[k] = old[k]; });
+        p.ci ? { ci: p.ci } : {}, { objType: p.objType || '' },
+        { id: old ? old.id : newId(), ins: insFor(p, cfg), phase: defaultPhase(p, cfg), use: old ? old.use : false });
+      if (old) ['insManual', 'phaseManual', 'useManual', 'oilCond'].forEach(k => { if (old[k]) next[k] = old[k]; });
       if (old && old.insManual) next.ins = old.ins;
       if (old && old.phaseManual) next.phase = old.phase;
       if (i >= 0) merged[i] = next; else merged.push(next);
@@ -68,8 +76,32 @@
   }
   const has = state => chosen(((state && state.att && state.att.dfrw) || {}).items).length > 0;
 
-  // tgδ, C tại tần số hz (nội suy theo log tần số); ngoài dải đo → null
-  const at = (m, hz) => (window.Dfr ? Dfr.at(m, hz) : null);
+  // tgδ, C′, |C″| tại tần số hz (nội suy tuyến tính theo log tần số); ngoài dải đo → null
+  function at(m, hz) {
+    if (!m || !(hz > 0) || !Array.isArray(m.f)) return null;
+    const pts = m.f.map((f, i) => ({ f: Number(f), tan: Number(m.tan[i]), c: Number(m.c[i]), ci: m.ci ? Number(m.ci[i]) : NaN }))
+      .filter(x => x.f > 0 && Number.isFinite(x.tan) && Number.isFinite(x.c)).sort((a, b) => a.f - b.f);
+    if (!pts.length || hz < pts[0].f * 0.999 || hz > pts[pts.length - 1].f * 1.001) return null;
+    const hi = pts.findIndex(p => p.f >= hz), b = pts[hi];
+    if (Math.abs(b.f - hz) <= hz * 1e-6 || hi === 0) return { tan: b.tan, c: b.c, ci: b.ci };
+    const a = pts[hi - 1], t = Math.log10(hz / a.f) / Math.log10(b.f / a.f), mix = (x, y) => x + t * (y - x);
+    return { tan: mix(a.tan, b.tan), c: mix(a.c, b.c), ci: mix(a.ci, b.ci) };
+  }
+  // Giá trị tại tần số con trỏ: tgδ (%), C (nF), |Z| (kΩ) = 1/(2πf·√(C′² + C″²)); thiếu C″ thì |Z| ≈ 1/(2πf·C′)
+  function cursor(m, hz = 50) {
+    const v = at(m, hz);
+    if (!v) return null;
+    const cAbs = Math.hypot(v.c, Number.isFinite(v.ci) ? v.ci : 0) * 1e-12;
+    return { hz, tan: v.tan, cNF: v.c / 1000, zK: cAbs > 0 ? 1 / (2 * Math.PI * hz * cAbs) / 1000 : NaN };
+  }
+  // Ô độ ẩm của mục: mẫu chung 3 pha theo pha (moist.r.A/B/C), mẫu khác một ô (moist.val)
+  const moistKey = (cfg, phase) => ((cfg || {}).template === '3P' && phase ? `moist.r.${phase}` : 'moist.val');
+  function moisture(state, m) {
+    const s = String(((state || {}).v || {})[moistKey((state || {}).cfg, m.phase)] ?? '').trim().replace(',', '.');
+    return s === '' ? NaN : Number(s);
+  }
+  // Phân loại theo Điều 28 QĐ 1901 (cùng hàm đánh giá của mục)
+  const category = x => (Number.isFinite(x) && window.QD ? QD.classifyMoisture(x).text.replace(/^[^:]*:\s*/, '').replace(/\s*\(.*\)\s*$/, '') : '');
 
   // Khối phụ lục BBTN: bảng phép đo (tgδ, C tại 50 Hz) + đồ thị từng phép đo, ghi rõ cách điện và pha;
   // cùng cách điện có từ 2 pha trở lên thì thêm đồ thị xếp chồng các pha
@@ -81,9 +113,14 @@
     const blocks = [{ type: 'page' }, { type: 'p', text: label || 'PHỤ LỤC', bold: true, size: 14, align: 'center' },
       { type: 'p', text: 'Đáp ứng tần số điện môi cách điện cuộn dây (hàm lượng ẩm trong cách điện rắn)', bold: true, size: 13, align: 'center' },
       { type: 'p', text: 'I. Phép đo', bold: true, size: 12, keepNext: true }];
-    blocks.push({ type: 'table', size: 9, head: ['Cách điện', 'Pha', 'Ngày đo', 'Nhiệt độ (°C)', 'tgδ 50 Hz (%)', 'C 50 Hz (pF)'],
-      widths: [2200, 1000, 2000, 1300, 1400, 1600],
-      rows: ms.map(m => { const v = at(m, 50); return [INS_TEXT[m.ins] || m.ins, phaseLabel(m.phase), o(m.date || ''), o(String(m.temp || '').replace('.', ',')), num(v && v.tan, 3), num(v && v.c, 1)]; }) });
+    blocks.push({ type: 'table', size: 8, head: ['Cách điện', 'Pha', 'Ngày đo', 'Nhiệt độ (°C)', 'Độ ẩm (%)', 'Phân loại (Điều 28)', 'Độ dẫn dầu (pS/m)', 'tgδ (%)', 'C (nF)', '|Z| (kΩ)'],
+      widths: [1250, 650, 1150, 750, 700, 1350, 900, 750, 850, 850],
+      rows: ms.map(m => {
+        const v = cursor(m, 50), mo = moisture(state, m);
+        return [m.ins, phaseLabel(m.phase), o(String(m.date || '').split(' ')[0]), o(String(m.temp || '').replace('.', ',')), num(mo, 2), o(category(mo)),
+          o(String(m.oilCond || '').replace('.', ',')), num(v && v.tan, 3), num(v && v.cNF, 2), num(v && v.zK, 1)];
+      }) });
+    blocks.push({ type: 'p', text: 'Tại tần số con trỏ 50 Hz. Độ ẩm, độ dẫn dầu theo kết quả phân tích của DIRANA; tgδ, C, |Z| đọc trên đường đo.', italic: true, size: 9 });
     blocks.push({ type: 'p', text: 'II. Đồ thị tgδ theo tần số', bold: true, size: 12, keepNext: true });
     const charts = (assets && assets.dfrwCharts) || {};
     let no = 0;
@@ -92,11 +129,13 @@
       if (!set || !(set.individual || []).length) return;
       no++;
       blocks.push({ type: 'p', text: `II.${no} ${INS_TEXT[ins]}`, bold: true, size: 12, keepNext: true });
-      blocks.push({ type: 'images', perRow: 2, widthCm: 8, items: set.individual });
+      // xếp chồng các pha đặt trước để so sánh; rồi đồ thị riêng từng phép đo
       if (set.overlay) {
         blocks.push({ type: 'p', text: 'Đồ thị xếp chồng các pha để so sánh', italic: true, size: 11, keepNext: true });
         blocks.push({ type: 'images', perRow: 1, widthCm: 16, items: [set.overlay] });
+        blocks.push({ type: 'p', text: 'Đồ thị riêng từng pha', italic: true, size: 11, keepNext: true });
       }
+      blocks.push({ type: 'images', perRow: 2, widthCm: 8, items: set.individual });
     });
     blocks.push({ type: 'p', text: 'Người thí nghiệm', bold: true, size: 12, align: 'right', after: 1200 });
     return blocks;
@@ -105,5 +144,5 @@
   // BBTN tách từng pha: giữ phép đo của pha đó và phép đo không ghi pha
   const forPhase = (items, phase) => (items || []).filter(x => !x.phase || x.phase === phase);
 
-  window.DfrW = { INS, INS_TEXT, PHASES, insOf, phaseIn, defaultPhase, phaseLabel, title, merge, chosen, has, appendix, forPhase };
+  window.DfrW = { INS, INS_TEXT, PHASES, insOf, insFor, phaseIn, defaultPhase, phaseLabel, title, merge, chosen, has, at, cursor, moistKey, moisture, category, appendix, forPhase };
 })();

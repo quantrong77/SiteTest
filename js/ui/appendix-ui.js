@@ -201,7 +201,7 @@
         const parsed = Dirana.parse(await file.text(), file.name);
         parsed.forEach(m => parsedNew.push(m));
       } catch (e) {
-        if (!/không phải CSV DIRANA/.test(e.message || '')) errors.push(`${file.name}: ${e.message}`);
+        if (!/không phải CSV DIRANA/.test(e.message || '')) errors.push(e.message);
       }
     }
     if (!parsedNew.length) {

@@ -56,8 +56,8 @@ test('phụ lục: bảng 50 Hz ghi cách điện, pha; đồ thị theo từng 
   const img = { png: new Uint8Array(1), w: 1, h: 1 };
   const blocks = DfrW.appendix(state, { dfrwCharts: { CHT: { individual: [img, img], overlay: img } } }, x => x, 'PHỤ LỤC 2');
   const table = blocks.find(b => b.type === 'table');
-  eq(table.rows.map(r => r.slice(0, 2)), [['CHT (cao áp – vỏ)', 'Pha A'], ['CHT (cao áp – vỏ)', 'Pha B']]);
-  assert.equal(table.rows[0][4], '2,500'); // tgδ tại 50 Hz (điểm đo đúng 50 Hz)
+  eq(table.rows.map(r => r.slice(0, 2)), [['CHT', 'Pha A'], ['CHT', 'Pha B']]);
+  assert.equal(table.rows[0][7], '2,500'); // tgδ tại 50 Hz (điểm đo đúng 50 Hz)
   assert.ok(blocks.some(b => b.text === 'II.1 CHT (cao áp – vỏ)'));
   assert.equal(blocks.filter(b => b.type === 'images').length, 2);
   // MBA 3 cuộn dây, 3 pha chung: CHL, CLT không ghi pha → "3 pha"
@@ -90,4 +90,52 @@ test('khối ảnh phụ lục (2 ảnh/hàng): lưới bảng đủ cột, khô
   const xml = DocxTemplate.prototype.blockXml.call({ imageXml: () => '<w:p/>' }, { type: 'images', perRow: 2, widthCm: 8, items: [{ caption: 'Đo 1' }, { caption: 'Đo 2' }] });
   assert.equal((xml.match(/<w:gridCol /g) || []).length, 2);
   assert.ok(!xml.replace(/<[^>]*>/g, '').includes('"/>'));
+});
+
+
+// Định dạng file DIRANA 4.10 xuất từ máy (tên phép đo chỉ ghi pha, kiểu đối tượng MBA tự ngẫu, ngày dạng 26-Nov-26 2:08:37 PM)
+const at2 = (rows = true) => ['[DIRANA CSV]', 'Version,Decimal', '4.10,point', '', '[Test]',
+  'Name,Comment,Test Object Serial,Test Object Type,Location,Tester,InsulationMedium,FDS Voltage,PDC Voltage,Firmware Version,UniqueId',
+  'PHA A,"",FAKE-1/2/3,AutoTransformerTertiary,FAKE,FAKE,,200,200,0,x', '',
+  '[Measurements]', 'ID,Name,Date,Color,Temperature,Channel,EpsilonR,MeasId,CopyForComparison,ParentTestId',
+  '1,PHA C,26-Nov-26 2:08:37 PM,,24,CH1,2.2,0,False,x', '',
+  '[FrequencySweeps]', 'ID,Frequency,Tangent Delta,Power Factor,C(Real),C(Imag)',
+  ...(rows ? ['1,1E-05,500,99,3E-08,-1.5E-07', '1,50,0.4,0.4,2E-08,-8E-11', '1,1000,0.6,0.6,1.99E-08,-1.2E-10'] : []), '',
+  '[PolarizationSweeps]', 'ID,Time,Current'].join('\n');
+
+test('DIRANA 4.10 dạng AT2: ngày 26-Nov-26 PM, kiểu MBA tự ngẫu → CHT, pha theo tên "PHA C", C″', () => {
+  const { Dirana, DfrW } = load(CORE);
+  assert.equal(Dirana.normDate('26-Nov-26 2:08:37 PM'), '26/11/2026 14:08:37');
+  assert.equal(Dirana.normDate('1-Jan-2026 12:05:00 AM'), '01/01/2026 00:05:00');
+  assert.equal(Dirana.normDate('18/03/2026 08:52:36'), '18/03/2026 08:52:36');
+  const [m] = Dirana.parse(at2(), 'AT.csv');
+  eq([m.name, m.date, m.temp, m.objType], ['PHA C', '26/11/2026 14:08:37', '24', 'AutoTransformerTertiary']);
+  assert.ok(Math.abs(m.ci[1] - 80) < 1e-9);
+  const [w] = DfrW.merge([], [m], () => 'id1', { topology: 'threePhase', template: '110' });
+  eq([w.ins, w.phase, w.use], ['CHT', 'C', true]);
+  // tên chỉ ghi pha, không có kiểu đối tượng: tổ 3 máy 1 pha rời → CHT; MBA 3 pha khác → chọn tay
+  assert.equal(DfrW.insFor({ name: 'PHA B' }, { topology: 'bank1p' }), 'CHT');
+  assert.equal(DfrW.insFor({ name: 'PHA B' }, { topology: 'threePhase' }), '');
+  assert.throws(() => Dirana.parse(at2(false), 'AT2.csv'), /có 1 phép đo \(PHA C\) nhưng \[FrequencySweeps\] không có số liệu/);
+});
+
+test('tần số con trỏ 50 Hz: tgδ, C (nF), |Z| = 1/(ω·|C*|); độ ẩm theo ô của mục, phân loại Điều 28, độ dẫn dầu', () => {
+  const { Dirana, DfrW } = load(CORE);
+  const [p] = Dirana.parse(at2(), 'AT.csv');
+  const v = DfrW.cursor(p, 50);
+  assert.ok(Math.abs(v.tan - 0.4) < 1e-12 && Math.abs(v.cNF - 20) < 1e-9);
+  assert.ok(Math.abs(v.zK - 1 / (2 * Math.PI * 50 * Math.hypot(20e-9, 80e-12)) / 1000) < 1e-9);
+  assert.equal(DfrW.cursor(p, 5000), null);
+  assert.equal(DfrW.moistKey({ template: '3P' }, 'C'), 'moist.r.C');
+  assert.equal(DfrW.moistKey({ template: 'C' }, 'C'), 'moist.val');
+  assert.equal(DfrW.moistKey({ template: '3P' }, ''), 'moist.val');
+  const m = Object.assign({}, p, { id: 'c', ins: 'CHT', phase: 'C', use: true, oilCond: '1.25' });
+  const state = { cfg: { template: '3P' }, v: { 'moist.r.C': '2,9' }, att: { dfrw: { items: [m] } } };
+  assert.equal(DfrW.moisture(state, m), 2.9);
+  assert.match(DfrW.category(2.9), /trung bình/);
+  assert.match(DfrW.category(1.5), /khô/);
+  assert.equal(DfrW.category(NaN), '');
+  const row = DfrW.appendix(state, {}, x => x, 'PL').find(b => b.type === 'table').rows[0];
+  eq(row, ['CHT', 'Pha C', '26/11/2026', '24', '2,90', 'độ ẩm trung bình', '1,25', '0,400', '20,00', row[9]]);
+  assert.match(row[9], /^159,\d$/);
 });
