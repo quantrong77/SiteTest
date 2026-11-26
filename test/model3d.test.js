@@ -78,17 +78,18 @@ test('bình dầu phụ: Kiểm tra bên ngoài, trang Dầu MBA ở Phụ lục
   assert.ok(part.items.filter(i => i.extra).length === 2);
 });
 
-test('sứ từng pha: HV A B C, MV Am Bm Cm, N, LV a b c trỏ tới ô tgδ C1 của pha đó', () => {
+test('sứ từng pha: HV A B C, MV Am Bm Cm, N; LV a b c (110 kV) / 3.1 3.2 (mẫu theo pha) trỏ tới ô tgδ C1', () => {
   const ctx = load(DOMAIN.concat(['js/domain/types/mba/model3d-map.js']));
   const T = ctx.EquipmentTypes.get('MBA');
   const cfg = T.defaultCfg();
   const lab = r => Object.fromEntries(Object.entries(r).map(([k, v]) => [k, v.map(e => e.label).join()]));
   for (const c of [cfg, Object.assign({}, cfg, { template: 'custom', layout: '110' })]) {
     const r = ctx.MbaModel3DMap.bushingPhases(T.buildSchema(c));
-    assert.deepEqual(lab(r), { 'bush-hv': 'A,B,C', 'bush-mv': 'Am,Bm,Cm', 'bush-n': 'N', 'bush-lv': 'a,b,c' });
+    const unit = c === cfg;
+    assert.deepEqual(lab(r), { 'bush-hv': 'A,B,C', 'bush-mv': 'Am,Bm,Cm', 'bush-n': 'N', 'bush-lv': unit ? '3.1,3.2' : 'a,b,c' });
     assert.equal(r['bush-hv'][0].cell, 'b.hv.meas.tgd1.A');
     assert.equal(r['bush-n'][0].cell, 'b.mv.meas.tgd1.N', 'N gộp trong nhóm trung áp');
-    assert.equal(r['bush-lv'][2].cell, 'b.lv.meas.tgd1.c');
+    assert.equal(r['bush-lv'][1].cell, 'b.lv.meas.tgd1.b');
   }
   // mẫu 3 pha: N của từng máy ở nhóm riêng
   const r3 = ctx.MbaModel3DMap.bushingPhases(T.buildSchema(Object.assign({}, cfg, { template: '3P' })));

@@ -82,5 +82,65 @@
     return SPEC_KEYS.filter(k => !(fills || {})[k] && str(tplHead[k]) && str(v[k]) === str(tplHead[k]));
   }
 
-  window.EquipmentSpecs = { bayUnits, headFrom, fillPlan, staleKeys, joinSides, PHASES, SPEC_KEYS };
+  // Sứ xuyên của máy → ô kiểu loại / hãng / số chế tạo của bảng sứ (mục 5) theo vị trí đầu sứ.
+  // kids: thiết bị con loại SU trong CSDL (position 1.1 / 2.1 / 2 / 3.1 / 3.2, phase, model, manufacturer, serial_no, rated.insulation);
+  // hist: BBTN gần nhất { v, date } — bù sứ chưa có trong danh mục. schema: biểu mẫu đang lập (cột sứ có term / own ở mẫu theo pha).
+  // → { khóa ô: { value, src } }
+  function bushingFrom(kids, schema, hist) {
+    const out = {};
+    const sec = ((schema && schema.sections) || []).find(s => s.id === 'bushing');
+    const grids = {};
+    ((sec && sec.groups) || []).forEach(g => (g.grids || []).forEach(gr => { const m = String(gr.id).match(/^b\.(hv|mv|lv)\.meas$/); if (m) grids[m[1]] = gr; }));
+    const has = (side, k) => grids[side] && grids[side].cols.some(c => c.k === k && c.phase);
+    const up = schema && schema.unitPhase;
+    const colOf = e => {
+      const pos = str(e.position), ph = str(e.phase).toUpperCase();
+      if (pos === '1.1') { const k = has('hv', ph) ? ph : up; return has('hv', k) ? ['hv', k] : null; }
+      if (pos === '2.1') { const k = has('mv', ph) ? ph : up; return has('mv', k) ? ['mv', k] : null; }
+      if (pos === '2' || ph === 'N') return has('mv', 'N') ? ['mv', 'N'] : null;
+      if (/^3\.\d$/.test(pos) && grids.lv) {
+        const byTerm = grids.lv.cols.find(c => c.phase && c.term === pos);
+        if (byTerm) return ['lv', byTerm.k];
+        const k = ph.toLowerCase();
+        return has('lv', k) ? ['lv', k] : null;
+      }
+      return null;
+    };
+    const put = (k, value, src) => { const s = str(value); if (s && !out[k]) out[k] = { value: s, src }; };
+    (kids || []).filter(e => !e.class_code || e.class_code === 'SU').forEach(e => {
+      const at = colOf(e);
+      if (!at) return;
+      const [side, k] = at, p = `b.${side}.meas`;
+      put(`${p}.type.${k}`, e.model, 'CSDL');
+      put(`${p}.manuf.${k}`, e.manufacturer, 'CSDL');
+      put(`${p}.serial.${k}`, e.serial_no, 'CSDL');
+      const ins = e.rated && e.rated.insulation;
+      if (ins) put(`b.${side}.btype`, ins, 'CSDL');
+    });
+    if (hist && hist.v) {
+      const HB = `BBTN ${String(hist.date || '').slice(0, 10).split('-').reverse().join('/')}`.trim();
+      Object.entries(grids).forEach(([side, g]) => g.cols.filter(c => c.phase).forEach(c => ['type', 'manuf', 'serial'].forEach(r => {
+        put(`b.${side}.meas.${r}.${c.k}`, hist.v[`b.${side}.meas.${r}.${c.k}`], HB);
+      })));
+      Object.keys(grids).forEach(side => put(`b.${side}.btype`, hist.v[`b.${side}.btype`], HB));
+    }
+    return out;
+  }
+
+  // Cấu hình gắn với máy lấy từ BBTN gần nhất: nhãn cột sứ / chỉ danh biến dòng (cfg.hdr), nhãn hàng BCT (bctLbl_*),
+  // số hiệu lõi CT (ctNo), số cuộn thứ cấp (bctCores). Chỉ điền phần biên bản đang lập chưa có. → số mục đã chép
+  function cfgFromHist(cfg, histCfg) {
+    if (!cfg || !histCfg) return 0;
+    let n = 0;
+    cfg.hdr = cfg.hdr || {};
+    Object.entries(histCfg.hdr || {}).forEach(([k, l]) => { if (/^(b|bct)\./.test(k) && !cfg.hdr[k] && str(l)) { cfg.hdr[k] = l; n++; } });
+    Object.keys(histCfg).filter(k => /^bctLbl_/.test(k)).forEach(k => {
+      const cur = cfg[k] = Object.assign({}, cfg[k]);
+      Object.entries(histCfg[k] || {}).forEach(([r, l]) => { if (!cur[r] && str(l)) { cur[r] = l; n++; } });
+    });
+    ['ctNo', 'bctCores'].forEach(k => { if (histCfg[k] && typeof histCfg[k] === 'object') { cfg[k] = Object.assign({}, cfg[k], histCfg[k]); n++; } });
+    return n;
+  }
+
+  window.EquipmentSpecs = { bayUnits, headFrom, bushingFrom, cfgFromHist, fillPlan, staleKeys, joinSides, PHASES, SPEC_KEYS };
 })();

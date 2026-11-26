@@ -406,8 +406,9 @@
         if (!ok(tgd1) && !ok(c1)) return;
 
         const bs = txt(`${p}.serial.${c.k}`);
-        const term = c.k === 'N' ? '2' : gr.term;
-        const unitS = serialOf(c.k);
+        // mẫu theo pha: cột là sứ của máy đang lập, vị trí đầu sứ theo cột (hạ áp: 3.1, 3.2)
+        const term = c.term || (c.k === 'N' ? '2' : gr.term);
+        const unitS = c.own ? main : serialOf(c.k);
         let fb = F ? F.bushingBySerial(bs) : null, how = 'theo S/N sứ';
         if (!fb && F) { fb = F.bushingByUnit(unitS, term); how = bs ? `S/N “${bs}” không có trong XX → so theo vị trí ${term} của MBA ${unitS}` : `chưa nhập S/N → so theo vị trí ${term} của MBA ${unitS}`; }
         const loc = bLoc(gr, c, bs);
@@ -715,7 +716,7 @@
         const k = `bct.${side}.ratio.${row.k}.${ph}`, m = val(k);
         if (!ok(m)) return;
         const ct = ctOf(row.w, ph), term = `${ct}S1-${ct}S${row.s}`;
-        const s = serialOf(side === 'lv' ? ph.toUpperCase() : ph);
+        const s = schema.unitOwn ? main : serialOf(side === 'lv' ? ph.toUpperCase() : ph);
         const fb = F ? F.bct(s, term) : null;
         const eAuto = fb && fb.ratio ? devPct(m, fb.ratio) : NaN;
         if (ok(eAuto)) calc[`bct.${side}.ratio.${row.k}.${ph}e`] = fmt(eAuto, 3);
@@ -731,7 +732,7 @@
         const k = `bct.${side}.dcr.${row.k}.${ph}`, m = val(k);
         if (!ok(m)) return;
         const ct = ctOf(row.w, ph), term = `${ct}S1-${ct}S${row.s}`;
-        const s = serialOf(side === 'lv' ? ph.toUpperCase() : ph);
+        const s = schema.unitOwn ? main : serialOf(side === 'lv' ? ph.toUpperCase() : ph);
         const fb = F ? F.bct(s, term) : null;
         const rd = TestItems.dcr({ m, t: tCT, ref: fb ? fb.r75 : NaN, refT: 75, lim: Infinity });
         const m75 = rd.atRef, d = rd.dev;

@@ -110,7 +110,7 @@ Trình khởi tạo 4 bước, mở bằng **Mới** hoặc bấm thanh thông t
 ![Bước ① Thiết bị: chọn Trạm → Ngăn → Thiết bị, cấu hình MBA, số chế tạo, test report](img/02-khoi-tao.webp)
 
 1. **Thiết bị** — đã đăng nhập: chọn **Trạm → Ngăn → Thiết bị** (tổ 3 máy 1 pha: chọn **Pha** hoặc **Cả tổ A+B+C**); thiết bị mới: **＋ Thiết bị mới trong ngăn này**. Chưa đăng nhập: chọn cấu hình, nhập số chế tạo. **Nhập Test Report (.xlsx)…** nạp file xuất xưởng.
-2. **Thông số kỹ thuật** — app tự điền theo thứ tự: CSDL → test report → BBTN gần nhất → nhập tay. Ô tự điền tô vàng, ô thiếu tô đỏ. Có **Nhập ảnh nameplate…** (OCR).
+2. **Thông số kỹ thuật** — app tự điền theo thứ tự: CSDL → test report → BBTN gần nhất → nhập tay. Ô tự điền tô vàng, ô thiếu tô đỏ. Có **Nhập ảnh nameplate…** (OCR). Chọn thiết bị từ CSDL thì app điền luôn **sứ xuyên** của máy (kiểu loại, hãng, số chế tạo theo vị trí 1.1 / 2.1 / N / 3.1 / 3.2; thiếu thì lấy BBTN gần nhất) và **chỉ danh biến dòng chân sứ**, số cuộn thứ cấp của BBTN gần nhất.
 3. **Lần thí nghiệm** — lý do, ngày, nhiệt độ, độ ẩm; hạng mục thực hiện. *Sau sửa chữa/đại tu*: chọn có lấy số liệu lần này làm **giá trị khởi đầu mới** không (có lọc sấy dầu: cách điện cuộn dây; thay cuộn dây: mọi số liệu).
 4. **Mẫu & cấu hình** — template BBTN, file xuất xưởng, phạm vi xuất, phụ lục, nhãn nấc, cách đo cuộn cao áp (A-N / A-Am), OLTC ở cuộn nào, số cuộn thứ cấp TI chân sứ. **Bắt đầu nhập số liệu →**.
 
@@ -118,7 +118,7 @@ Trình khởi tạo 4 bước, mở bằng **Mới** hoặc bấm thanh thông t
 
 ### Mẫu BBTN và số mục
 
-- **Tổ 3 máy 1 pha** (thường 500 kV): mẫu theo pha **A / B / C** (một máy một BBTN; nhập S/N máy pha B, C để so giữa các pha) hoặc mẫu chung **3P**. **MBA 3 pha 110–220 kV**: một S/N, một BBTN.
+- **Tổ 3 máy 1 pha** (thường 500 kV): mẫu theo pha **A / B / C** (một máy một BBTN; nhập S/N máy pha B, C để so giữa các pha) hoặc mẫu chung **3P**. Ở mẫu theo pha, bảng sứ và biến dòng chân sứ là của **máy đang lập**; sứ hạ áp có hai sứ **3.1, 3.2** (cột a, b). **MBA 3 pha 110–220 kV**: một S/N, một BBTN.
 - Lý do *Sau lắp đặt*, *Sau sửa chữa/đại tu* dùng ngưỡng "MBA mới" của QĐ 1901; các lần khác dùng ngưỡng máy đã vận hành.
 
 | Hạng mục | Mẫu theo pha, 110 | Mẫu 3P |
@@ -152,9 +152,11 @@ Số liệu xuất xưởng (FAT) lưu CSDL là **giá trị khởi đầu** đ�
 
 1. **Chọn file BBTN…** hoặc **Chọn cả thư mục…** (.docx mẫu PTC3/BM.01, .pdf có chữ, .pdf scan — OCR ngay trên máy).
 2. Kiểm tra số chế tạo, ngày, **lý do** (lần *Sau lắp đặt* ghi **khởi đầu**), số biên bản, số ô số liệu.
+   Cột **Trạm / ngăn**: app gợi ý ngăn theo tên trạm và vị trí lắp đặt ghi trên BBTN (vd "Máy biến áp AT1" → ngăn AT1); chọn lại nếu sai. Lưu CSDL sẽ gắn thiết bị vào ngăn này để lần sau chọn được ở bước ① (Trạm → Ngăn → Thiết bị). Thiết bị đã gắn ngăn thì giữ nguyên.
 3. **Trùng** số chế tạo + ngày với CSDL hoặc file khác trong lô: không tự lưu — chọn **Ghi đè** hoặc **Lưu thành lần mới**.
 4. PDF: **Soát cạnh PDF** (bản gốc bên trái, biểu mẫu bên phải) → nhập / sửa số liệu → **Đã soát** → **Lưu CSDL**.
-5. **Số liệu xuất xưởng:** app chỉ so sánh với test report của **đúng số chế tạo** của biên bản (file trên máy, hoặc tự tìm trong CSDL theo số chế tạo); không dùng test report của máy khác dù cùng chủng loại. Máy chưa có test report: tích **Chưa có số liệu xuất xưởng** ở dòng của file (hoặc ở *Thông tin chung → Mẫu & cấu hình*) — app không so với XX, không tìm trong CSDL; giá trị khởi đầu lấy theo lần sau lắp đặt / lần trước.
+5. **BBTN cũ theo pha (máy 1 pha 500 kV, PDF):** app nhận ra pha của máy ("Vị trí lắp đặt … (Pha A)"), đọc các bảng đã xóa bớt cột theo nhãn tiêu đề (cao áp "A", trung áp "Am | N", hạ áp "3.1 | 3.2", BCT "Pha A"), thông số kỹ thuật MBA và mọi sứ xuyên. Khi lưu CSDL, sứ được lưu thành thiết bị con của máy (vị trí, kiểu loại, hãng, loại cách điện) để lần sau tự nạp.
+6. **Số liệu xuất xưởng:** app chỉ so sánh với test report của **đúng số chế tạo** của biên bản (file trên máy, hoặc tự tìm trong CSDL theo số chế tạo); không dùng test report của máy khác dù cùng chủng loại. Máy chưa có test report: tích **Chưa có số liệu xuất xưởng** ở dòng của file (hoặc ở *Thông tin chung → Mẫu & cấu hình*) — app không so với XX, không tìm trong CSDL; giá trị khởi đầu lấy theo lần sau lắp đặt / lần trước.
 
 ## `3D` Mô hình 3D MBA
 
@@ -203,6 +205,8 @@ Mỗi hạng mục có đủ 4 bước; phần dưới chỉ ghi điều riêng.
 - Chọn phía, loại cách điện (OIP, RIP…), **Đã lắp / Chưa lắp**, nhiệt độ; nhập C1, tgδ1, C2, tgδ2 và thử AC (nếu có).
 - **Cách quy đổi về 20 °C**: bảng QĐ 1901, HD hãng (Hitachi RIP) hoặc nhập K — bảng hệ số ở trang [Hệ số quy đổi sứ](#k-he-so-quy-doi-su).
 - **Thêm file .xlsx…** nạp test report sứ (gộp theo S/N sứ) để so với hãng.
+- **Đề mục cột sửa được** (ô ở hàng tiêu đề bảng): vd hạ áp **3.1 / 3.2** hoặc **LV1 / LV2**. Bảng quy đổi 20 °C, bảng thử AC và BBTN xuất ra dùng cùng nhãn. Để trống để về nhãn mặc định.
+- Mẫu theo pha: cột a, b của bảng hạ áp là hai sứ 3.1, 3.2 của máy; cột c dự phòng.
 
 ## `6` Mục 6: Tgδ và điện dung cuộn dây
 
@@ -247,6 +251,7 @@ Mỗi hạng mục có đủ 4 bước; phần dưới chỉ ghi điều riêng.
 [Mở →](#app:bct)
 
 - Nhập cách điện, cực tính, tỷ số, R một chiều, đặc tính V-A theo phía, pha, lõi.
+- **Chỉ danh sửa được**: đề mục cột (vd "Pha A" → "CT 1.1", dùng chung các bảng cùng phía) và nhãn hàng (cuộn thứ cấp, đầu phân dòng vd "1S1-1S2"). BBTN xuất ra ghi đúng chỉ danh đã sửa.
 - **Tải XML CPC 100…** hoặc **Nhập Megger MRCT (.pdbxml, PDF)…**: gán phía / pha / lõi, kiểm tra điểm khuỷu trước khi xác nhận.
 
 ## `12` Mục 12: Thí nghiệm ngắn mạch MBA

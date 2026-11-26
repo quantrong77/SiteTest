@@ -268,7 +268,7 @@
   async function latestForm(equipmentId) {
     const r = chk(await need().from('test_sessions').select('id, test_date, app_state').eq('equipment_id', equipmentId)
       .not('app_state', 'is', null).order('test_date', { ascending: false }).limit(1));
-    return r.length ? { id: r[0].id, date: r[0].test_date, v: (r[0].app_state && r[0].app_state.v) || {} } : null;
+    return r.length ? { id: r[0].id, date: r[0].test_date, v: (r[0].app_state && r[0].app_state.v) || {}, cfg: (r[0].app_state && r[0].app_state.cfg) || null } : null;
   }
   const listDocs = async sessionId => chk(await need().from('documents').select('*').eq('session_id', sessionId).order('created_at'));
   const listEquipment = async () => chk(await need().from('v_equipment').select('*').order('class_code').order('serial_no'));

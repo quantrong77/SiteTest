@@ -33,6 +33,19 @@
     return source.slice(from, to).replace(/^[\s:=–—-]+|[\s:=–—-]+$/g, '').replace(/\s+/g, ' ').trim();
   }
 
+  // Như between() nhưng dừng ở nhãn gần nhất trong danh sách (bìa BBTN 2 cột: các nhãn xen nhau khi ghép dòng)
+  function betweenAny(source, startLabel, endLabels) {
+    const idx = foldedIndex(source), start = fold(startLabel);
+    const at = idx.text.indexOf(start);
+    if (at < 0) return '';
+    let a = at + start.length;
+    while (a < idx.text.length && /[\s:=–—-]/.test(idx.text[a])) a++;
+    let b = idx.text.length;
+    endLabels.forEach(l => { const k = idx.text.indexOf(fold(l), a); if (k >= 0 && k < b) b = k; });
+    const from = idx.map[a] ?? source.length, to = idx.map[b] ?? source.length;
+    return source.slice(from, to).replace(/^[\s:=–—-]+|[\s:=–—-]+$/g, '').replace(/\s+/g, ' ').trim();
+  }
+
   function positionedLines(page) {
     const words = (page || []).filter(x => x && String(x.str || '').trim()).slice()
       .sort((a, b) => b.y - a.y || a.x - b.x);
@@ -266,8 +279,57 @@
     }
     return -1;
   }
+  // Nhãn cột sứ trên tiêu đề "Pha (Phase) | A | B | C | Điện áp đo…" → khóa cột của biểu mẫu.
+  // BBTN cũ theo pha xóa bớt cột (chỉ "A"; "Am | N"; hạ áp "3.1 | 3.2"). perUnit: mẫu theo pha (cột hạ áp a = sứ thứ nhất, b = thứ hai).
+  const BUSH_LABEL = /^(?:[abc]m?|n|\d\.\d|lv\d|hv\d?|mv\d?|x|y|z)$/i;
+  // Một mục chữ của PDF có thể gồm nhiều từ ("A (kV)") → tách từng từ, vị trí ước theo số ký tự
+  function splitWords(items) {
+    const out = [];
+    items.forEach(item => {
+      const s = String(item.str || ''), w = Number(item.w || 0), x0 = Number(item.x || 0);
+      const parts = s.split(/(\s+)/);
+      if (parts.filter(p => p.trim()).length < 2 || !s.length) { out.push(item); return; }
+      let pos = 0;
+      parts.forEach(p => {
+        if (p.trim()) out.push(Object.assign({}, item, { str: p, x: x0 + w * pos / s.length, w: w * p.length / s.length }));
+        pos += p.length;
+      });
+    });
+    return out;
+  }
+  function bushingHeaderCols(lines, h, side, perUnit, unitPhase) {
+    const items = [];
+    let stopX = Infinity;
+    for (let n = h; n < Math.min(lines.length, h + 3); n++) {
+      splitWords(lines[n].items).forEach(item => {
+        const c = compact(item.str);
+        if ((c.startsWith('dienapdo') || c === 'kv' || c.startsWith('testvoltage')) && centerX(item) < stopX) stopX = centerX(item);
+      });
+    }
+    for (let n = h; n < Math.min(lines.length, h + 3); n++) {
+      splitWords(lines[n].items).forEach(item => {
+        const s = String(item.str || '').trim();
+        if (BUSH_LABEL.test(s) && centerX(item) < stopX && !items.some(x => Math.abs(centerX(x.item) - centerX(item)) < 8)) items.push({ s, item });
+      });
+    }
+    items.sort((a, b) => centerX(a.item) - centerX(b.item));
+    if (!items.length) return null;
+    const used = new Set();
+    const cols = items.map((x, i) => {
+      const L = x.s, l = L.toLowerCase();
+      let key = '';
+      if (side === 'hv') key = /^[abc]$/.test(l) ? l.toUpperCase() : (perUnit && unitPhase && items.length === 1 ? unitPhase : ['A', 'B', 'C'][i]);
+      else if (side === 'mv') key = l === 'n' ? 'N' : /^[abc]m$/.test(l) ? l[0].toUpperCase() : (perUnit && unitPhase && i === 0 ? unitPhase : ['A', 'B', 'C', 'N'][i]);
+      else key = perUnit ? ['a', 'b', 'c'][i] : (/^[abc]$/.test(l) ? l : ['a', 'b', 'c'][i]);
+      if (!key || used.has(key)) return null;
+      used.add(key);
+      return { key, label: L, x: centerX(x.item) };
+    }).filter(Boolean);
+    return cols.length ? cols : null;
+  }
   function parseBushings(linesByPage, v, opts) {
     opts = opts || {};
+    const hdr = opts.hdr || {};
     let ctx = null, legacyTemp = '';
     linesByPage.forEach((lines, pageIndex) => {
       const page = linesByPage.pages[pageIndex], width = pageWidth(page);
@@ -276,6 +338,8 @@
         if (opts.ocr && ctx && ctx.legacy && (c.includes('cuonday') || c.includes('windings') || c.includes('windingresistance'))) { ctx = null; return; }
         if ((c.includes('5.1') || c.startsWith('51')) && c.includes('caoap')) ctx = { side: 'hv', raw: true, centers: null, tgRows: 0 };
         else if ((c.includes('5.2') || c.startsWith('52')) && (c.includes('trungap') || c.includes('neutral'))) ctx = { side: 'mv', raw: true, centers: null, tgRows: 0 };
+        else if ((c.includes('5.3') || c.startsWith('53')) && (c.includes('haap') || c.includes('lvbushings'))) ctx = { side: 'lv', raw: true, centers: null, tgRows: 0 };
+        else if (ctx && !ctx.legacy && (/^5\.4/.test(f) || c.startsWith('54') || c.includes('achighvoltagetesting') && !c.includes('bushings'))) ctx = null;
         else if (opts.ocr && c.includes('220kv') && c.includes('bushings')) ctx = { side: 'hv', raw: true, centers: null, tgRows: 0, legacy: true };
         else if (opts.ocr && c.includes('110kv') && c.includes('bushings')) ctx = { side: 'mv', raw: true, centers: null, tgRows: 0, legacy: true };
         if (opts.ocr && c.includes('sudauvao')) {
@@ -298,9 +362,23 @@
         }
         if (!ctx.raw) return;
         const h = phaseHeaderIndex(lines, i);
-        if (h >= 0 && !ctx.centers) ctx.centers = phaseCenters(lines, h, ctx.side, width, Boolean(opts.ocr && ctx.legacy));
+        if (h >= 0 && !ctx.centers) {
+          // cột theo nhãn tiêu đề (bảng đã xóa bớt cột); không nhận ra thì vị trí cố định của mẫu
+          const hc = !(opts.ocr && ctx.legacy) && bushingHeaderCols(lines, h, ctx.side, opts.perUnit, opts.unitPhase);
+          if (hc) {
+            const xy = headerCenters(lines, [['kv'], ['diagram']], Math.max(0, h - 1), Math.min(lines.length, h + 7),
+              fallbackCenters(width, [0.805, 0.895]));
+            ctx.centers = hc.map(x => x.x).concat(xy);
+            ctx.keys = hc.map(x => x.key);
+            hc.forEach(x => { hdr[`b.${ctx.side}.meas.${x.key}`] = x.label; });
+          } else if (ctx.side !== 'lv') ctx.centers = phaseCenters(lines, h, ctx.side, width, Boolean(opts.ocr && ctx.legacy));
+        }
         if (!ctx.centers) return;
-        const label = compact(leftText(line, ctx.centers)), phases = ctx.side === 'hv' ? ['A', 'B', 'C'] : ['A', 'B', 'C', 'N'];
+        // cột theo nhãn: vùng nhãn hàng kết thúc ngay trước cột số đầu (bảng chỉ còn cột "A" sát nhãn hàng)
+        const label = compact(ctx.keys
+          ? line.items.filter(item => centerX(item) < ctx.centers[0] - 28).map(item => item.str).join(' ')
+          : leftText(line, ctx.centers));
+        const phases = ctx.keys || (ctx.side === 'hv' ? ['A', 'B', 'C'] : ['A', 'B', 'C', 'N']);
         let row = '';
         if (label.includes('kieuloai') || label.includes('type')) row = 'type';
         else if (label.includes('hangsanxuat') || label.includes('manufacturer')) row = 'manuf';
@@ -316,15 +394,18 @@
         }
         if (!row) return;
         if (opts.ocr && ctx.legacy && ['type', 'manuf', 'serial'].includes(row)) return;
+        // cột theo nhãn: thêm một cột ảo bên trái để vùng cột đầu không lấn vào nhãn hàng
+        const off = ctx.keys ? 1 : 0, CC = ctx.keys ? [ctx.centers[0] - 56].concat(ctx.centers) : ctx.centers;
         phases.forEach((phase, index) => {
           const key = prefix + 'meas.' + row + '.' + phase;
-          const value = ['type', 'manuf', 'serial'].includes(row) ? cellText(page, line.y, ctx.centers, index, 13) : cellNumber(page, line.y, ctx.centers, index);
-          if (['type', 'manuf', 'serial'].includes(row)) putText(v, key, value);
+          const value = ['type', 'manuf', 'serial'].includes(row) ? cellText(page, line.y, CC, index + off, 13) : cellNumber(page, line.y, CC, index + off);
+          // kiểu sứ ngắt dòng sau gạch nối ("ETA-550/1600-" + "4") → ghép lại
+          if (['type', 'manuf', 'serial'].includes(row)) putText(v, key, row === 'type' ? String(value || '').replace(/-\s+(?=\S)/g, '-') : value);
           else putMeasurementNumber(v, key, value, Boolean(opts.ocr));
         });
         if (row === 'tgd1' || row === 'tgd2') {
-          putMeasurementNumber(v, prefix + 'meas.' + row + '.u', cellNumber(page, line.y, ctx.centers, phases.length), Boolean(opts.ocr));
-          if (!(opts.ocr && ctx.legacy)) putText(v, prefix + 'meas.' + row + '.d', cellText(page, line.y, ctx.centers, phases.length + 1));
+          putMeasurementNumber(v, prefix + 'meas.' + row + '.u', cellNumber(page, line.y, CC, phases.length + off), Boolean(opts.ocr));
+          if (!(opts.ocr && ctx.legacy)) putText(v, prefix + 'meas.' + row + '.d', cellText(page, line.y, CC, phases.length + 1 + off));
         }
       });
     });
@@ -427,7 +508,7 @@
     return {
       mv: ['amn', 'bmn', 'cmn'],
       hv: [['an', 'ao', 'aam'], ['bn', 'bo', 'bbm'], ['cn', 'co', 'ccm']],
-      lv: ['ab', 'bc', 'ca'],
+      lv: [['ab', 'a1a2'], ['bc', 'b1b2'], ['ca', 'c1c2']],
     };
   }
   function dcrHeaderCenters(lines, side, from, to) {
@@ -447,9 +528,11 @@
     if (!grid || !grid.rows || !grid.rows.length) return '';
     if (grid.rows.length === 1) return grid.rows[0].k;
     const wanted = String(tap);
-    const row = grid.rows.find(item => String(item.tap || '').replace(/\D/g, '') === wanted
-      || String(item.k || '').match(/\d+/)?.[0] === wanted
-      || String(item.label || '').match(/\d+/)?.[0] === wanted);
+    // nhãn nấc trước (mẫu theo pha: hàng t12 là nấc "10"), số trong khóa hàng sau cùng
+    const row = grid.rows.find(item => String(item.tap || '').toLowerCase() === wanted.toLowerCase())
+      || grid.rows.find(item => String(item.tap || '').replace(/\D/g, '') === wanted)
+      || grid.rows.find(item => String(item.label || '').match(/\d+/)?.[0] === wanted)
+      || grid.rows.find(item => !item.tap && String(item.k || '').match(/\d+/)?.[0] === wanted);
     return row ? row.k : '';
   }
   function voltageTokens(value) {
@@ -563,6 +646,17 @@
               }
               return null;
             });
+            // BBTN máy 1 pha: "a1-a2 | b1-b2 | c1-c2"
+            if (found.some(x => x == null)) {
+              const alt = ['a1a2', 'b1b2', 'c1c2'].map(label => {
+                for (let n = i; n < Math.min(lines.length, i + 4); n++) {
+                  const item = lines[n].items.find(x => compact(x.str) === label);
+                  if (item) return centerX(item);
+                }
+                return null;
+              });
+              if (alt.every(x => x != null)) found = alt;
+            }
           } else found = dcrHeaderCenters(lines, side, i, Math.min(lines.length, i + 4));
           if (found.some(x => x == null) && (c.includes('nac') || c.includes('tap'))) {
             const hv = dcrHeaderCenters(lines, 'hv', i, Math.min(lines.length, i + 4));
@@ -574,7 +668,8 @@
             centers = found;
             const header = side === 'lv'
               ? lines.slice(i, Math.min(lines.length, i + 4)).find(candidate =>
-                ['ab', 'bc', 'ca'].every(label => candidate.items.some(x => fold(x.str).replace(/\s+/g, '') === 'pha' + label)))
+                ['ab', 'bc', 'ca'].every(label => candidate.items.some(x => fold(x.str).replace(/\s+/g, '') === 'pha' + label))
+                || ['a1a2', 'b1b2', 'c1c2'].every(label => candidate.items.some(x => compact(x.str) === label)))
               : lines.slice(i, Math.min(lines.length, i + 4)).find(candidate =>
                 dcrHeaderCenters([candidate], side, 0, 1).every(x => x != null));
             headerY = header ? header.y : line.y;
@@ -589,7 +684,9 @@
         if (side === 'mv' || side === 'hv') {
           const first = centers[0];
           const tapItem = line.items.find(item => centerX(item) < first - 20 && /^\d{1,2}$/.test(String(item.str || '').trim()));
-          if (!tapItem && side === 'mv') return;
+          // cuộn trung áp có nấc (OLTC ở trung áp): bỏ hàng không có số nấc; một hàng (mẫu theo pha) thì nhận
+          const gridRows = (Common.findGrid(schema, 'dcr.' + side) || { rows: [] }).rows.length;
+          if (!tapItem && side === 'mv' && gridRows > 1) return;
           if (tapItem) {
             tap = Number(tapItem.str);
             if (tap < 1 || tap > 19) return;
@@ -650,8 +747,9 @@
     });
   }
 
-  function parseBctInsulation(linesByPage, v) {
-    let side = '', cores = 4, active = false, centers = null;
+  function parseBctInsulation(linesByPage, v, out) {
+    out = out || {};
+    let side = '', cores = 4, active = false, centers = null, phasesAt = null;
     linesByPage.forEach((lines, pageIndex) => {
       const page = linesByPage.pages[pageIndex];
       lines.forEach(line => {
@@ -659,25 +757,38 @@
         if (c.includes('bushingtypecurrenttransformertesting')) { active = true; side = ''; centers = null; }
         if (!active) return;
         if (c.includes('excitationcurve') || c.includes('verificationofterminal') || /11\.5|11\.6/.test(f)) { active = false; return; }
-        if (/11\.2\.1/.test(f) || c.includes('hv') && c.includes('caoap')) { side = 'hv'; cores = 4; centers = null; }
-        else if (/11\.2\.2/.test(f) || c.includes('mvandneutral')) { side = 'mv'; cores = 4; centers = null; }
-        else if (/11\.2\.3/.test(f) || c.includes('lv') && c.includes('hath')) { side = 'lv'; cores = 4; centers = null; }
+        if (/11\.2\.1/.test(f) || c.includes('hv') && c.includes('caoap')) { side = 'hv'; cores = 4; centers = null; phasesAt = null; }
+        else if (/11\.2\.2/.test(f) || c.includes('mvandneutral')) { side = 'mv'; cores = 4; centers = null; phasesAt = null; }
+        else if (/11\.2\.3/.test(f) || c.includes('lv') && c.includes('hath')) { side = 'lv'; cores = 4; centers = null; phasesAt = null; }
         if (!side) return;
         const count = f.match(/co\s*(?:≤\s*)?(4|5|6)\s*cuon/);
         if (count) cores = Number(count[1]);
-        const phaseItems = line.items.filter(item => /^pha\s*(a|b|c|an|n)$/i.test(fold(item.str)));
-        if (phaseItems.length >= 3) {
-          const labels = side === 'lv' ? ['a', 'b', 'c'] : side === 'mv' && phaseItems.length >= 4 ? ['A', 'B', 'C', 'N'] : ['A', 'B', 'C'];
-          centers = labels.map((_, index) => centerX(phaseItems[index]));
+        // tiêu đề cột "Pha A | Pha B | …" hoặc chỉ "Pha A" (BBTN theo pha), có thể kèm "N" / "Pha N"
+        const phaseItems = line.items.filter(item => /^(?:pha\s*)?(a|b|c|n)(?:\s*\((?:phase|neutral)[^)]*\))?$/i.test(fold(item.str))
+          && (/^pha/i.test(fold(item.str)) || line.items.some(x => /^pha\s*[abc]/i.test(fold(x.str)))));
+        if (phaseItems.length && line.items.some(x => /^pha\s*[abcn]/i.test(fold(x.str)))) {
+          const keyOf = s => { const m = fold(s).match(/(?:pha\s*)?([abcn])/i); const k = m ? m[1].toUpperCase() : ''; return k === 'N' ? 'N' : side === 'lv' ? k.toLowerCase() : k; };
+          const keys = phaseItems.map(x => keyOf(x.str));
+          if (keys.every(Boolean) && new Set(keys).size === keys.length) { centers = phaseItems.map(centerX); phasesAt = keys; }
         }
         if (!centers) return;
         const left = line.items.filter(item => centerX(item) < centers[0] - 30).map(item => item.str).join(' ');
         const rowMatch = left.match(/(?:thứ\s*cấp|winding)\s*(\d+)/i);
         if (!rowMatch || Number(rowMatch[1]) > cores) return;
         const row = 'w' + rowMatch[1];
-        const phases = side === 'lv' ? ['a', 'b', 'c'] : side === 'mv' && centers.length === 4 ? ['A', 'B', 'C', 'N'] : ['A', 'B', 'C'];
-        phases.forEach((phase, index) => putNumber(v, `bct.${side}.ir.${row}.${phase}`,
-          nearestCellNumber(page, line.y, centers, index, 18)));
+        const phases = phasesAt || (side === 'lv' ? ['a', 'b', 'c'] : side === 'mv' && centers.length === 4 ? ['A', 'B', 'C', 'N'] : ['A', 'B', 'C']);
+        const singleCol = centers.length === 1 ? [centers[0], centers[0] + 120] : centers;
+        let got = false;
+        // chỉ nhận ô là số (nhãn hàng "(TC 2, 3, 4 + Vỏ)" có thể lấn sang vùng cột đầu)
+        const numAt = index => {
+          const width = pageWidth(page), bounds = columnBounds(singleCol, index, width);
+          const hit = (page || []).filter(item => Math.abs(Number(item.y || 0) - line.y) <= 18 && centerX(item) >= bounds[0] && centerX(item) <= bounds[1] && number(item.str) !== '')
+            .sort((a, b) => Math.abs(Number(a.y || 0) - line.y) - Math.abs(Number(b.y || 0) - line.y))[0];
+          return hit ? number(hit.str) : '';
+        };
+        phases.forEach((phase, index) => { if (putNumber(v, `bct.${side}.ir.${row}.${phase}`, numAt(index))) got = true; });
+        // số cuộn thứ cấp của bảng có số liệu → cấu hình biến dòng của phía
+        if (got) out[side] = Math.max(out[side] || 0, cores);
       });
     });
   }
@@ -703,7 +814,8 @@
     const method = moistText.match(/(?:phương\s*pháp|method|thiết\s*bị\s*đo)[^\n:]{0,20}[:：]\s*([^\n]+)/i);
     if (method) putText(v, 'moist.method', method[1]);
     const polarity = bctText.match(/\(S2,?3,?4,?5\)\s*[–-]\s*([^\n]+)/i);
-    if (polarity) putText(v, 'bct.polarity', polarity[1]);
+    // ô kết quả để trống: dòng kế tiếp là đề mục "11.5 …" — không lấy
+    if (polarity && !/^\s*\d+\.\d/.test(polarity[1])) putText(v, 'bct.polarity', polarity[1]);
     const oltcAt = all.search(/(?:bộ\s*điều\s*áp\s*dưới\s*tải|on[- ]load\s*tap\s*changer)/i);
     const oltcText = oltcAt < 0 ? '' : all.slice(oltcAt, moistAt > oltcAt ? moistAt : undefined);
     const oltc = Boolean(oltcText);
@@ -750,7 +862,12 @@
       ['meta.reason', 'Lý do kiểm định, thí nghiệm', 'Ngày kiểm định'],
       ['meta.date', 'Ngày kiểm định, thí nghiệm (Date)', 'Điều kiện môi trường'],
     ];
-    fields.forEach(([key, start, end]) => { v[key] = between(cover, start, end); });
+    const allLabels = fields.map(f => f[2]).concat(['Điều kiện môi trường', 'Các hạng mục']);
+    fields.forEach(([key, start, end]) => { v[key] = betweenAny(cover, start, allLabels.filter(l => fold(start).indexOf(fold(l)) !== 0)) || between(cover, start, end); });
+    // bìa 2 cột: giá trị điện áp xuống dòng dưới nhãn → dính vào sau công suất "300/300/60 MVA (500/√3…)/35kV"
+    if (/c[oô]ng\s*su[aấ]t|rated\s*power/i.test(v['meta.voltage'] || '')) v['meta.voltage'] = '';
+    const pv = String(v['meta.power'] || '').match(/^(.*?MVA)\s+(.*\d\s*kV)\s*$/i);
+    if (pv && !/\d/.test(v['meta.voltage'] || '')) { v['meta.power'] = pv[1].trim(); v['meta.voltage'] = pv[2].trim(); }
     if (!v['meta.reason']) v['meta.reason'] = between(cover, 'Lý do thí nghiệm', 'Ngày thí nghiệm');
     if (v['meta.reason']) v['meta.reason'] = Common.optionOf(v['meta.reason'], Schema.REASONS);
     if (!v['meta.date']) v['meta.date'] = between(cover, 'Ngày thí nghiệm (Date)', 'Điều kiện môi trường');
@@ -770,9 +887,15 @@
     if (conclusion) v['meta.conclusion'] = conclusion;
 
     const cfg = EquipmentTypes.get('MBA').defaultCfg();
-    cfg.template = '110'; cfg.layout = '110'; cfg.topology = 'threePhase'; cfg.reportScope = 'combined';
+    // BBTN máy 1 pha 500 kV (mẫu theo pha): "Vị trí lắp đặt … (Pha A)", điện áp 500/√3 hoặc sứ phía 500 kV
+    const unitPhase = (String(v['meta.site'] || '').match(/\bpha\s*([abc])\b/i) || [])[1];
+    const is500 = /500\s*\/\s*√?\s*3|500\s*kv/i.test([v['meta.voltage'], v['meta.type'], all].join(' '));
+    const perUnit = Boolean(unitPhase && is500);
+    const layout = perUnit ? '1P' : '110';
+    if (perUnit) { cfg.template = unitPhase.toUpperCase(); cfg.topology = 'single1p'; cfg.reportScope = 'combined'; cfg.unitPhase = cfg.template; }
+    else { cfg.template = '110'; cfg.layout = '110'; cfg.topology = 'threePhase'; cfg.reportScope = 'combined'; }
     const winding = detectDcrWinding(positioned, v['meta.voltage']);
-    if (winding.winding) cfg.oltcWinding = winding.winding;
+    if (winding.winding && !perUnit) cfg.oltcWinding = winding.winding;
     const schema = EquipmentTypes.get('MBA').buildSchema(cfg);
     const parserWarnings = [];
     if (!winding.winding) parserWarnings.push('Chưa xác định được cuộn đặt OLTC từ bảng R một chiều; giữ cấu hình cao áp, cần kiểm tra PDF.');
@@ -780,17 +903,24 @@
     const visualResult = parseCoverResults(positioned, v);
     parseTextFields(positioned, v);
     parseIR(positioned, v, opts);
-    parseBushings(positioned, v, opts);
+    const hdr = {};
+    parseBushings(positioned, v, Object.assign({}, opts, { perUnit, unitPhase: perUnit ? cfg.template : '', hdr }));
+    // nhãn cột sứ khác mẫu (vd hạ áp "3.1 | 3.2" đã là mặc định của mẫu theo pha) → giữ để BBTN hiện / xuất đúng như bản gốc
+    const defLabels = {};
+    Common.eachGrid(schema, g => { if (/^b\.\w+\.meas$/.test(g.id)) g.cols.forEach(c => { if (c.hk) defLabels[c.hk] = c.defLabel; }); });
+    Object.entries(hdr).forEach(([k, l]) => { if (defLabels[k] !== undefined && l !== defLabels[k]) cfg.hdr[k] = l; });
     parseWindingTgd(positioned, v, schema);
     parseNoLoad(positioned, v);
     parseDcr(positioned, v, parserWarnings, schema, winding);
     parseRatio(positioned, v, schema);
-    parseBctInsulation(positioned, v);
+    const bctCores = {};
+    parseBctInsulation(positioned, v, bctCores);
+    Object.entries(bctCores).forEach(([side, n]) => { if ((Schema.BCT_SIDES[side] || { cores: [] }).cores.includes(n)) cfg.bctCores[side] = n; });
 
     const count = measurementCount(v);
     const state = {
       type: 'MBA', v, cfg, sum: { tick: {}, ev: visualResult ? { visual: visualResult } : {} }, att: {}, created: new Date().toISOString(),
-      imported: { file: fileName, format: 'pdf', layout: '110', templateVersion: 'PTC3/NPTS BM.01', reportNo, at: new Date().toISOString() },
+      imported: { file: fileName, format: 'pdf', layout, templateVersion: 'PTC3/NPTS BM.01', reportNo, at: new Date().toISOString() },
     };
     const warnings = parserWarnings.slice();
     if (opts.ocr) warnings.push('PDF scan đã được OCR; cần đối chiếu từng số liệu nhận dạng với bản gốc trước khi lưu.');
@@ -800,8 +930,9 @@
     if (!reportNo) warnings.push('Chưa đọc được số biên bản.');
     if (count) warnings.push('Đã tự nhận dạng ' + count + ' ô số liệu đo. Đối chiếu lại với PDF gốc trước khi lưu.');
     else warnings.push('Đã nhận dạng phần bìa nhưng chưa lấy được số liệu đo; nhập/soát số liệu trong biểu mẫu bên phải.');
-    if (!/110|220/.test(fold([v['meta.project'], v['meta.site'], v['meta.type'], v['meta.voltage']].join(' ')))) warnings.push('Chưa xác nhận được đây là MBA 110–220 kV; kiểm tra loại MBA và cấu hình trước khi lưu.');
-    return { state, layout: '110', count, warnings, reportNo, pages: pages.length };
+    if (perUnit) warnings.push(`Nhận dạng BBTN máy 1 pha 500 kV — pha ${cfg.template} (mẫu theo pha); sứ và biến dòng chân sứ thuộc máy này.`);
+    else if (!/110|220/.test(fold([v['meta.project'], v['meta.site'], v['meta.type'], v['meta.voltage']].join(' ')))) warnings.push('Chưa xác nhận được đây là MBA 110–220 kV; kiểm tra loại MBA và cấu hình trước khi lưu.');
+    return { state, layout, count, warnings, reportNo, pages: pages.length };
   }
 
   window.MbaPdfImportReport = { read, normDate, between, pageLines, terminalRow };
