@@ -118,7 +118,37 @@
     if (att.oltc) att.oltc = att.oltc[phase] ? { [phase]: att.oltc[phase] } : {};
     // OLTC: mẫu 3 pha ghi số vòng quay theo pha (6 lần tăng + 6 lần giảm nấc); mẫu theo pha chỉ có 2 dòng → BBTN pha ghi các
     // lần chuyển nấc có số liệu của pha này theo chiều người dùng chọn (cfg.oltcSplitDirs: both | up | down, chung cho 3 pha)
-    delete att.oltcRounds;
+    delete att.oltcRounds; delete att.nlPu; delete att.bushingRows;
+    if (sourceSchema.layout === Schema.LAYOUT_3P) {
+      const s = k => String(sourceV[k] ?? '').trim();
+      // đánh dấu BBTN tách từ mẫu 3 pha: đánh giá tính sứ trung tính theo cách quy đổi riêng (b.n.*) như mẫu 3 pha
+      projected.cfg.splitFrom = '3P';
+      // %Uđm của các lần đo không tải → cột đầu bảng không tải của mẫu theo pha (template ghi sẵn "Uđm")
+      const nl = Common.findGrid(targetSchema, 'nl.rated');
+      if (nl) {
+        const pu = Object.fromEntries(nl.rows.map(r => [r.k, s(`nl.${phase}.rated.${r.k}.pu`)]).filter(x => x[1]));
+        if (Object.keys(pu).length) att.nlPu = pu;
+      }
+      // Hàng sứ chỉ mẫu 3 pha có (mã hiệu, Uđm, Iđm, nhiệt độ đo từng sứ) → chèn sau hàng số chế tạo ở bảng sứ của mẫu theo pha.
+      // Cột: sứ của pha đang tách; trung tính (cột N bảng trung áp) ← sứ N của máy đó; hạ áp a / b ← sứ 3.1 / 3.2 của máy đó
+      const lp = phase.toLowerCase(), rowsOut = [];
+      ['b.hv.meas', 'b.mv.meas', 'b.lv.meas'].forEach(id => {
+        const tg = Common.findGrid(targetSchema, id), sg = Common.findGrid(sourceSchema, id);
+        if (!tg || !tg.tables || !sg) return;
+        const srcOf = c => {
+          if (id === 'b.lv.meas' && targetSchema.unitOwn) return c.k === 'a' ? [id, lp] : c.k === 'b' ? ['b.lv2.meas', lp] : null;
+          if (id === 'b.mv.meas' && c.k === 'N') return ['b.n.meas', phase];
+          return c.k === phase || c.k === lp ? [id, c.k] : null;
+        };
+        const rows = sg.rows.filter(r => ['code', 'ur', 'ir', 't'].includes(r.k)).map(r => {
+          const vals = {};
+          tg.cols.filter(c => c.phase).forEach(c => { const src = srcOf(c); const x = src && s(`${src[0]}.${r.k}.${src[1]}`); if (x) vals[c.k] = x; });
+          return { label: r.label, vals };
+        }).filter(r => Object.keys(r.vals).length);
+        if (rows.length) rowsOut.push({ grid: id, rows });
+      });
+      if (rowsOut.length) att.bushingRows = rowsOut;
+    }
     const og = Common.findGrid(sourceSchema, 'oltc.r');
     if (og && Common.findGrid(targetSchema, 'oltc.rounds')) {
       const dirs = state.cfg.oltcSplitDirs || 'both', s = k => String(sourceV[k] ?? '').trim();
@@ -186,6 +216,8 @@
       if (f.k === 'meta.conclusion' && !val) val = Evaluate.autoConclusion(res, schema, state);
       const m = f.k.match(/^b\.(\w+)\.k$/);
       if (m && !/Nhập/i.test(v[`b.${m[1]}.kmode`] || '')) val = (res.notes[f.k] || '').trim();
+      // BBTN theo pha tách từ mẫu 3 pha: sứ trung tính có hệ số K riêng → ghi kèm dòng K phía trung áp
+      if (m && res.notes[`${f.k}N`]) val = [String(val ?? '').trim(), res.notes[`${f.k}N`]].filter(Boolean).join('; ');
       if (/\.btype$/.test(f.k)) val = val || 'RIP';
       // nhiệt độ đo R một chiều: ô chung trống mà đã nhập nhiệt độ từng pha → ghi các nhiệt độ pha (bảng ghi R@75 °C)
       const dt = f.k.match(/^dcr\.(hv|mv|lv)\.t$/);
@@ -208,6 +240,27 @@
     // Mục 6: thêm hàng cho đối tượng đo bổ sung (bảng số liệu đo và bảng quy đổi 20 °C)
     const nExtra = (state.cfg.wtgdRows || []).length;
     if (nExtra && !is3P) eachGrid(schema, g => { if (/^wtgd\./.test(g.id)) tpl.appendRows(g.tables[0], nExtra); });
+    // BBTN theo pha tách từ mẫu 3 pha: %Uđm các lần đo không tải; hàng sứ chỉ mẫu 3 pha có (chèn sau hàng số chế tạo,
+    // hàng đánh dấu "app thêm" nên không làm lệch chỉ số hàng của template)
+    if (!is3P && state.att && state.att.nlPu) {
+      const g = Common.findGrid(schema, 'nl.rated');
+      if (g && g.tables) g.rows.forEach(r => { const x = state.att.nlPu[r.k]; if (x && tpl.setCellText(tpl.cell(g.tables, r.doc, 0), out(x))) cells++; });
+    }
+    if (!is3P && state.att && state.att.bushingRows && tpl.insertRowAfter && tpl.rows) state.att.bushingRows.forEach(({ grid, rows }) => {
+      const g = Common.findGrid(schema, grid), sr = g && g.tables && g.rows.find(r => r.k === 'serial');
+      const tr = sr && tpl.rows(g.tables)[sr.doc];
+      const ti = tr && g.tables.find(t => tpl.tables[t] === tr.parentNode);
+      if (typeof ti !== 'number') { miss.push(`${grid}: không thấy hàng số chế tạo sứ để chèn ${rows.map(r => r.label).join(', ')}`); return; }
+      let after = Array.from(tpl.tables[ti].childNodes).filter(n => n.localName === 'tr').indexOf(tr);
+      rows.forEach(row => {
+        const nt = tpl.insertRowAfter(ti, after++, row.label, { mark: true });
+        if (!nt || !nt.nodeType) return;
+        Object.entries(row.vals).forEach(([ck, x]) => {
+          const c = g.cols.find(y => y.k === ck);
+          if (c && c.doc !== undefined && tpl.setCellText(tpl.cellAt(nt, c.doc), out(x))) cells++;
+        });
+      });
+    });
     // BBTN theo pha tách từ mẫu 3 pha: bảng số vòng quay OLTC thêm hàng cho đủ các lần chuyển nấc đã chọn của pha
     const rounds = !is3P && state.att && state.att.oltcRounds;
     if (rounds) {

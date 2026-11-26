@@ -271,3 +271,31 @@ test('mẫu chung 3 pha → BBTN riêng từng pha: số vòng quay OLTC của p
   same(rounds('up').map(x => x.label), ['Tăng nấc 1']);
   same(rounds('down').map(x => x.label), ['Giảm nấc 1']);
 });
+
+test('mẫu chung 3 pha → BBTN riêng từng pha: %Uđm không tải, hàng sứ chỉ mẫu 3 pha có, K riêng của sứ trung tính', () => {
+  const ctx = load(CORE);
+  const M = ctx.EquipmentTypes.get('MBA');
+  const cfg3 = Object.assign(M.defaultCfg(), { template: '3P', ps: { A: 'SN-A', B: 'SN-B', C: 'SN-C' } });
+  const src = M.buildSchema(cfg3), tgt = M.buildSchema(Object.assign(M.defaultCfg(), { template: 'B', topology: 'bank1p' }));
+  const v = { 'nl.B.rated.r0.pu': '100', 'nl.A.rated.r0.pu': '90', 'nl.B.rated.r1.pu': '105',
+    'b.hv.meas.code.B': 'MH-B', 'b.hv.meas.code.A': 'MH-A', 'b.hv.meas.ir.B': '1250', 'b.n.meas.code.B': 'MH-NB', 'b.n.meas.t.B': '34',
+    'b.lv.meas.ur.b': '40,5', 'b.lv2.meas.ur.b': '36',
+    'b.mv.kmode': 'Nhập hệ số K', 'b.mv.k': '0,9', 'b.n.kmode': 'Nhập hệ số K', 'b.n.k': '0,8', 'b.n.btype': 'OIP',
+    'b.mv.meas.tgd1.B': '0,4', 'b.n.meas.tgd1.B': '0,5' };
+  const st = ctx.MbaReport.phaseState({ type: 'MBA', v, cfg: cfg3, sum: { tick: {}, ev: {} }, att: {} }, src, tgt, 'B');
+  assert.equal(st.cfg.splitFrom, '3P');
+  same(st.att.nlPu, { r0: '100', r1: '105' });
+  const rows = Object.fromEntries(st.att.bushingRows.map(x => [x.grid, x.rows]));
+  same(rows['b.hv.meas'], [{ label: 'Mã hiệu (Code)', vals: { B: 'MH-B' } }, { label: 'Dòng điện định mức (A)', vals: { B: '1250' } }]);
+  same(rows['b.mv.meas'], [{ label: 'Mã hiệu (Code)', vals: { N: 'MH-NB' } }, { label: 'Nhiệt độ đo (°C)', vals: { N: '34' } }]);
+  same(rows['b.lv.meas'], [{ label: 'Điện áp định mức (kV)', vals: { a: '40,5', b: '36' } }]);
+  // đánh giá BBTN pha B: cột N quy đổi bằng K của sứ trung tính (0,8), cột Bm bằng K phía trung áp (0,9)
+  const res = M.evaluate(st, null, tgt);
+  assert.equal(res.calc['b.mv.c20.tgd1.B'], '0,360');
+  assert.equal(res.calc['b.mv.c20.tgd1.N'], '0,400');
+  assert.match(res.notes['b.mv.kN'], /^sứ trung tính \(N, OIP\): K = 0,8/);
+  // BBTN pha không tách từ mẫu 3 pha: cột N theo phía trung áp như cũ
+  const plain = M.evaluate({ type: 'MBA', v: Object.assign({}, st.v, { 'b.mv.meas.tgd1.N': '0,5' }), cfg: Object.assign({}, st.cfg, { splitFrom: undefined }), sum: { tick: {}, ev: {} }, att: {} }, null, tgt);
+  assert.equal(plain.calc['b.mv.c20.tgd1.N'], '0,450');
+  assert.equal(plain.notes['b.mv.kN'], undefined);
+});
