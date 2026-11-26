@@ -84,5 +84,18 @@
     return m ? m[0] : null;
   }
 
-  window.Common = { RANK, worst, ST_TEXT, toNum, ok, fmt, sgn, devPct, str, eachGrid, eachField, findGrid, sectionOfKey, KIND_LABEL, kindOf, optionOf, isoDate };
+  // Chữ "pha X" trong Vị trí lắp đặt (vd "MBA 500kV AT1 PHA A (Di Linh)", tên thiết bị "AT9 pha A") theo biên bản đang lập:
+  // phase 'A' | 'B' | 'C' → đổi thành pha đó (giữ chữ hoa / thường của từ "pha"); phase rỗng (BBTN chung tổ 3 máy) → bỏ.
+  // Không có chữ "pha X" thì giữ nguyên, không tự thêm.
+  const PHASE_IN_SITE = /(\s*[-–,:]?\s*)\b(pha|phase)\s+([ABC])(?![\w\u00C0-\u1EF9])/i;
+  function sitePhase(site, phase) {
+    const t = String(site ?? '');
+    const m = t.match(PHASE_IN_SITE);
+    if (!m) return t;
+    const p = String(phase || '').toUpperCase();
+    if (['A', 'B', 'C'].includes(p)) return t.replace(PHASE_IN_SITE, (all, sep, word, ph) => `${sep}${word} ${ph === ph.toLowerCase() ? p.toLowerCase() : p}`);
+    return t.replace(PHASE_IN_SITE, ' ').replace(/\s+([)\],.;])/g, '$1').replace(/\s{2,}/g, ' ').trim();
+  }
+
+  window.Common = { RANK, worst, ST_TEXT, toNum, ok, fmt, sgn, devPct, str, eachGrid, eachField, findGrid, sectionOfKey, KIND_LABEL, kindOf, optionOf, isoDate, sitePhase };
 })();

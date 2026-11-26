@@ -271,10 +271,18 @@
     // ================= 5. Sứ đầu vào =================
     const amb = val('meta.ambT');
     const sideGroups = schema.sections.find(s => s.id === 'bushing').groups.filter(g => g.term);
+    // BBTN theo pha tách từ mẫu 3 pha (cfg.splitFrom): sứ trung tính (cột N bảng trung áp) có kiểu sứ, cách quy đổi, nhiệt độ
+    // riêng (b.n.*, b.n.meas.*.<pha>) → tính như một nhóm sứ riêng giống mẫu 3 pha; kết quả ghi vào cột N
+    const mvGr = !is3P && cfg.splitFrom === '3P' && PH3.includes(cfg.template) ? sideGroups.find(g => g.id === 'mv') : null;
+    const mvN = mvGr && mvGr.grids[0].cols.find(c => c.k === 'N');
+    if (mvN) sideGroups.push({ id: 'n', term: '2', title: mvGr.title, grids: [{ id: 'b.n.meas', cols: [Object.assign({}, mvN, { k: cfg.template })] }, { id: 'b.n.c20' }] });
+    const sideCols = (side, mg) => mg.cols.filter(c => c.phase && !(mvN && side === 'mv' && c.k === 'N'));
+    // nhiệt độ đo riêng từng sứ: mẫu 3 pha, nhóm sứ trung tính tách từ mẫu 3 pha
+    const perT = side => is3P || side === 'n';
     // Ur mặc định khi test report không có sứ (phân nhóm dung sai Bảng 15 Hitachi)
     const UR_DEFAULT = { hv: 550, mv: 252, N: 126, n: 126, lv: 40.5, lv2: 40.5 };
     // mẫu 3 pha ghi một nhiệt độ cho mọi nhóm sứ: nhóm để trống lấy nhiệt độ của sứ cao áp
-    const tOilOf = side => (is3P && !ok(val(`b.${side}.t`)) ? val('b.hv.t') : val(`b.${side}.t`));
+    const tOilOf = side => (perT(side) && !ok(val(`b.${side}.t`)) ? val('b.hv.t') : val(`b.${side}.t`));
     const bLoc = (gr, c, bs) => `${gr.title.replace(/^5\.\d\s*/, '').replace(/^[a-e]\.\s*/, '').replace('Sứ phía ', '')} – ${c.label}${bs ? ` [${bs}]` : ''}`;
     // Cách quy đổi của từng phía: hitachi | table (QĐ 1901 / theo hãng) | manual
     const kmodeOf = side => (typeof BushingK !== 'undefined' ? BushingK.resolve(txt(`b.${side}.kmode`))
@@ -296,11 +304,11 @@
       if (ok(sideF.fc)) calc[`b.${side}.k`] = fmt(1 / sideF.fc, 3);
       const tWarn = !ok(tAmb) ? 'Thiếu nhiệt độ môi trường. ' : (mount === 'Đã lắp' && !ok(tOil) ? 'Sứ đã lắp: cần nhiệt độ dầu để tính T sứ. ' : '');
 
-      mg.cols.filter(c => c.phase).forEach(c => {
+      sideCols(side, mg).forEach(c => {
         const p = `b.${side}.meas`, q = `b.${side}.c20`;
         ['type', 'manuf', 'serial'].forEach(r => { calc[`${q}.${r}.${c.k}`] = txt(`${p}.${r}.${c.k}`); });
         // mẫu 3 pha: nhiệt độ đo riêng của sứ thay nhiệt độ chung (đã lắp: nhiệt độ dầu; chưa lắp: nhiệt độ môi trường)
-        const tC = is3P ? val(`${p}.t.${c.k}`) : NaN;
+        const tC = perT(side) ? val(`${p}.t.${c.k}`) : NaN;
         const unm = mount === 'Chưa lắp';
         const m = { mount, tAmb: ok(tC) && unm ? tC : tAmb, tOil: ok(tC) && !unm ? tC : tOil,
           c1: val(`${p}.c1.${c.k}`), tgd1: val(`${p}.tgd1.${c.k}`), c2: val(`${p}.c2.${c.k}`), tgd2: val(`${p}.tgd2.${c.k}`) };
@@ -390,10 +398,10 @@
       const cCorr = c => c;
       notes[`b.${side}.btype`] = ' ' + btype;
 
-      mg.cols.filter(c => c.phase).forEach(c => {
+      sideCols(side, mg).forEach(c => {
         const p = `b.${side}.meas`, q = `b.${side}.c20`;
         // mẫu 3 pha: sứ có nhiệt độ đo riêng → tra K theo nhiệt độ đó (bảng K); trống thì dùng K của nhiệt độ chung
-        const tC = is3P ? val(`${p}.t.${c.k}`) : NaN;
+        const tC = perT(side) ? val(`${p}.t.${c.k}`) : NaN;
         let Kc = K, kWhyC = kWhy, tBc = tB;
         if (ok(tC) && mode.kind === 'table') { const lk = BushingK.lookup(tbl, btype, tC); Kc = lk.k; kWhyC = lk.why || ''; tBc = tC; }
         const to20c = x => (!ok(Kc) || !ok(x) ? NaN : tbl ? BushingK.convert(tbl, x, Kc) : x * Kc);
@@ -455,6 +463,13 @@
         ['tgd1', 'tgd2'].forEach(r => { calc[`b.${side}.c20.${r}.${c.k}`] = txt(`b.${side}.meas.${r}.${c.k}`); });
       });
     });
+    if (mvN) {
+      const ph = cfg.template;
+      ['type', 'manuf', 'serial', 'tgd1', 'c1', 'tgd2', 'c2'].forEach(r => { if (calc[`b.n.c20.${r}.${ph}`] !== undefined) calc[`b.mv.c20.${r}.N`] = calc[`b.n.c20.${r}.${ph}`]; });
+      // dòng hệ số K phía trung áp của BBTN ghi thêm K của sứ trung tính khi sứ N có số liệu
+      if (['tgd1', 'tgd2'].some(r => ok(val(`b.n.meas.${r}.${ph}`))) && String(notes['b.n.k'] || '').trim())
+        notes['b.mv.kN'] = `sứ trung tính (N, ${txt('b.n.btype') || 'RIP'}): K =${notes['b.n.k']}`;
+    }
     // 5.4 Thử AC sứ hạ áp
     ['a', 'b', 'c', 'N'].forEach(ph => {
       const p = 'b.ac';

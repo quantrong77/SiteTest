@@ -507,7 +507,21 @@
     applyFactoryDefaults(state.cfg);
     schema = T().buildSchema(state.cfg);
     if (schema.layout !== before) { await fillTemplateDefaults(); rememberTemplateHead(); }
+    syncSitePhase();
     return true;
+  }
+  // Vị trí lắp đặt theo mẫu đang dùng: mẫu chung 3 pha bỏ chữ "pha X" (mặc định mẫu pha A, tên máy pha A trong CSDL),
+  // mẫu theo pha đổi "pha X" thành pha của mẫu. Không có chữ "pha X" thì giữ nguyên.
+  function syncSitePhase() {
+    const site = state.v['meta.site'];
+    if (!String(site ?? '').trim()) return;
+    const phase = schema.layout === Schema.LAYOUT_3P ? '' : schema.layout === '1P' && ['A', 'B', 'C'].includes(state.cfg.template) ? state.cfg.template : null;
+    if (phase === null) return;
+    const next = Common.sitePhase(site, phase);
+    if (next === site) return;
+    state.v['meta.site'] = next;
+    // ô còn là mặc định template: giữ quan hệ "chưa sửa tay" để tự điền thông số sau đó vẫn ghi được
+    if (state.att && state.att.tplHead && state.att.tplHead['meta.site'] === site) state.att.tplHead['meta.site'] = next;
   }
   // giá trị mặc định của template ở các ô đầu biên bản (tự điền thông số được ghi đè các ô này)
   function rememberTemplateHead() {
@@ -539,6 +553,8 @@
     Object.entries(plan).forEach(([k, f]) => { state.v[k] = f.value; ocr[k] = { status: 'check', label: label(k), src: f.src }; });
     // ô không có trong CSDL / test report mà còn giá trị mẫu của template → để trống, tô đỏ "nhập tay"
     EquipmentSpecs.staleKeys(state.v, fills, tpl).forEach(k => { state.v[k] = ''; ocr[k] = { status: 'missing', label: label(k), src: 'CSDL / test report' }; });
+    // tên máy trong CSDL "AT9 pha A" mà biên bản là mẫu chung 3 pha / mẫu pha khác → theo mẫu đang dùng
+    syncSitePhase();
     return plan;
   }
 
@@ -1034,6 +1050,7 @@
         if (el.dataset.cfg === 'taps' && state.cfg.taps.length !== 19) toast(`Cần đúng 19 nhãn nấc (đang có ${state.cfg.taps.length}) — tạm dùng mặc định`, true);
         schema = T().buildSchema(state.cfg);
         // đổi giữa mẫu theo pha và mẫu chung 3 pha: biểu mẫu đổi bố cục, lấy giá trị mặc định của template mới cho ô còn trống
+        if (['template', 'topology'].includes(el.dataset.cfg)) syncSitePhase();
         if (['template', 'topology'].includes(el.dataset.cfg) && schema.layout !== before) {
           await fillTemplateDefaults();
           renderNav();
@@ -1072,6 +1089,8 @@
     const key = T().templateKeyFor ? T().templateKeyFor(state, fxOn()) : null;
     if (key && state.cfg.template !== 'custom' && EMB.templates[key] && state.cfg.template !== key) {
       state.cfg.template = key;
+      schema = T().buildSchema(state.cfg);
+      syncSitePhase();
       toast(`Đã chọn template ${EMB.templates[key].name} theo pha ${key}`);
     }
   }
@@ -1341,9 +1360,12 @@
         toast(`Đã xuất ${doc.name} (${doc.cells} ô số liệu)${doc.miss.length ? ` — không định vị được: ${doc.miss.slice(0, 4).join(', ')}${doc.miss.length > 4 ? '…' : ''}` : ''}`, doc.miss.length > 0);
       });
       if (state.db && state.db.sessionId && DB.user && DB.canEdit()) {
+        // BBTN từng pha gắn vào máy của pha đó (danh mục đã tải, tìm theo số chế tạo); không thấy thì gắn máy chính của lần thí nghiệm
+        const up = x => String(x || '').trim().toUpperCase();
+        const eqOf = sn => ((window.Catalog && Catalog.data && Catalog.data.eqs) || []).find(e => !e.parent_id && up(e.serial_no) === up(sn));
         for (const doc of docs) {
           try {
-            await DB.uploadDoc(state.db.sessionId, state.db.equipmentId || null, 'BBTN_DOCX', `${doc.serial}/${state.db.sessionId}/${doc.name}`, doc.name, doc.blob);
+            await DB.uploadDoc(state.db.sessionId, (eqOf(doc.serial) || {}).id || state.db.equipmentId || null, 'BBTN_DOCX', `${doc.serial}/${state.db.sessionId}/${doc.name}`, doc.name, doc.blob);
           } catch (err) { toast(`Đã tải ${doc.name} nhưng chưa lưu được vào CSDL: ${err.message}`, true); }
         }
       }
