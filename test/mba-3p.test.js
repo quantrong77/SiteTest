@@ -212,3 +212,28 @@ test('số liệu BCT đưa vào mục 13 (mẫu 3 pha): chèn ngay sau đề m�
   // template không có đề mục 13 → báo không chèn được (fill sẽ xuất phụ lục)
   assert.equal(ctx.MbaReport.bctToBody({ bodyPara: () => null }, state, schema, res, x => x), false);
 });
+
+test('Vị trí lắp đặt: BBTN chung tổ 3 máy bỏ chữ "pha X", BBTN theo pha đổi đúng pha; không có chữ pha thì giữ nguyên', () => {
+  const { Common } = load(CORE);
+  const f = Common.sitePhase;
+  assert.equal(f('Máy biến áp 500kV AT9 PHA A (Trạm Thử)', ''), 'Máy biến áp 500kV AT9 (Trạm Thử)');
+  assert.equal(f('Máy biến áp 500kV AT9 PHA A (Trạm Thử)', 'C'), 'Máy biến áp 500kV AT9 PHA C (Trạm Thử)');
+  assert.equal(f('AT9 pha A', ''), 'AT9');
+  assert.equal(f('AT9 pha A', 'B'), 'AT9 pha B');
+  assert.equal(f('AT9 - Pha B', ''), 'AT9');
+  assert.equal(f('MBA AT9 (Trạm Thử)', 'B'), 'MBA AT9 (Trạm Thử)', 'không tự thêm pha');
+  assert.equal(f('Trạm Pha Lai AT9', ''), 'Trạm Pha Lai AT9', 'tên trạm có chữ "Pha" không phải ký hiệu pha');
+  assert.equal(f('Pha Ánh AT9', ''), 'Pha Ánh AT9');
+  assert.equal(f('', ''), '');
+});
+
+test('mẫu chung 3 pha → BBTN riêng từng pha: Vị trí lắp đặt "PHA A" đổi theo pha đang tách', () => {
+  const ctx = load(CORE);
+  const M = ctx.EquipmentTypes.get('MBA');
+  const cfg3 = Object.assign(M.defaultCfg(), { template: '3P', ps: { A: 'SN-A', B: 'SN-B', C: 'SN-C' } });
+  const v = { 'meta.serial': 'SN-A', 'meta.site': 'MBA 500kV AT9 PHA A (Trạm Thử)' };
+  const tgt = M.buildSchema(Object.assign(M.defaultCfg(), { template: 'C', topology: 'bank1p' }));
+  const out = ctx.MbaReport.phaseState({ type: 'MBA', v, cfg: cfg3, sum: { tick: {}, ev: {} }, att: {} }, M.buildSchema(cfg3), tgt, 'C').v;
+  assert.equal(out['meta.site'], 'MBA 500kV AT9 PHA C (Trạm Thử)');
+  assert.equal(out['meta.serial'], 'SN-C');
+});

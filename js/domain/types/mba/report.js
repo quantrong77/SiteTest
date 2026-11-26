@@ -42,6 +42,8 @@
       const t = Schema.dcrTemp(k => num(sourceV[k]), `dcr.${w}`, phase, true);
       if (Number.isFinite(t)) targetV[`dcr.${w}.t`] = String(t).replace('.', ',');
     });
+    // Vị trí lắp đặt có chữ "pha X" (vd mặc định mẫu pha A) → pha của biên bản đang tách
+    if (targetV['meta.site'] !== undefined) targetV['meta.site'] = Common.sitePhase(targetV['meta.site'], phase);
     const moistureKey = `moist.r.${phase}`;
     if (targetFieldKeys.has('moist.val') && sourceV[moistureKey] !== undefined) targetV['moist.val'] = sourceV[moistureKey];
     targetV['meta.serial'] = serial;
