@@ -27,7 +27,7 @@
     const measurements = sections.Measurements || [], mh = measurements.findIndex(r => r[0].toLowerCase() === 'id');
     if (mh < 0) throw new Error(`${fileName || 'Tệp'}: thiếu tiêu đề [Measurements].`);
     const mi = Object.fromEntries(measurements[mh].map((x, i) => [x.toLowerCase(), i]));
-    const info = new Map(measurements.slice(mh + 1).map(r => [r[mi.id], { name: r[mi.name] || '', date: r[mi.date] || '', serial: r[mi['test object serial']] || '' }]));
+    const info = new Map(measurements.slice(mh + 1).map(r => [r[mi.id], { name: r[mi.name] || '', date: r[mi.date] || '', serial: r[mi['test object serial']] || '', temp: mi.temperature === undefined ? '' : (r[mi.temperature] || '') }]));
     const sec = sections.FDSData ? 'FDSData' : 'FrequencySweeps', data = sections[sec], dh = data.findIndex(r => r[0].toLowerCase() === 'id');
     if (dh < 0) throw new Error(`${fileName || 'Tệp'}: thiếu tiêu đề cột [${sec}].`);
     const di = Object.fromEntries(data[dh].map((x, i) => [x.toLowerCase(), i])), groups = new Map();
@@ -42,7 +42,7 @@
     return Array.from(groups, ([id, pts]) => {
       const m = info.get(id) || {}, ident = identify(m.name);
       pts = pts.filter(p => Number.isFinite(p.f) && Number.isFinite(p.tan) && Number.isFinite(p.c)).sort((a, b) => a.f - b.f);
-      return Object.assign({ name: m.name, date: m.date, serial: m.serial, file: fileName, f: pts.map(p => p.f), tan: pts.map(p => p.tan), c: pts.map(p => p.c) }, ident);
+      return Object.assign({ name: m.name, date: m.date, serial: m.serial, temp: m.temp || '', file: fileName, f: pts.map(p => p.f), tan: pts.map(p => p.tan), c: pts.map(p => p.c) }, ident);
     });
   }
   function assignSides(items) {

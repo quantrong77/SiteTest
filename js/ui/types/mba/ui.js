@@ -103,6 +103,8 @@
   }
   const OSC_COLS = ['t', 'ub', 'ib', 'rb', 'ua', 'ia', 'ra', 'tFall', 'tRise', 'delta'];
   function sectionFooter(id, A) {
+    // mục độ ẩm cách điện rắn: nạp CSV DIRANA cách điện cuộn dây, đồ thị vào phụ lục BBTN
+    if (id === 'moisture') return MoistDfrUI.html(A);
     if (id !== 'oltc') return '';
     const osc = (A.state.att && A.state.att.oltc) || {}, esc = A.esc, f = Common.fmt;
     const phases = Object.keys(osc).sort();
@@ -177,7 +179,9 @@
       const overlay = await DfrChart.png(ms, true, { yMax, title: `Sứ ${side === 'N' ? 'trung tính' : side} (${label}) – ${ms.length} pha` });
       dfrCharts[side] = { individual, overlay: Object.assign(overlay, { caption: '' }) };
     }
-    return { oltcCharts: out, dfrCharts };
+    // DFR cách điện cuộn dây (mục độ ẩm cách điện rắn)
+    const dfrwCharts = await MoistDfrUI.charts(A);
+    return { oltcCharts: out, dfrCharts, dfrwCharts };
   }
 
   // Ô hệ số K sứ: tự tra (Hitachi, bảng K) thì hiện giá trị tính, nhập tay thì là ô nhập thường
@@ -350,6 +354,11 @@
       A.toast(`Đã chuyển ${moves.length} ô R một chiều từ nấc 9b / 9c sang 9a`);
     },
     fillBushingSN: (b, A) => fillBushingSN(A),
+    // mục độ ẩm cách điện rắn: nạp / bỏ phép đo DFR cuộn dây (MoistDfrUI)
+    moistDfrFiles: (b, A) => MoistDfrUI.actions.moistDfrFiles(b, A),
+    moistDfrFolder: (b, A) => MoistDfrUI.actions.moistDfrFolder(b, A),
+    moistDfrDel: (b, A) => MoistDfrUI.actions.moistDfrDel(b, A),
+    moistDfrClear: (b, A) => MoistDfrUI.actions.moistDfrClear(b, A),
     addWtgdRow(b, A) {
       A.state.cfg.wtgdRows.push({ k: 'x' + Date.now().toString(36) });
       A.rebuild(true);
@@ -425,6 +434,7 @@
   // Gọi một lần khi app khởi động, trước khi đánh giá biên bản đầu tiên
   function init(A) {
     loadHitachiDefault(A);
+    MoistDfrUI.init(A);
     $('#fileNameplate').addEventListener('change', e => { const f = e.target.files[0]; e.target.value = ''; if (f) NameplateImport.open(f); });
     bindDrop(A);
     $('#file2293').addEventListener('change', e => { const fl = Array.from(e.target.files); e.target.value = ''; if (fl.length) Wa2293Import.open(fl).catch(err => A.toast('Lỗi đọc file 2293: ' + err.message, true)); });

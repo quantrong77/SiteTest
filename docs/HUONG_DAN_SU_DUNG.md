@@ -246,6 +246,8 @@ Mỗi hạng mục có đủ 4 bước; phần dưới chỉ ghi điều riêng.
 
 [Mở →](#app:moisture) Nhập % ẩm (FDS / PDC). < 2,2 % khô; 2,2–3,7 % trung bình; 3,7–4,8 % ẩm; > 4,8 % ẩm cao (Điều 28).
 
+**Đồ thị DFR cách điện cuộn dây** (cuối mục): **Nạp file .csv…** / **Nạp cả thư mục…** file CSV DIRANA (cả bản 4.x). MBA 3 cuộn dây: **CHL**, **CLT**; MBA tự ngẫu (tổ 3 máy 1 pha rời, 3 pha chung vỏ): **CHT**. Loại cách điện nhận theo tên phép đo; pha nhận theo tên phép đo / tên file (vd `CHT_A`, `AT1_pha_B.csv`), BBTN theo pha lấy pha của mẫu, MBA 3 pha chung ghi “3 pha”; sửa được ở cột Cách điện / Pha. Có phép đo nào thì vẽ đồ thị tgδ theo tần số (trục log) phép đo đó, đính kèm phụ lục BBTN kèm bảng tgδ, C tại 50 Hz, ghi rõ pha; tổ 3 máy có thêm đồ thị xếp chồng 3 pha. Chỉ trình bày số liệu, không đánh giá đạt / không đạt. BBTN tách từng pha chỉ kèm đồ thị của pha đó.
+
 ## `11` Mục 11: Biến dòng chân sứ
 
 [Mở →](#app:bct)
@@ -273,6 +275,7 @@ Mỗi hạng mục có đủ 4 bước; phần dưới chỉ ghi điều riêng.
 | Chụp sóng OLTC | Nạp file Haefely 2293 ở mục 9 |
 | SFRA | **Mở SFRA Analyzer** → tải báo cáo Word → **Nạp báo cáo SFRA (.docx)…** |
 | Dầu MBA (DGA, lý hóa) | **Mở app DGA** (có **Chép số chế tạo**) → xuất BBTN dầu → **Nạp BBTN dầu (.docx)…** → **Nối vào BBTN** |
+| DFR cuộn dây (DIRANA) | Nạp ở mục 10 (độ ẩm cách điện cứng); thẻ ở đây tóm tắt và mở mục đó |
 | DFR sứ (DIRANA) | **Nạp file .csv…** / **Nạp cả thư mục…** (CSV DIRANA, cả bản 4.x) → chọn phía, pha (tên phép đo dạng `bushing500_A` được nhận tự động); trình bày tham khảo |
 
 ## `↗` Xu hướng

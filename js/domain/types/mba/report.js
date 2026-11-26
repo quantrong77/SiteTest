@@ -170,6 +170,11 @@
         return (!itemPhase || itemPhase === phase) && (!itemSerial || itemSerial === serial);
       });
     }
+    // DFR cách điện cuộn dây: phép đo của pha này và phép đo không ghi pha (số chế tạo trong file DIRANA không dùng để lọc)
+    if (att.dfrw && Array.isArray(att.dfrw.items)) {
+      att.dfrw.items = DfrW.forPhase(att.dfrw.items, phase);
+      if (!att.dfrw.items.length) delete att.dfrw;
+    }
     if (att.oil && Array.isArray(att.oil.items)) {
       att.oil.items = att.oil.items.filter(item => {
         if (item.phase && String(item.phase).toUpperCase() !== phase) return false;
@@ -353,6 +358,7 @@
       if (a.kind === 'fra') { tpl.appendSection(Appendix.fraHeader(a.label, state.att.fra)); tpl.importBody(A.fraDoc); }
       if (a.kind === 'oil') { const item = state.att.oil.items.find(x => x.id === a.id); tpl.appendSection(Appendix.oilHeader(a.label, item)); tpl.importBody(A.oilDocs[a.id]); }
       if (a.kind === 'dfr') tpl.appendSection(Dfr.appendix(state, A, out, a.label));
+      if (a.kind === 'dfrw') tpl.appendSection(DfrW.appendix(state, A, out, a.label));
       if (a.kind === 'shortCircuit') tpl.appendSection(Appendix.shortCircuitAppendix(state, A.shortCircuitRows || [], A.factoryName, out, a.label));
       if (a.kind === 'bct') tpl.appendSection(bctAppendix(state, schema, res, out, a.label));
       if (a.kind === 'standards') tpl.appendSection(Appendix.standardsAppendix(a.label));

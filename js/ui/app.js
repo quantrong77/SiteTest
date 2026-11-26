@@ -797,6 +797,7 @@
     if (current === 'criteria') CriteriaUI.afterRender();
     if (current === 'standards') StandardsUI.afterRender();
     if (window.GuideUI && main.querySelector('[data-gimg]')) GuideUI.afterRender();
+    if (window.MoistDfrUI && main.querySelector('[data-mdfr-preview]')) MoistDfrUI.afterRender(App);
     if (current === 'field') FieldUI.afterRender();
     if (current === 'guidecfg') GuideUI.afterRenderConfig();
   }

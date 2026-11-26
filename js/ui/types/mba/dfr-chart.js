@@ -4,7 +4,7 @@
   'use strict';
   const W = 720, H = 440; // in 8 cm (2 đồ thị/hàng): chữ 26 px ≈ 8 pt
   const COLORS = { A: '#c99700', B: '#2e7d32', C: '#c62828' };
-  const INK = '#1b1f24', GRID = '#d5d9de', MINOR = '#eef0f2';
+  const INK = '#1b1f24', GRID = '#d5d9de', MINOR = '#eef0f2', LINE = '#1f5fa8'; // LINE: phép đo 3 pha chung (không ghi pha)
   const FONT = '"Be Vietnam Pro", Arial, sans-serif';
   const F0 = 0.01, DECADES = 6; // 10 mHz – 10 kHz
   const LABELS = [[0.01, '10m'], [0.1, '100m'], [1, '1'], [10, '10'], [100, '100'], [1000, '1k'], [10000, '10k']];
@@ -19,44 +19,70 @@
   }
 
   // Điểm đo trong dải trục (tần số đầu của DIRANA ghi 0,0099999998 Hz nên có dung sai)
-  const series = m => m.f.map((f, i) => [Number(f), Number(m.tan[i])])
-    .filter(([f, y]) => f >= F0 * 0.999 && f <= 1e4 && Number.isFinite(y) && y >= 0);
+  const series = (m, f0 = F0, f1 = 1e4) => m.f.map((f, i) => [Number(f), Number(m.tan[i])])
+    .filter(([f, y]) => f >= f0 * 0.999 && f <= f1 * 1.001 && Number.isFinite(y) && y >= 0);
+  // Nhãn tần số: 10µ, 1m, 100m, 1, 10, 1k, 10k
+  const fLabel = f => {
+    const r = x => String(Math.round(x * 1000) / 1000);
+    return f >= 1000 ? `${r(f / 1000)}k` : f >= 1 ? r(f) : f >= 1e-3 ? `${r(f * 1e3)}m` : `${r(f * 1e6)}µ`;
+  };
+  // Dải tần theo số liệu, làm tròn ra lũy thừa 10 (cách điện cuộn dây đo từ 0,1 mHz trở lên)
+  function fRangeOf(items) {
+    const fs = (items || []).flatMap(m => (m.f || []).map(Number)).filter(f => f > 0 && Number.isFinite(f));
+    if (!fs.length) return [F0, F0 * Math.pow(10, DECADES)];
+    const lo = Math.pow(10, Math.floor(Math.log10(Math.min(...fs)) + 1e-6)), hi = Math.pow(10, Math.ceil(Math.log10(Math.max(...fs)) - 1e-6));
+    return [lo, Math.max(hi, lo * 10)];
+  }
 
   // Giá trị tgδ lớn nhất của các phép đo — dùng làm thang chung cho đồ thị riêng và xếp chồng của một phía
   const maxTan = items => Math.max(0, ...(items || []).flatMap(m => series(m).map(p => p[1])));
 
-  // items: phép đo { phase, f, tan }; overlay: có chú giải pha; o: { title, yMax }
+  // items: phép đo { phase, f, tan }; overlay: có chú giải pha
+  // o: { title, yMax, logY: trục tgδ logarit (cách điện cuộn dây), fAuto: dải tần theo số liệu thay vì 10 mHz – 10 kHz }
   function draw(canvas, items, overlay = false, o = {}) {
     canvas.width = W; canvas.height = H;
     const g = canvas.getContext('2d');
     g.fillStyle = '#fff'; g.fillRect(0, 0, W, H);
+    const [f0, f1] = o.fAuto ? fRangeOf(items) : [F0, F0 * Math.pow(10, DECADES)], decades = Math.round(Math.log10(f1 / f0));
     const data = (items || []).slice().sort((a, b) => PH.indexOf(a.phase) - PH.indexOf(b.phase))
-      .map(m => ({ phase: m.phase, pts: series(m) }));
+      .map(m => ({ phase: m.phase, pts: series(m, f0, f1).filter(p => !o.logY || p[1] > 0) }));
     const top = Math.max(o.yMax || 0, maxTan(items), 0.1);
     const ys = niceStep(top, 5), y1 = Math.ceil(top / ys - 1e-9) * ys;
     const yd = Math.max(0, -Math.floor(Math.log10(ys) + 1e-9));
+    // trục log: từ lũy thừa 10 dưới giá trị nhỏ nhất tới lũy thừa 10 trên giá trị lớn nhất
+    const pos = data.flatMap(s => s.pts.map(p => p[1])), e0 = pos.length ? Math.floor(Math.log10(Math.min(...pos)) + 1e-9) : -2;
+    const e1 = Math.max(e0 + 1, pos.length ? Math.ceil(Math.log10(Math.max(...pos)) - 1e-9) : 0);
     // chú giải (đồ thị xếp chồng): một hàng ngang giữa tiêu đề và khung đồ thị, không đè lên đường đo
     const legend = overlay && data.length, T0 = o.title ? 58 : 22;
     const L = 128, R = 30, T = T0 + (legend ? 40 : 0), B = 80;
-    const px = f => L + Math.log10(Math.max(F0, f) / F0) / DECADES * (W - L - R);
-    const py = y => H - B - y / y1 * (H - T - B);
+    const px = f => L + Math.log10(Math.max(f0, f) / f0) / decades * (W - L - R);
+    const py = o.logY ? y => H - B - (Math.log10(y) - e0) / (e1 - e0) * (H - T - B) : y => H - B - y / y1 * (H - T - B);
 
     g.lineWidth = 1;
     // lưới phụ logarit 2…9 × 10^n
     g.strokeStyle = MINOR;
-    for (let e = -2; e < 4; e++) for (let n = 2; n <= 9; n++) {
+    const d0 = Math.round(Math.log10(f0));
+    for (let e = d0; e < d0 + decades; e++) for (let n = 2; n <= 9; n++) {
       const x = Math.round(px(n * Math.pow(10, e))) + 0.5;
       g.beginPath(); g.moveTo(x, T); g.lineTo(x, H - B); g.stroke();
     }
+    if (o.logY) for (let e = e0; e < e1; e++) for (let n = 2; n <= 9; n++) {
+      const y = Math.round(py(n * Math.pow(10, e))) + 0.5;
+      g.beginPath(); g.moveTo(L, y); g.lineTo(W - R, y); g.stroke();
+    }
     g.font = `500 26px ${FONT}`; g.fillStyle = INK; g.strokeStyle = GRID;
     g.textAlign = 'right'; g.textBaseline = 'middle';
-    for (let y = 0; y <= y1 + ys / 2; y += ys) {
+    const yTicks = o.logY ? Array.from({ length: e1 - e0 + 1 }, (_, i) => [Math.pow(10, e0 + i), fmt(Math.pow(10, e0 + i), Math.max(0, -(e0 + i)))])
+      : Array.from({ length: Math.round(y1 / ys) + 1 }, (_, i) => [i * ys, fmt(i * ys, yd)]);
+    yTicks.forEach(([y, t]) => {
       const yy = Math.round(py(y)) + 0.5;
       g.beginPath(); g.moveTo(L, yy); g.lineTo(W - R, yy); g.stroke();
-      g.fillText(fmt(y, yd), L - 10, yy);
-    }
+      g.fillText(t, L - 10, yy);
+    });
     g.textAlign = 'center'; g.textBaseline = 'top';
-    LABELS.forEach(([f, t]) => {
+    // nhãn trục tần số: mỗi lũy thừa 10; dải trên 7 decade thì cách một nhãn để chữ không chồng nhau
+    const fTicks = o.fAuto ? Array.from({ length: decades + 1 }, (_, i) => Math.pow(10, d0 + i)).map((f, i) => [f, decades > 7 && i % 2 ? '' : fLabel(f)]) : LABELS;
+    fTicks.forEach(([f, t]) => {
       const x = Math.round(px(f)) + 0.5;
       g.beginPath(); g.moveTo(x, T); g.lineTo(x, H - B); g.stroke();
       g.fillText(t, x, H - B + 10);
@@ -71,7 +97,7 @@
     g.save(); g.beginPath(); g.rect(L, T, W - L - R, H - T - B); g.clip();
     g.lineJoin = 'round';
     data.forEach(s => {
-      const c = COLORS[s.phase] || INK;
+      const c = COLORS[s.phase] || LINE;
       g.strokeStyle = c; g.fillStyle = c; g.lineWidth = 2.5;
       g.beginPath();
       s.pts.forEach(([f, y], i) => (i ? g.lineTo(px(f), py(y)) : g.moveTo(px(f), py(y))));
@@ -104,5 +130,5 @@
       : reject(new Error('Không tạo được đồ thị DFR'))), 'image/png'));
   }
 
-  window.DfrChart = { draw, png, maxTan, COLORS, W, H };
+  window.DfrChart = { draw, png, maxTan, fRangeOf, fLabel, COLORS, W, H };
 })();

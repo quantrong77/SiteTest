@@ -367,7 +367,8 @@
         id: 'moisture', no: 10, title: 'Hàm lượng ẩm trong cách điện cứng', en: 'Moisture in solid insulation',
         fields: [{ k: 'moist.method', label: 'Phương pháp / thiết bị', placeholder: 'vd: FDS/PDC – Omicron Dirana' }],
         grids: [{ id: 'moist', title: 'Theo pha', tables: [25], rows: [{ k: 'r', label: 'Hàm lượng ẩm (%)', doc: 1 }],
-          cols: PH3.map((ph, i) => col(ph, `CHL${ph} (%)`, i, { phase: true })) }],
+          // mẫu chung 3 pha (MBA tự ngẫu, tổ 3 máy 1 pha rời): độ ẩm theo phép đo CHT của từng máy
+          cols: PH3.map((ph, i) => col(ph, `CHT pha ${ph} (%)`, i, { phase: true })) }],
       },
       {
         id: 'oltc', no: 11, title: 'Kiểm tra bộ điều áp dưới tải', en: 'OLTC',
