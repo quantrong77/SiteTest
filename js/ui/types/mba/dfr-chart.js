@@ -10,10 +10,12 @@
   const LABELS = [[0.01, '10m'], [0.1, '100m'], [1, '1'], [10, '10'], [100, '100'], [1000, '1k'], [10000, '10k']];
   const PH = ['A', 'B', 'C'];
   const fmt = (x, d) => x.toFixed(d).replace('.', ',');
+  // 10^n chính xác (Math.pow(10, -5) ra 0,000009999… trên một số bản V8, vd Node 22 Linux)
+  const p10 = n => Number(`1e${n}`);
 
   // Bước chia trục "đẹp" (1, 2, 5 × 10^n)
   function niceStep(span, n) {
-    const raw = span / n, p = Math.pow(10, Math.floor(Math.log10(raw)));
+    const raw = span / n, p = p10(Math.floor(Math.log10(raw)));
     const m = raw / p;
     return (m < 1.5 ? 1 : m < 3 ? 2 : m < 7 ? 5 : 10) * p;
   }
@@ -29,8 +31,8 @@
   // Dải tần theo số liệu, làm tròn ra lũy thừa 10 (cách điện cuộn dây đo từ 0,1 mHz trở lên)
   function fRangeOf(items) {
     const fs = (items || []).flatMap(m => (m.f || []).map(Number)).filter(f => f > 0 && Number.isFinite(f));
-    if (!fs.length) return [F0, F0 * Math.pow(10, DECADES)];
-    const lo = Math.pow(10, Math.floor(Math.log10(Math.min(...fs)) + 1e-6)), hi = Math.pow(10, Math.ceil(Math.log10(Math.max(...fs)) - 1e-6));
+    if (!fs.length) return [F0, F0 * p10(DECADES)];
+    const lo = p10(Math.floor(Math.log10(Math.min(...fs)) + 1e-6)), hi = p10(Math.ceil(Math.log10(Math.max(...fs)) - 1e-6));
     return [lo, Math.max(hi, lo * 10)];
   }
 
@@ -43,7 +45,7 @@
     canvas.width = W; canvas.height = H;
     const g = canvas.getContext('2d');
     g.fillStyle = '#fff'; g.fillRect(0, 0, W, H);
-    const [f0, f1] = o.fAuto ? fRangeOf(items) : [F0, F0 * Math.pow(10, DECADES)], decades = Math.round(Math.log10(f1 / f0));
+    const [f0, f1] = o.fAuto ? fRangeOf(items) : [F0, F0 * p10(DECADES)], decades = Math.round(Math.log10(f1 / f0));
     const data = (items || []).slice().sort((a, b) => PH.indexOf(a.phase) - PH.indexOf(b.phase))
       .map(m => ({ phase: m.phase, pts: series(m, f0, f1).filter(p => !o.logY || p[1] > 0) }));
     const top = Math.max(o.yMax || 0, maxTan(items), 0.1);
@@ -63,16 +65,16 @@
     g.strokeStyle = MINOR;
     const d0 = Math.round(Math.log10(f0));
     for (let e = d0; e < d0 + decades; e++) for (let n = 2; n <= 9; n++) {
-      const x = Math.round(px(n * Math.pow(10, e))) + 0.5;
+      const x = Math.round(px(n * p10(e))) + 0.5;
       g.beginPath(); g.moveTo(x, T); g.lineTo(x, H - B); g.stroke();
     }
     if (o.logY) for (let e = e0; e < e1; e++) for (let n = 2; n <= 9; n++) {
-      const y = Math.round(py(n * Math.pow(10, e))) + 0.5;
+      const y = Math.round(py(n * p10(e))) + 0.5;
       g.beginPath(); g.moveTo(L, y); g.lineTo(W - R, y); g.stroke();
     }
     g.font = `500 26px ${FONT}`; g.fillStyle = INK; g.strokeStyle = GRID;
     g.textAlign = 'right'; g.textBaseline = 'middle';
-    const yTicks = o.logY ? Array.from({ length: e1 - e0 + 1 }, (_, i) => [Math.pow(10, e0 + i), fmt(Math.pow(10, e0 + i), Math.max(0, -(e0 + i)))])
+    const yTicks = o.logY ? Array.from({ length: e1 - e0 + 1 }, (_, i) => [p10(e0 + i), fmt(p10(e0 + i), Math.max(0, -(e0 + i)))])
       : Array.from({ length: Math.round(y1 / ys) + 1 }, (_, i) => [i * ys, fmt(i * ys, yd)]);
     yTicks.forEach(([y, t]) => {
       const yy = Math.round(py(y)) + 0.5;
@@ -81,7 +83,7 @@
     });
     g.textAlign = 'center'; g.textBaseline = 'top';
     // nhãn trục tần số: mỗi lũy thừa 10; dải trên 7 decade thì cách một nhãn để chữ không chồng nhau
-    const fTicks = o.fAuto ? Array.from({ length: decades + 1 }, (_, i) => Math.pow(10, d0 + i)).map((f, i) => [f, decades > 7 && i % 2 ? '' : fLabel(f)]) : LABELS;
+    const fTicks = o.fAuto ? Array.from({ length: decades + 1 }, (_, i) => p10(d0 + i)).map((f, i) => [f, decades > 7 && i % 2 ? '' : fLabel(f)]) : LABELS;
     fTicks.forEach(([f, t]) => {
       const x = Math.round(px(f)) + 0.5;
       g.beginPath(); g.moveTo(x, T); g.lineTo(x, H - B); g.stroke();
