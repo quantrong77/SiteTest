@@ -312,7 +312,10 @@
     if (A.state.cfg.reportScope === 'separate') {
       h += '<div class="phase-export"><span class="phase-export-title">Chọn pha cần xuất</span><div class="phase-export-options">'
         + ['A', 'B', 'C'].map(ph => `<label><input type="checkbox" data-export-phase="${ph}" ${selected.has(ph) ? 'checked' : ''}> Pha ${ph}<span class="phase-export-sn">${A.esc(A.state.cfg.ps[ph] || 'chưa có S/N')}</span></label>`).join('')
-        + '</div><span class="note">Một pha tải DOCX riêng; nhiều pha tải thành một ZIP chứa từng BBTN.</span></div>';
+        + '</div><span class="note">Một pha tải DOCX riêng; nhiều pha tải thành một ZIP chứa từng BBTN.</span></div>'
+        + '<div class="fields">' + A.cfgField('oltcSplitDirs', 'Số vòng quay OLTC trong BBTN từng pha', {
+          options: [['both', 'Cả chiều tăng và giảm nấc'], ['up', 'Chỉ chiều tăng nấc'], ['down', 'Chỉ chiều giảm nấc']],
+          note: 'Áp dụng chung cho cả 3 pha; ghi các lần chuyển nấc có số liệu của pha đó.' }) + '</div>';
     }
     return h;
   }

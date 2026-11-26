@@ -212,3 +212,90 @@ test('số liệu BCT đưa vào mục 13 (mẫu 3 pha): chèn ngay sau đề m�
   // template không có đề mục 13 → báo không chèn được (fill sẽ xuất phụ lục)
   assert.equal(ctx.MbaReport.bctToBody({ bodyPara: () => null }, state, schema, res, x => x), false);
 });
+
+test('Vị trí lắp đặt: BBTN chung tổ 3 máy bỏ chữ "pha X", BBTN theo pha đổi đúng pha; không có chữ pha thì giữ nguyên', () => {
+  const { Common } = load(CORE);
+  const f = Common.sitePhase;
+  assert.equal(f('Máy biến áp 500kV AT9 PHA A (Trạm Thử)', ''), 'Máy biến áp 500kV AT9 (Trạm Thử)');
+  assert.equal(f('Máy biến áp 500kV AT9 PHA A (Trạm Thử)', 'C'), 'Máy biến áp 500kV AT9 PHA C (Trạm Thử)');
+  assert.equal(f('AT9 pha A', ''), 'AT9');
+  assert.equal(f('AT9 pha A', 'B'), 'AT9 pha B');
+  assert.equal(f('AT9 - Pha B', ''), 'AT9');
+  assert.equal(f('MBA AT9 (Trạm Thử)', 'B'), 'MBA AT9 (Trạm Thử)', 'không tự thêm pha');
+  assert.equal(f('Trạm Pha Lai AT9', ''), 'Trạm Pha Lai AT9', 'tên trạm có chữ "Pha" không phải ký hiệu pha');
+  assert.equal(f('Pha Ánh AT9', ''), 'Pha Ánh AT9');
+  assert.equal(f('', ''), '');
+});
+
+test('mẫu chung 3 pha → BBTN riêng từng pha: Vị trí lắp đặt "PHA A" đổi theo pha đang tách', () => {
+  const ctx = load(CORE);
+  const M = ctx.EquipmentTypes.get('MBA');
+  const cfg3 = Object.assign(M.defaultCfg(), { template: '3P', ps: { A: 'SN-A', B: 'SN-B', C: 'SN-C' } });
+  const v = { 'meta.serial': 'SN-A', 'meta.site': 'MBA 500kV AT9 PHA A (Trạm Thử)' };
+  const tgt = M.buildSchema(Object.assign(M.defaultCfg(), { template: 'C', topology: 'bank1p' }));
+  const out = ctx.MbaReport.phaseState({ type: 'MBA', v, cfg: cfg3, sum: { tick: {}, ev: {} }, att: {} }, M.buildSchema(cfg3), tgt, 'C').v;
+  assert.equal(out['meta.site'], 'MBA 500kV AT9 PHA C (Trạm Thử)');
+  assert.equal(out['meta.serial'], 'SN-C');
+});
+
+test('mẫu chung 3 pha → BBTN riêng từng pha: nhiệt độ sứ theo pha, ô chung trống lấy sứ cao áp; kiểm tra bên ngoài tóm tắt từ bảng', () => {
+  const ctx = load(CORE);
+  const M = ctx.EquipmentTypes.get('MBA');
+  const cfg3 = Object.assign(M.defaultCfg(), { template: '3P', ps: { A: 'SN-A', B: 'SN-B', C: 'SN-C' } });
+  const src = M.buildSchema(cfg3), tgt = M.buildSchema(Object.assign(M.defaultCfg(), { template: 'B', topology: 'bank1p' }));
+  const proj = v => ctx.MbaReport.phaseState({ type: 'MBA', v, cfg: cfg3, sum: { tick: {}, ev: {} }, att: {} }, src, tgt, 'B').v;
+  // chỉ có nhiệt độ chung sứ cao áp → cả ba phía
+  let out = proj({ 'b.hv.t': '35' });
+  same(['hv', 'mv', 'lv'].map(s => out[`b.${s}.t`]), ['35', '35', '35']);
+  // nhiệt độ riêng sứ của pha B (cột b của sứ hạ áp) ưu tiên; ô chung trung áp có giá trị thì dùng khi pha B trống
+  out = proj({ 'b.hv.t': '35', 'b.mv.t': '33', 'b.hv.meas.t.A': '40', 'b.hv.meas.t.B': '36', 'b.lv2.meas.t.b': '31' });
+  same(['hv', 'mv', 'lv'].map(s => out[`b.${s}.t`]), ['36', '33', '31']);
+  // kiểm tra bên ngoài
+  const items = {};
+  src.sections.find(s => s.id === 'visual').grids[0].rows.forEach(r => { items[`visual.items.${r.k}.e`] = 'Đạt/Pass'; });
+  assert.equal(proj(items)['visual.text'], 'Đạt/Pass');
+  assert.match(proj(Object.assign({}, items, { 'visual.items.i9.e': 'Không đạt' }))['visual.text'], /Cánh tản nhiệt: Đạt\/Pass; Độ kín: Đạt\/Pass; Tiếp địa: Không đạt$/);
+  assert.equal(proj(Object.assign({}, items, { 'visual.text': 'Bình thường' }))['visual.text'], 'Bình thường', 'ô chữ đã nhập thì giữ');
+});
+
+test('mẫu chung 3 pha → BBTN riêng từng pha: số vòng quay OLTC của pha theo chiều đã chọn, chung cho 3 pha', () => {
+  const ctx = load(CORE);
+  const M = ctx.EquipmentTypes.get('MBA');
+  const cfg3 = Object.assign(M.defaultCfg(), { template: '3P', ps: { A: 'SN-A', B: 'SN-B', C: 'SN-C' } });
+  const src = M.buildSchema(cfg3), tgt = M.buildSchema(Object.assign(M.defaultCfg(), { template: 'B', topology: 'bank1p' }));
+  const v = { 'oltc.r.up1.tap': '10', 'oltc.r.up1.kB': '5', 'oltc.r.up1.cB': '33', 'oltc.r.up2.tap': '11', 'oltc.r.up2.kA': '6',
+    'oltc.r.dn1.tap': '9', 'oltc.r.dn1.kB': '4', 'oltc.r.dn1.cB': '32' };
+  const rounds = dirs => ctx.MbaReport.phaseState({ type: 'MBA', v, cfg: Object.assign({}, cfg3, { oltcSplitDirs: dirs }), sum: { tick: {}, ev: {} }, att: {} }, src, tgt, 'B').att.oltcRounds;
+  // lần tăng nấc 2 chỉ có số liệu pha A → không vào BBTN pha B
+  same(rounds(undefined), [{ label: 'Tăng nấc 1', tap: '10', k: '5', cyc: '33' }, { label: 'Giảm nấc 1', tap: '9', k: '4', cyc: '32' }]);
+  same(rounds('up').map(x => x.label), ['Tăng nấc 1']);
+  same(rounds('down').map(x => x.label), ['Giảm nấc 1']);
+});
+
+test('mẫu chung 3 pha → BBTN riêng từng pha: %Uđm không tải, hàng sứ chỉ mẫu 3 pha có, K riêng của sứ trung tính', () => {
+  const ctx = load(CORE);
+  const M = ctx.EquipmentTypes.get('MBA');
+  const cfg3 = Object.assign(M.defaultCfg(), { template: '3P', ps: { A: 'SN-A', B: 'SN-B', C: 'SN-C' } });
+  const src = M.buildSchema(cfg3), tgt = M.buildSchema(Object.assign(M.defaultCfg(), { template: 'B', topology: 'bank1p' }));
+  const v = { 'nl.B.rated.r0.pu': '100', 'nl.A.rated.r0.pu': '90', 'nl.B.rated.r1.pu': '105',
+    'b.hv.meas.code.B': 'MH-B', 'b.hv.meas.code.A': 'MH-A', 'b.hv.meas.ir.B': '1250', 'b.n.meas.code.B': 'MH-NB', 'b.n.meas.t.B': '34',
+    'b.lv.meas.ur.b': '40,5', 'b.lv2.meas.ur.b': '36',
+    'b.mv.kmode': 'Nhập hệ số K', 'b.mv.k': '0,9', 'b.n.kmode': 'Nhập hệ số K', 'b.n.k': '0,8', 'b.n.btype': 'OIP',
+    'b.mv.meas.tgd1.B': '0,4', 'b.n.meas.tgd1.B': '0,5' };
+  const st = ctx.MbaReport.phaseState({ type: 'MBA', v, cfg: cfg3, sum: { tick: {}, ev: {} }, att: {} }, src, tgt, 'B');
+  assert.equal(st.cfg.splitFrom, '3P');
+  same(st.att.nlPu, { r0: '100', r1: '105' });
+  const rows = Object.fromEntries(st.att.bushingRows.map(x => [x.grid, x.rows]));
+  same(rows['b.hv.meas'], [{ label: 'Mã hiệu (Code)', vals: { B: 'MH-B' } }, { label: 'Dòng điện định mức (A)', vals: { B: '1250' } }]);
+  same(rows['b.mv.meas'], [{ label: 'Mã hiệu (Code)', vals: { N: 'MH-NB' } }, { label: 'Nhiệt độ đo (°C)', vals: { N: '34' } }]);
+  same(rows['b.lv.meas'], [{ label: 'Điện áp định mức (kV)', vals: { a: '40,5', b: '36' } }]);
+  // đánh giá BBTN pha B: cột N quy đổi bằng K của sứ trung tính (0,8), cột Bm bằng K phía trung áp (0,9)
+  const res = M.evaluate(st, null, tgt);
+  assert.equal(res.calc['b.mv.c20.tgd1.B'], '0,360');
+  assert.equal(res.calc['b.mv.c20.tgd1.N'], '0,400');
+  assert.match(res.notes['b.mv.kN'], /^sứ trung tính \(N, OIP\): K = 0,8/);
+  // BBTN pha không tách từ mẫu 3 pha: cột N theo phía trung áp như cũ
+  const plain = M.evaluate({ type: 'MBA', v: Object.assign({}, st.v, { 'b.mv.meas.tgd1.N': '0,5' }), cfg: Object.assign({}, st.cfg, { splitFrom: undefined }), sum: { tick: {}, ev: {} }, att: {} }, null, tgt);
+  assert.equal(plain.calc['b.mv.c20.tgd1.N'], '0,450');
+  assert.equal(plain.notes['b.mv.kN'], undefined);
+});

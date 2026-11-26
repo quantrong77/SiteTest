@@ -118,7 +118,7 @@ Trình khởi tạo 4 bước, mở bằng **Mới** hoặc bấm thanh thông t
 
 ### Mẫu BBTN và số mục
 
-- **Tổ 3 máy 1 pha** (thường 500 kV): mẫu theo pha **A / B / C** (một máy một BBTN; nhập S/N máy pha B, C để so giữa các pha) hoặc mẫu chung **3P**. Ở mẫu theo pha, bảng sứ và biến dòng chân sứ là của **máy đang lập**; sứ hạ áp có hai sứ **3.1, 3.2** (cột a, b). **MBA 3 pha 110–220 kV**: một S/N, một BBTN.
+- **Tổ 3 máy 1 pha** (thường 500 kV): mẫu theo pha **A / B / C** (một máy một BBTN; nhập S/N máy pha B, C để so giữa các pha) hoặc mẫu chung **3P**. Ở mẫu theo pha, bảng sứ và biến dòng chân sứ là của **máy đang lập**; sứ hạ áp có hai sứ **3.1, 3.2** (cột a, b). Mẫu **3P** xuất được **một BBTN chung** hoặc **tách BBTN riêng theo pha** (Mẫu & cấu hình → Phạm vi xuất BBTN; nhiều pha tải thành ZIP); khi tách, chọn **Số vòng quay OLTC trong BBTN từng pha**: cả hai chiều / chỉ tăng nấc / chỉ giảm nấc — áp chung cho 3 pha. BBTN từng pha giữ %Uđm không tải, mã hiệu / Uđm / Iđm / nhiệt độ từng sứ (hàng chèn thêm) và hệ số K riêng của sứ trung tính; không có R180 / R360 (mẫu theo pha chỉ R15, R60, R600). **MBA 3 pha 110–220 kV**: một S/N, một BBTN.
 - Lý do *Sau lắp đặt*, *Sau sửa chữa/đại tu* dùng ngưỡng "MBA mới" của QĐ 1901; các lần khác dùng ngưỡng máy đã vận hành.
 
 | Hạng mục | Mẫu theo pha, 110 | Mẫu 3P |
