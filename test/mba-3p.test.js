@@ -257,3 +257,17 @@ test('mẫu chung 3 pha → BBTN riêng từng pha: nhiệt độ sứ theo pha,
   assert.match(proj(Object.assign({}, items, { 'visual.items.i9.e': 'Không đạt' }))['visual.text'], /Cánh tản nhiệt: Đạt\/Pass; Độ kín: Đạt\/Pass; Tiếp địa: Không đạt$/);
   assert.equal(proj(Object.assign({}, items, { 'visual.text': 'Bình thường' }))['visual.text'], 'Bình thường', 'ô chữ đã nhập thì giữ');
 });
+
+test('mẫu chung 3 pha → BBTN riêng từng pha: số vòng quay OLTC của pha theo chiều đã chọn, chung cho 3 pha', () => {
+  const ctx = load(CORE);
+  const M = ctx.EquipmentTypes.get('MBA');
+  const cfg3 = Object.assign(M.defaultCfg(), { template: '3P', ps: { A: 'SN-A', B: 'SN-B', C: 'SN-C' } });
+  const src = M.buildSchema(cfg3), tgt = M.buildSchema(Object.assign(M.defaultCfg(), { template: 'B', topology: 'bank1p' }));
+  const v = { 'oltc.r.up1.tap': '10', 'oltc.r.up1.kB': '5', 'oltc.r.up1.cB': '33', 'oltc.r.up2.tap': '11', 'oltc.r.up2.kA': '6',
+    'oltc.r.dn1.tap': '9', 'oltc.r.dn1.kB': '4', 'oltc.r.dn1.cB': '32' };
+  const rounds = dirs => ctx.MbaReport.phaseState({ type: 'MBA', v, cfg: Object.assign({}, cfg3, { oltcSplitDirs: dirs }), sum: { tick: {}, ev: {} }, att: {} }, src, tgt, 'B').att.oltcRounds;
+  // lần tăng nấc 2 chỉ có số liệu pha A → không vào BBTN pha B
+  same(rounds(undefined), [{ label: 'Tăng nấc 1', tap: '10', k: '5', cyc: '33' }, { label: 'Giảm nấc 1', tap: '9', k: '4', cyc: '32' }]);
+  same(rounds('up').map(x => x.label), ['Tăng nấc 1']);
+  same(rounds('down').map(x => x.label), ['Giảm nấc 1']);
+});

@@ -116,6 +116,16 @@
 
     const att = projected.att || (projected.att = {});
     if (att.oltc) att.oltc = att.oltc[phase] ? { [phase]: att.oltc[phase] } : {};
+    // OLTC: mẫu 3 pha ghi số vòng quay theo pha (6 lần tăng + 6 lần giảm nấc); mẫu theo pha chỉ có 2 dòng → BBTN pha ghi các
+    // lần chuyển nấc có số liệu của pha này theo chiều người dùng chọn (cfg.oltcSplitDirs: both | up | down, chung cho 3 pha)
+    delete att.oltcRounds;
+    const og = Common.findGrid(sourceSchema, 'oltc.r');
+    if (og && Common.findGrid(targetSchema, 'oltc.rounds')) {
+      const dirs = state.cfg.oltcSplitDirs || 'both', s = k => String(sourceV[k] ?? '').trim();
+      att.oltcRounds = og.rows.filter(r => dirs === 'both' || r.k.startsWith(dirs === 'down' ? 'dn' : 'up'))
+        .map(r => ({ label: r.label, tap: s(`oltc.r.${r.k}.tap`), k: s(`oltc.r.${r.k}.k${phase}`), cyc: s(`oltc.r.${r.k}.c${phase}`) }))
+        .filter(x => x.k || x.cyc);
+    }
     if (att.fra && att.fra.serial && String(att.fra.serial).trim() !== serial) delete att.fra;
     if (att.shortCircuit && Array.isArray(att.shortCircuit.rows)) {
       att.shortCircuit.rows = att.shortCircuit.rows.filter(row => {
@@ -198,8 +208,23 @@
     // Mục 6: thêm hàng cho đối tượng đo bổ sung (bảng số liệu đo và bảng quy đổi 20 °C)
     const nExtra = (state.cfg.wtgdRows || []).length;
     if (nExtra && !is3P) eachGrid(schema, g => { if (/^wtgd\./.test(g.id)) tpl.appendRows(g.tables[0], nExtra); });
+    // BBTN theo pha tách từ mẫu 3 pha: bảng số vòng quay OLTC thêm hàng cho đủ các lần chuyển nấc đã chọn của pha
+    const rounds = !is3P && state.att && state.att.oltcRounds;
+    if (rounds) {
+      const g = Common.findGrid(schema, 'oltc.rounds');
+      if (!rounds.length) miss.push(`OLTC: không có số vòng quay của pha ${state.cfg.template} ở chiều đã chọn (Mẫu & cấu hình → Phạm vi xuất BBTN)`);
+      else if (g && g.tables) {
+        const t = g.tables[0], r0 = g.rows[0].doc, at = k => (g.cols.find(c => c.k === k) || {}).doc;
+        if (rounds.length > g.rows.length) tpl.appendRows(t, rounds.length - g.rows.length);
+        rounds.forEach((x, i) => {
+          tpl.setCellText(tpl.cell([t], r0 + i, 0), x.tap ? `${x.label} – nấc đến: ${x.tap}` : x.label);
+          [['k', x.k], ['cyc', x.cyc]].forEach(([k, val]) => { if (val) { if (tpl.setCellText(tpl.cell([t], r0 + i, at(k)), out(val))) cells++; else miss.push(`oltc.rounds ${x.label}`); } });
+        });
+      }
+    }
     eachGrid(schema, g => {
-      if (!g.tables) return; // bảng chỉ có trong app (vd quy đổi 20 °C sứ, biến dòng chân sứ ở mẫu 3 pha → phụ lục)
+      if (!g.tables) return; // bảng chỉ có trong app
+      if (rounds && g.id === 'oltc.rounds') return; // đã ghi ở trên (vd quy đổi 20 °C sứ, biến dòng chân sứ ở mẫu 3 pha → phụ lục)
       // Đối tượng đo đã sửa/thêm → ghi vào cột đầu; đề mục cột đã sửa → ghi vào hàng tiêu đề của template
       if (/^wtgd\./.test(g.id) && !is3P) g.rows.forEach(r => { if (r.label && r.label !== r.defLabel) tpl.setCellText(tpl.cell(g.tables, r.doc, 0), r.label); });
       // nhãn hàng sửa được khác (vd chỉ danh biến dòng chân sứ): ghi vào cột nhãn của bảng (lblCol, mặc định cột 0)
