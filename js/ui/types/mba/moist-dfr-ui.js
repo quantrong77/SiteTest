@@ -10,10 +10,10 @@
     const esc = A.esc, list = items(A), dec = A.state.cfg.decSep === '.' ? '.' : ',';
     const num = (x, d) => (Number.isFinite(x) ? x.toFixed(d).replace('.', dec) : '—');
     let h = `<h3>Đáp ứng tần số điện môi cách điện cuộn dây (phụ lục BBTN)</h3>
-      <div class="hint-text">Nạp file CSV DIRANA (cả bản 4.x). MBA 3 cuộn dây: <b>CHL</b>, <b>CLT</b>; MBA tự ngẫu (tổ 3 máy 1 pha rời, 3 pha chung vỏ): <b>CHT</b>.
+      <div class="hint-text">Nạp file DIRANA: <b>Excel</b> xuất từ Primary Test Manager (có sẵn kết quả phân tích) hoặc <b>CSV</b> (cả bản 4.x). MBA 3 cuộn dây: <b>CHL</b>, <b>CLT</b>; MBA tự ngẫu (tổ 3 máy 1 pha rời, 3 pha chung vỏ): <b>CHT</b>.
       Có phép đo nào thì vẽ đồ thị phép đo đó, ghi rõ pha; nhiều pha thì thêm đồ thị xếp chồng để so sánh. Bảng tại tần số con trỏ <b>50 Hz</b>:
-      tgδ, C, |Z| đọc trên đường đo; <b>độ ẩm</b> và <b>độ dẫn dầu</b> là kết quả phân tích của phần mềm DIRANA (file CSV không có) — nhập tay, độ ẩm ghi chung với ô độ ẩm của mục; phân loại theo Điều 28.</div>
-      <div class="row-actions"><button class="btn" data-act="moistDfrFiles">Nạp file .csv…</button><button class="btn" data-act="moistDfrFolder">Nạp cả thư mục…</button>${list.length ? '<button class="btn small danger" data-act="moistDfrClear">Bỏ các phép đo DFR cuộn dây</button>' : ''}</div>`;
+      tgδ, C, |Z| đọc trên đường đo; <b>độ ẩm</b>, <b>độ dẫn dầu</b>, C, tgδ là kết quả phân tích của DIRANA: file Excel có sẵn (độ ẩm tự điền ô độ ẩm của mục khi còn trống), file CSV thì nhập tay; phân loại theo Điều 28.</div>
+      <div class="row-actions"><button class="btn" data-act="moistDfrFiles">Nạp file .xlsx / .csv…</button><button class="btn" data-act="moistDfrFolder">Nạp cả thư mục…</button>${list.length ? '<button class="btn small danger" data-act="moistDfrClear">Bỏ các phép đo DFR cuộn dây</button>' : ''}</div>`;
     if (!list.length) return h + '<p class="hint-text">Chưa nạp phép đo.</p>';
     const sorted = list.slice().sort((a, b) => (DfrW.INS.indexOf(a.ins) + 1 || 9) - (DfrW.INS.indexOf(b.ins) + 1 || 9) || String(a.phase).localeCompare(String(b.phase)) || String(a.date).localeCompare(String(b.date)));
     h += `<div class="ftable-wrap mdfr-table"><table class="ftable"><thead><tr><th>Phép đo</th><th>Ngày đo</th><th>Nhiệt độ (°C)</th><th>Cách điện</th><th>Pha</th><th>Độ ẩm (%)</th><th>Phân loại</th><th>Độ dẫn dầu (pS/m)</th><th>tgδ 50 Hz (%)</th><th>C 50 Hz (nF)</th><th>|Z| 50 Hz (kΩ)</th><th>Dùng</th><th></th></tr></thead><tbody>${sorted.map(m => {
@@ -21,8 +21,8 @@
       return `<tr><td>${esc(m.name)}<br><span class="hint-text">${esc(m.file || '')}</span></td><td>${esc(m.date || '')}</td><td>${esc(String(m.temp || '—').replace('.', dec))}</td>
         <td><select aria-label="Cách điện của ${esc(m.name)}" data-mdfr="ins" data-id="${id}"><option value="">—</option>${DfrW.INS.map(x => `<option value="${x}" ${m.ins === x ? 'selected' : ''}>${esc(DfrW.INS_TEXT[x])}</option>`).join('')}</select></td>
         <td><select aria-label="Pha của ${esc(m.name)}" data-mdfr="phase" data-id="${id}"><option value="" ${!m.phase ? 'selected' : ''}>3 pha</option>${DfrW.PHASES.map(x => `<option value="${x}" ${m.phase === x ? 'selected' : ''}>Pha ${x}</option>`).join('')}</select></td>
-        <td><input class="mdfr-num" inputmode="decimal" aria-label="Độ ẩm ${esc(DfrW.title(m))} (%)" data-mdfr-moist="${esc(mk)}" value="${esc(A.state.v[mk] ?? '')}"></td>
-        <td>${esc(DfrW.category(mo) || '—')}</td>
+        <td><input class="mdfr-num" inputmode="decimal" aria-label="Độ ẩm ${esc(DfrW.title(m))} (%)" data-mdfr-moist="${esc(mk)}" value="${esc(A.state.v[mk] ?? '')}">${Number.isFinite(m.moist) ? `<br><span class="hint-text">DIRANA: ${num(m.moist, 2)} %${m.stopReached === false ? ' — chưa quét tới tần số dừng, chỉ tham khảo' : ''}</span>` : ''}</td>
+        <td>${esc(DfrW.category(mo) || '—')}${m.moistCat ? `<br><span class="hint-text">DIRANA: ${esc(DfrW.catVi(m.moistCat))}</span>` : ''}</td>
         <td><input class="mdfr-num" inputmode="decimal" aria-label="Độ dẫn dầu ${esc(DfrW.title(m))} (pS/m)" data-mdfr="oilCond" data-id="${id}" value="${esc(m.oilCond || '')}"></td>
         <td>${v ? num(v.tan, 3) : '—'}</td><td>${v ? num(v.cNF, 2) : '—'}</td><td>${v ? num(v.zK, 1) : '—'}</td>
         <td><input type="checkbox" aria-label="Dùng phép đo ${esc(m.name)}" data-mdfr="use" data-id="${id}" ${m.use ? 'checked' : ''} ${m.ins ? '' : 'disabled'}></td>
@@ -68,17 +68,28 @@
   async function load(files, A) {
     const st = A.state, att = st.att || (st.att = {}), before = (att.dfrw && att.dfrw.items) || [];
     const parsed = [], errors = [];
-    for (const file of files.filter(f => /\.csv$/i.test(f.name))) {
-      try { Dirana.parse(await file.text(), file.name).forEach(m => parsed.push(m)); } catch (e) {
+    for (const file of files.filter(f => /\.(csv|xlsx)$/i.test(f.name) && !/^~\$/.test(f.name))) {
+      try {
+        const ms = /\.xlsx$/i.test(file.name) ? DiranaXlsx.parse(await file.arrayBuffer(), file.name) : Dirana.parse(await file.text(), file.name);
+        ms.forEach(m => parsed.push(m));
+      } catch (e) {
         if (!/không phải CSV DIRANA/.test(e.message || '')) errors.push(e.message);
       }
     }
     if (!parsed.length) return A.toast(errors.length ? errors.join('\n') : 'Không tìm thấy phép đo DIRANA trong các file đã chọn.', true);
     const newId = () => `dfrw-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
     att.dfrw = { items: DfrW.merge(before, parsed, newId, st.cfg) };
+    // độ ẩm do DIRANA phân tích (file Excel) → điền ô độ ẩm của mục khi ô còn trống; không ghi đè số đã nhập
+    const filled = [];
+    DfrW.chosen(att.dfrw.items).forEach(m => {
+      const k = DfrW.moistKey(st.cfg, m.phase);
+      if (DfrW.moistUsable(m) && String(st.v[k] ?? '').trim() === '') { st.v[k] = String(Number(m.moist.toFixed(2))).replace('.', ','); filled.push(DfrW.title(m)); }
+    });
+    if (filled.length && !String(st.v['moist.method'] ?? '').trim()) st.v['moist.method'] = 'FDS/PDC – OMICRON DIRANA';
+    if (filled.length) A.recompute();
     A.persist(); A.renderMain();
     const unknown = att.dfrw.items.filter(m => !m.ins).length;
-    A.toast(`Đã nạp ${parsed.length} phép đo DFR cuộn dây từ ${new Set(parsed.map(m => m.file)).size} file${unknown ? ` — ${unknown} phép đo cần chọn loại cách điện` : ''}`);
+    A.toast(`Đã nạp ${parsed.length} phép đo DFR cuộn dây từ ${new Set(parsed.map(m => m.file)).size} file${filled.length ? `; điền độ ẩm ${filled.join(', ')}` : ''}${unknown ? ` — ${unknown} phép đo cần chọn loại cách điện` : ''}`);
     if (errors.length) A.toast(errors.join('\n'), true);
   }
 

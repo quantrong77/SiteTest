@@ -34,6 +34,6 @@ const DOMAIN = ['js/domain/common.js', 'js/domain/qd1901.js', 'js/domain/criteri
   'js/domain/vn-number.js', 'js/domain/field-entry.js', 'js/domain/dfr.js', 'js/domain/dfr-winding.js', 'js/domain/library.js', 'js/domain/types/mba/factory.js', 'js/domain/types/mba/schema.js', 'js/domain/types/mba/model3d-map.js', 'js/domain/types/mba/evaluate.js',
   'js/domain/types/mba/to-rows.js', 'js/domain/types/mba/phase-fill.js', 'js/domain/types/mba/report.js', 'js/domain/types/mba/import-2293.js', 'js/domain/types/mba/nameplate.js',
   'js/domain/types/mba/import-report.js', 'js/domain/types/mba/guide.js', 'js/domain/types/mba/index.js', 'js/domain/types/mba/import-report-pdf.js'];
-const CORE = ['js/vendor/xlsx.full.min.js'].concat(DOMAIN, ['js/data/instruments/cpc100.js', 'js/data/instruments/wa2293.js', 'js/data/instruments/mrct.js', 'js/data/instruments/dirana.js']);
+const CORE = ['js/vendor/xlsx.full.min.js'].concat(DOMAIN, ['js/data/instruments/cpc100.js', 'js/data/instruments/wa2293.js', 'js/data/instruments/mrct.js', 'js/data/instruments/dirana.js', 'js/data/instruments/dirana-xlsx.js']);
 
 module.exports = { load, CORE, DOMAIN, ROOT };

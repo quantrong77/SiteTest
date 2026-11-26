@@ -139,3 +139,58 @@ test('tần số con trỏ 50 Hz: tgδ, C (nF), |Z| = 1/(ω·|C*|); độ ẩm t
   eq(row, ['CHT', 'Pha C', '26/11/2026', '24', '2,90', 'độ ẩm trung bình', '1,25', '0,400', '20,00', row[9]]);
   assert.match(row[9], /^159,\d$/);
 });
+
+// Workbook giả theo bố cục file Excel DIRANA (Primary Test Manager): Job, Asset, một sheet mỗi phép đo
+function fakeWorkbook(XLSX, { moist = 2.6, stop = 'yes', name = 'PHA B', profile = 'H-T', rows = true } = {}) {
+  const wb = XLSX.utils.book_new(), add = (n, aoa) => XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(aoa), n);
+  add('Job', [['', 'Job'], ['', 'Name', '', 'FAKE'], ['', 'Executed tests'], ['', 'Result state', '', 'Assessment', 'Test name', '', '', 'Date', 'Time'],
+    ['', 'Executed', '', '', name, '', '', '26/11/2026', '15:00:08']]);
+  add('Asset', [['', 'Transformer'], ['', 'Asset type', '', 'Auto w/ tert'], ['', 'Serial number', '', 'FAKE-SN']]);
+  add('Location', [['', 'Location'], ['', 'Name', '', 'FAKE']]);
+  add(name, [['', name], ['', 'DIRANA Test'], ['', 'Measurement profile', '', profile, '', 'Measurement sequence', '', 'FDS and PDC+'],
+    ['', 'Execution date', '', '26/11/2026'], ['', 'Start frequency', '', '1 kHz', '', 'Oil temperature', '', '23 °C'], ['', 'Measurements'],
+    ['', 'Name', '', name, '', 'Channel', '', 1], ['', 'Moisture in cellulose', '', moist, '%', 'Capacitance @ 50 Hz', '', '3.709 nF'],
+    ['', 'Moisture category', '', 'moderately wet', '', 'Capacitance @ 60 Hz', '', '3.708 nF'],
+    ['', 'Moisture saturation', '', '0 %', '', 'Tan δ / Power factor @ 50 Hz', '', '0.15% / 0.15%'],
+    ['', 'Oil conduct.', '', 0.1247, 'pS/m', 'Barriers (X)', '', 17, '%'], ['', 'Oil conduct. @ 20°C', '', 0.106, 'pS/m'],
+    ['', 'Oil category', '', 'very good'], ['', 'Max. stop frequency reached', '', stop], [], ['', 'Moisture categories', '', '', '', 'Oil categories'],
+    ['', 'dry', '', '< 2.2%'], [], ['', 'Name', name], [], ['', 'Frequency in Hz', 'Dissipation factor', 'Power factor', "C'", "C''"],
+    ...(rows ? [['', 0.0001, 96.9, 69.6, 1.74e-8, -1.69e-8], ['', 1, 0.187, 0.187, 3.719e-9, -6.95e-12], ['', 1000, 0.216, 0.216, 3.699e-9, -8e-12]] : [])]);
+  return wb;
+}
+
+test('Excel DIRANA: profile H-T → CHT, pha theo tên, ngày giờ từ Job, kết quả phân tích, bảng quét', () => {
+  const c = load(CORE), { DiranaXlsx, DfrW, XLSX } = c;
+  const [m] = DiranaXlsx.parseWorkbook(fakeWorkbook(XLSX), 'fake.xlsx');
+  eq([m.name, m.date, m.temp, m.objType, m.profile, m.ins, m.moist, m.moistCat, m.oilCat, m.c50, m.tan50, m.stopReached],
+    ['PHA B', '26/11/2026 15:00:08', '23', 'Auto w/ tert', 'H-T', 'CHT', 2.6, 'moderately wet', 'very good', 3709, 0.15, true]);
+  eq(m.f, [0.0001, 1, 1000]);
+  assert.ok(Math.abs(m.c[1] - 3719) < 1e-6 && Math.abs(m.ci[1] - 6.95) < 1e-9);
+  eq([DiranaXlsx.insOfProfile('H-L'), DiranaXlsx.insOfProfile('L-T'), DiranaXlsx.insOfProfile('X')], ['CHL', 'CLT', '']);
+  // đọc từ bytes .xlsx như khi nạp file
+  const bytes = XLSX.write(fakeWorkbook(XLSX, { name: 'PHA A' }), { type: 'array', bookType: 'xlsx' });
+  assert.equal(DiranaXlsx.parse(bytes, 'a.xlsx')[0].name, 'PHA A');
+  const [w] = DfrW.merge([], [m], () => 'id', { topology: 'bank1p', template: '3P' });
+  eq([w.ins, w.phase, w.use, w.oilCond, w.moist], ['CHT', 'B', true, '0,125', 2.6]);
+  // tại 50 Hz: C, tgδ theo DIRANA; |Z| = 1/(ω·C·√(1+tg²δ))
+  const v = DfrW.cursor(w, 50);
+  assert.equal(v.src, 'DIRANA');
+  assert.ok(Math.abs(v.zK - 1 / (2 * Math.PI * 50 * 3709e-12 * Math.hypot(1, 0.0015)) / 1000) < 1e-9);
+  // độ ẩm: ô của mục ưu tiên; ô trống → DIRANA; DIRANA 0 % hoặc chưa quét tới tần số dừng → không tự điền
+  assert.equal(DfrW.moisture({ cfg: { template: '3P' }, v: {} }, w), 2.6);
+  assert.equal(DfrW.moisture({ cfg: { template: '3P' }, v: { 'moist.r.B': '3,1' } }, w), 3.1);
+  assert.ok(DfrW.moistUsable(w));
+  const [z] = DiranaXlsx.parseWorkbook(fakeWorkbook(XLSX, { moist: 0, stop: 'no' }), 'z.xlsx');
+  eq([z.moist, z.stopReached, DfrW.moistUsable(z)], [0, false, false]);
+  assert.ok(Number.isNaN(DfrW.moisture({ cfg: {}, v: {} }, z)));
+  assert.equal(DfrW.catVi('moderately wet'), 'ẩm trung bình');
+  const blocks = DfrW.appendix({ cfg: {}, v: {}, att: { dfrw: { items: [Object.assign(z, { id: 'z', ins: 'CHT', phase: 'B', use: true })] } } }, {}, x => x, 'PL');
+  assert.ok(blocks.some(b => /chưa quét tới tần số dừng/.test(b.text || '')));
+});
+
+test('Excel DIRANA: không phải file DIRANA, hoặc có phép đo mà không có bảng quét → báo rõ', () => {
+  const { DiranaXlsx, XLSX } = load(CORE);
+  const other = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(other, XLSX.utils.aoa_to_sheet([['a']]), 'Sheet1');
+  assert.throws(() => DiranaXlsx.parseWorkbook(other, 'x.xlsx'), /không phải file Excel DIRANA/);
+  assert.throws(() => DiranaXlsx.parseWorkbook(fakeWorkbook(XLSX, { rows: false }), 'y.xlsx'), /có 1 phép đo \(PHA B\) nhưng không có bảng quét tần số/);
+});

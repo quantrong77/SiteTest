@@ -55,6 +55,7 @@ const legacyScripts = [
   'js/data/instruments/wa2293.js',
   'js/data/instruments/mrct.js',
   'js/data/instruments/dirana.js',
+  'js/data/instruments/dirana-xlsx.js',
   'js/ui/workflow.js',
   'js/ui/auth-ui.js',
   'js/ui/db-ui.js',

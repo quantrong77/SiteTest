@@ -2,9 +2,10 @@
 // dựng phụ lục BBTN. MBA 3 cuộn dây: CHL, CLT; MBA tự ngẫu (tổ 3 máy 1 pha rời hoặc 3 pha chung vỏ): CHT.
 // Có phép đo nào thì trình bày phép đo đó; chỉ trình bày số liệu đo, không đánh giá đạt / không đạt.
 // Số liệu ở state.att.dfrw.items: { id, name, date, temp, file, objType, ins, phase, f[], tan[] (%), c[] (pF), ci[] (|C″|, pF),
-//   oilCond (độ dẫn dầu pS/m, nhập tay theo phân tích DIRANA), use, insManual, phaseManual, useManual }
+//   oilCond (độ dẫn dầu pS/m), use, insManual, phaseManual, useManual;
+//   từ file Excel DIRANA thêm: profile (H-T…), moist (%), moistCat, oilCat, oilCond20, c50 (pF), tan50 (%) — kết quả phân tích của DIRANA }
 // Bảng tại tần số con trỏ 50 Hz: độ ẩm (ô độ ẩm của mục, phân loại theo Điều 28), độ dẫn dầu, tgδ, C, tổng trở |Z| = 1/(ω·|C*|).
-// Độ ẩm, độ dẫn dầu là kết quả phân tích của phần mềm DIRANA (không có trong file CSV) → nhập tay, không tự tính.
+// Độ ẩm, độ dẫn dầu là kết quả phân tích của phần mềm DIRANA: file Excel có sẵn → lấy theo file; file CSV không có → nhập tay. Không tự tính.
 (function () {
   'use strict';
   const INS = ['CHL', 'CLT', 'CHT'];
@@ -19,7 +20,8 @@
   }
   // Cách điện khi tên phép đo không ghi (vd "PHA C"): kiểu đối tượng đo MBA tự ngẫu, hoặc tổ 3 máy 1 pha rời (500 kV tự ngẫu) → CHT
   function insFor(p, cfg) {
-    return insOf(p.name) || (/auto\s*transformer/i.test(p.objType || '') ? 'CHT' : '') || ((cfg || {}).topology === 'bank1p' ? 'CHT' : '');
+    // file Excel: Measurement profile H-T / H-L / L-T đã cho cách điện; kiểu MBA "AutoTransformerTertiary", "Auto w/ tert" → tự ngẫu
+    return p.ins || insOf(p.name) || (/auto/i.test(p.objType || '') ? 'CHT' : '') || ((cfg || {}).topology === 'bank1p' ? 'CHT' : '');
   }
   // Pha ghi cuối tên phép đo hoặc tên file (vd "CHT_A", "CHT pha B", "AT1_C.csv"); không có thì rỗng
   function phaseIn(text) {
@@ -47,8 +49,11 @@
       const old = i >= 0 ? merged[i] : null;
       const next = Object.assign({ name: p.name, date: p.date, temp: p.temp || '', serial: p.serial || '', file: p.file, f: p.f, tan: p.tan, c: p.c },
         p.ci ? { ci: p.ci } : {}, { objType: p.objType || '' },
+        Object.fromEntries(['profile', 'moist', 'moistCat', 'oilCat', 'oilCond20', 'c50', 'tan50', 'stopReached'].filter(k => p[k] !== undefined).map(k => [k, p[k]])),
+        Number.isFinite(p.oilCond) ? { oilCond: String(Number(p.oilCond.toPrecision(3))).replace('.', ',') } : {},
         { id: old ? old.id : newId(), ins: insFor(p, cfg), phase: defaultPhase(p, cfg), use: old ? old.use : false });
-      if (old) ['insManual', 'phaseManual', 'useManual', 'oilCond'].forEach(k => { if (old[k]) next[k] = old[k]; });
+      if (old) ['insManual', 'phaseManual', 'useManual'].forEach(k => { if (old[k]) next[k] = old[k]; });
+      if (old && old.oilCond && next.oilCond === undefined) next.oilCond = old.oilCond;
       if (old && old.insManual) next.ins = old.ins;
       if (old && old.phaseManual) next.phase = old.phase;
       if (i >= 0) merged[i] = next; else merged.push(next);
@@ -88,7 +93,12 @@
     return { tan: mix(a.tan, b.tan), c: mix(a.c, b.c), ci: mix(a.ci, b.ci) };
   }
   // Giá trị tại tần số con trỏ: tgδ (%), C (nF), |Z| (kΩ) = 1/(2πf·√(C′² + C″²)); thiếu C″ thì |Z| ≈ 1/(2πf·C′)
+  // File Excel DIRANA có sẵn C, tgδ tại 50 Hz (giá trị con trỏ của phần mềm) → dùng giá trị đó, |Z| tính từ C và tgδ
   function cursor(m, hz = 50) {
+    if (hz === 50 && Number.isFinite(m.c50) && Number.isFinite(m.tan50)) {
+      const cAbs = m.c50 * 1e-12 * Math.hypot(1, m.tan50 / 100);
+      return { hz, tan: m.tan50, cNF: m.c50 / 1000, zK: 1 / (2 * Math.PI * hz * cAbs) / 1000, src: 'DIRANA' };
+    }
     const v = at(m, hz);
     if (!v) return null;
     const cAbs = Math.hypot(v.c, Number.isFinite(v.ci) ? v.ci : 0) * 1e-12;
@@ -96,10 +106,17 @@
   }
   // Ô độ ẩm của mục: mẫu chung 3 pha theo pha (moist.r.A/B/C), mẫu khác một ô (moist.val)
   const moistKey = (cfg, phase) => ((cfg || {}).template === '3P' && phase ? `moist.r.${phase}` : 'moist.val');
+  // Độ ẩm: ô độ ẩm của mục (người dùng nhập / đã điền); ô trống thì độ ẩm DIRANA của phép đo (file Excel), nếu > 0
   function moisture(state, m) {
     const s = String(((state || {}).v || {})[moistKey((state || {}).cfg, m.phase)] ?? '').trim().replace(',', '.');
-    return s === '' ? NaN : Number(s);
+    if (s !== '') return Number(s);
+    return Number.isFinite(m.moist) && m.moist > 0 ? m.moist : NaN;
   }
+  // Điền ô độ ẩm từ kết quả DIRANA: chỉ khi > 0 và phép đo đã quét tới tần số dừng (DIRANA ghi 0 % khi chưa phân tích được)
+  const moistUsable = m => Number.isFinite(m.moist) && m.moist > 0 && m.stopReached !== false;
+  // Phân loại độ ẩm của DIRANA (cùng ngưỡng 2,2 / 3,7 / 4,8 % như Điều 28) → tiếng Việt
+  const CAT_VI = { 'dry': 'khô', 'moderately wet': 'ẩm trung bình', 'wet': 'ẩm', 'extremely wet': 'ẩm cao' };
+  const catVi = s => CAT_VI[String(s || '').trim().toLowerCase()] || String(s || '');
   // Phân loại theo Điều 28 QĐ 1901 (cùng hàm đánh giá của mục)
   const category = x => (Number.isFinite(x) && window.QD ? QD.classifyMoisture(x).text.replace(/^[^:]*:\s*/, '').replace(/\s*\(.*\)\s*$/, '') : '');
 
@@ -120,7 +137,9 @@
         return [m.ins, phaseLabel(m.phase), o(String(m.date || '').split(' ')[0]), o(String(m.temp || '').replace('.', ',')), num(mo, 2), o(category(mo)),
           o(String(m.oilCond || '').replace('.', ',')), num(v && v.tan, 3), num(v && v.cNF, 2), num(v && v.zK, 1)];
       }) });
-    blocks.push({ type: 'p', text: 'Tại tần số con trỏ 50 Hz. Độ ẩm, độ dẫn dầu theo kết quả phân tích của DIRANA; tgδ, C, |Z| đọc trên đường đo.', italic: true, size: 9 });
+    blocks.push({ type: 'p', text: 'Tại tần số con trỏ 50 Hz. Độ ẩm (trong cellulose), độ dẫn dầu, C, tgδ theo kết quả phân tích của DIRANA; |Z| = 1/(2πf·|C*|).', italic: true, size: 9 });
+    const partial = ms.filter(m => m.stopReached === false);
+    if (partial.length) blocks.push({ type: 'p', text: `${partial.map(title).join(', ')}: phép đo chưa quét tới tần số dừng đặt trước (DIRANA: Max. stop frequency reached = no) — kết quả phân tích độ ẩm chỉ để tham khảo.`, italic: true, size: 9 });
     blocks.push({ type: 'p', text: 'II. Đồ thị tgδ theo tần số', bold: true, size: 12, keepNext: true });
     const charts = (assets && assets.dfrwCharts) || {};
     let no = 0;
@@ -144,5 +163,5 @@
   // BBTN tách từng pha: giữ phép đo của pha đó và phép đo không ghi pha
   const forPhase = (items, phase) => (items || []).filter(x => !x.phase || x.phase === phase);
 
-  window.DfrW = { INS, INS_TEXT, PHASES, insOf, insFor, phaseIn, defaultPhase, phaseLabel, title, merge, chosen, has, at, cursor, moistKey, moisture, category, appendix, forPhase };
+  window.DfrW = { INS, INS_TEXT, PHASES, catVi, moistUsable, insOf, insFor, phaseIn, defaultPhase, phaseLabel, title, merge, chosen, has, at, cursor, moistKey, moisture, category, appendix, forPhase };
 })();
