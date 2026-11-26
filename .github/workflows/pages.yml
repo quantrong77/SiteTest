@@ -25,14 +25,13 @@ jobs:
           node-version: 22
       - run: npm test
 
-  deploy:
+  # Build và deploy tách 2 job (mẫu chuẩn của GitHub Pages): deploy-pages chạy cùng job với upload-pages-artifact
+  # từng báo "No artifacts named github-pages" do gói vừa tải lên chưa kịp đăng ký.
+  build:
     needs: test
     # chạy tay (workflow_dispatch) trên nhánh khác: chỉ chạy test, không triển khai
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
 
@@ -55,5 +54,15 @@ jobs:
       - uses: actions/upload-pages-artifact@v3
         with:
           path: dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      # chờ gói github-pages đăng ký xong rồi mới triển khai
+      - run: sleep 15
       - id: deployment
         uses: actions/deploy-pages@v4
