@@ -29,13 +29,16 @@ test('DFR thứ tự A/B/C và giữ điểm 10 mHz',()=>{
  const c=load(CORE.concat(['js/ui/types/mba/dfr-chart.js']));
  // canvas giả: ghi chữ và điểm moveTo đầu tiên của từng đường; mọi lệnh vẽ khác bỏ qua
  const events=[], moves=[]; let style='';
- const g=new Proxy({},{get:(o,k)=>k==='fillText'?t=>events.push(t):k==='moveTo'?(x,y)=>moves.push([style,x,y]):k in o?o[k]:()=>{},set:(o,k,v)=>{if(k==='strokeStyle')style=v;o[k]=v;return true;}});
+ const legendY=[];
+ const g=new Proxy({},{get:(o,k)=>k==='measureText'?t=>({width:t.length*12}):k==='fillText'?(t,x,y)=>{events.push(t);if(/^Pha /.test(t))legendY.push(y);}:k==='moveTo'?(x,y)=>moves.push([style,x,y]):k in o?o[k]:()=>{},set:(o,k,v)=>{if(k==='strokeStyle')style=v;o[k]=v;return true;}});
  const cv={getContext:()=>g};
  const ms=['C','B','A'].map(phase=>({phase,f:[0.00999999977648258,.1],tan:[.2,.3],c:[1,1]}));
  c.DfrChart.draw(cv,ms,true);
  assert.ok(events.includes('10m'));
  // chú giải theo thứ tự A, B, C; điểm 10 mHz (0,0099999998 Hz) nằm ở mép trái khung đồ thị, không bị bỏ
  assert.deepEqual(events.filter(t=>/^Pha /.test(t)),['Pha A','Pha B','Pha C']);
+ // chú giải nằm ngoài khung đồ thị (trên mép trên khung, không có tiêu đề: khung bắt đầu ở 22 + 40), không đè lên đường đo
+ assert.ok(legendY.length===3&&legendY.every(y=>y<62));
  const first=c.DfrChart.COLORS, starts=moves.filter(([s])=>Object.values(first).includes(s)).map(m=>m[0]);
  assert.equal(starts[0],first.A);
  assert.ok(moves.some(([s,x])=>s===first.A&&Math.abs(x-128)<1e-6));
@@ -80,4 +83,27 @@ test('DFR gộp lần nạp: xếp hạng lại phía cho phép đo đã có, gi
  xs=c.Dirana.merge(xs,p('bushing500_A','04/01/2026','m.csv'),id);
  assert.deepEqual(xs.filter(x=>x.use&&x.side==='HV').map(x=>x.file),['g.csv']);
  assert.equal(xs[0].side,'N');
+});
+test('mọi nút trên trang phụ lục được chuyển tới AppendixUI.action', () => {
+  const fs = require('node:fs'), path = require('node:path'), read = f => fs.readFileSync(path.join(__dirname, '..', f), 'utf8');
+  const route = read('js/ui/app.js').match(/else if \(act && (.+?)\) await AppendixUI\.action/)[1];
+  const routes = new Function('act', `return ${route};`);
+  const acts = [...new Set([...read('js/ui/appendix-ui.js').matchAll(/data-act="([A-Za-z]+)"/g)].map(m => m[1]))];
+  assert.ok(acts.includes('dfrFiles') && acts.includes('dfrFolder'));
+  acts.forEach(a => assert.ok(routes(a), `nút ${a} không tới AppendixUI.action`));
+});
+
+test('DIRANA bản 4.x: đọc [FrequencySweeps] (Tangent Delta, C(Real)), bỏ qua [PolarizationSweeps]', () => {
+  const c = load(CORE);
+  const src = ['[DIRANA CSV]', 'Version,Decimal', '4.10,point', '', '[Test]', 'Name,Comment', 'Fake,""', '',
+    '[Measurements]', 'ID,Name,Date,Color,Temperature,Channel', '1,bushing500_A,18/03/2026 08:52:36,,22,CH1', '2,bushing500_B,18/03/2026 09:10:00,,22,CH2', '',
+    '[FrequencySweeps]', 'ID,Frequency,Tangent Delta,Power Factor,C(Real),C(Imag)',
+    '1,0.01,0.9,0.9,4E-10,-1E-12', '1,1000,0.3,0.3,3.9E-10,-1E-12', '2,0.01,0.8,0.8,4.1E-10,-1E-12', '2,1000,0.35,0.35,4E-10,-1E-12', '',
+    '[PolarizationSweeps]', 'ID,Time,Current', '1,0,0', '1,1,-3E-10'].join('\n');
+  const ms = c.Dirana.parse(src, 'v410.csv');
+  assert.equal(ms.length, 2);
+  assert.deepEqual([ms[0].phase, ms[1].phase], ['A', 'B']);
+  assert.deepEqual(Array.from(ms[0].tan), [0.9, 0.3]);
+  assert.ok(Math.abs(ms[0].c[0] - 400) < 1e-9);
+  assert.throws(() => c.Dirana.parse(src.replace('Tangent Delta', 'X'), 'bad.csv'), /thiếu cột/);
 });

@@ -523,7 +523,7 @@
       }
       if (b.type === 'images') {
         const per = b.perRow || 1, wCm = b.widthCm || 16, colTw = Math.round(wCm / 2.54 * 1440);
-        let out = `<w:tbl><w:tblPr><w:tblW w:w="${colTw * per}" w:type="dxa"/><w:jc w:val="center"/><w:tblLayout w:type="fixed"/><w:tblCellMar><w:left w:w="0" w:type="dxa"/><w:right w:w="0" w:type="dxa"/></w:tblCellMar></w:tblPr><w:tblGrid>${'<w:gridCol w:w="' + colTw + '"/>'.repeat(per)}</w:tblGrid>`;
+        let out = `<w:tbl><w:tblPr><w:tblW w:w="${colTw * per}" w:type="dxa"/><w:jc w:val="center"/><w:tblLayout w:type="fixed"/><w:tblCellMar><w:left w:w="0" w:type="dxa"/><w:right w:w="0" w:type="dxa"/></w:tblCellMar></w:tblPr><w:tblGrid>${('<w:gridCol w:w="' + colTw + '"/>').repeat(per)}</w:tblGrid>`;
         for (let k = 0; k < b.items.length; k += per) {
           const row = b.items.slice(k, k + per);
           while (row.length < per) row.push(null);
