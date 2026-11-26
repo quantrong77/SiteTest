@@ -273,7 +273,7 @@ Mỗi hạng mục có đủ 4 bước; phần dưới chỉ ghi điều riêng.
 | Chụp sóng OLTC | Nạp file Haefely 2293 ở mục 9 |
 | SFRA | **Mở SFRA Analyzer** → tải báo cáo Word → **Nạp báo cáo SFRA (.docx)…** |
 | Dầu MBA (DGA, lý hóa) | **Mở app DGA** (có **Chép số chế tạo**) → xuất BBTN dầu → **Nạp BBTN dầu (.docx)…** → **Nối vào BBTN** |
-| DFR sứ (DIRANA) | **Nạp file .csv…** / **Nạp cả thư mục…** → chọn phía, pha; trình bày tham khảo |
+| DFR sứ (DIRANA) | **Nạp file .csv…** / **Nạp cả thư mục…** (CSV DIRANA, cả bản 4.x) → chọn phía, pha (tên phép đo dạng `bushing500_A` được nhận tự động); trình bày tham khảo |
 
 ## `↗` Xu hướng
 

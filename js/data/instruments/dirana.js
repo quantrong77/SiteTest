@@ -1,4 +1,5 @@
 // Đọc CSV DIRANA: trích phép đo, nhãn sứ, pha và dữ liệu đáp ứng tần số.
+// Hai dạng file: [FDSData] (cột Tan Delta, c') và bản 4.x [FrequencySweeps] (cột Tangent Delta, C(Real)); tgδ tính bằng %, C bằng F.
 (function () {
   'use strict';
   function identify(name) {
@@ -17,7 +18,7 @@
   function parse(text, fileName = '') {
     const source = String(text || '').replace(/^\uFEFF/, '');
     if (!/^\s*\[DIRANA CSV\]/im.test(source)) throw new Error(`${fileName || 'Tệp'}: không phải CSV DIRANA (thiếu [DIRANA CSV]).`);
-    if (!/^\s*\[FDSData\]\s*$/im.test(source)) throw new Error(`${fileName || 'Tệp'}: không có phần [FDSData].`);
+    if (!/^\s*\[(FDSData|FrequencySweeps)\]\s*$/im.test(source)) throw new Error(`${fileName || 'Tệp'}: không có phần [FDSData] / [FrequencySweeps].`);
     const decimal = (source.match(/^\s*Version\s*[,;]\s*Decimal\s*\r?\n\s*[^,;]+\s*[,;]\s*(point|comma)\s*$/im) || [])[1] || 'point';
     const sep = decimal.toLowerCase() === 'comma' ? ';' : ',';
     const sections = {};
@@ -27,13 +28,16 @@
     if (mh < 0) throw new Error(`${fileName || 'Tệp'}: thiếu tiêu đề [Measurements].`);
     const mi = Object.fromEntries(measurements[mh].map((x, i) => [x.toLowerCase(), i]));
     const info = new Map(measurements.slice(mh + 1).map(r => [r[mi.id], { name: r[mi.name] || '', date: r[mi.date] || '', serial: r[mi['test object serial']] || '' }]));
-    const data = sections.FDSData, dh = data.findIndex(r => r[0].toLowerCase() === 'id');
-    if (dh < 0) throw new Error(`${fileName || 'Tệp'}: thiếu tiêu đề cột [FDSData].`);
+    const sec = sections.FDSData ? 'FDSData' : 'FrequencySweeps', data = sections[sec], dh = data.findIndex(r => r[0].toLowerCase() === 'id');
+    if (dh < 0) throw new Error(`${fileName || 'Tệp'}: thiếu tiêu đề cột [${sec}].`);
     const di = Object.fromEntries(data[dh].map((x, i) => [x.toLowerCase(), i])), groups = new Map();
+    const col = (...names) => names.map(n => di[n]).find(i => i !== undefined);
+    const iTan = col('tan delta', 'tangent delta'), iC = col("c'", 'c(real)');
+    if (di.frequency === undefined || iTan === undefined || iC === undefined) throw new Error(`${fileName || 'Tệp'}: [${sec}] thiếu cột Frequency / Tan Delta / C.`);
     const num = s => { const n = decimal.toLowerCase() === 'comma' ? String(s).replace(',', '.') : s; return Number(n); };
     data.slice(dh + 1).forEach(r => {
       const id = r[di.id]; if (!groups.has(id)) groups.set(id, []);
-      groups.get(id).push({ f: num(r[di.frequency]), tan: num(r[di['tan delta']]), c: num(r[di["c'"]]) * 1e12 });
+      groups.get(id).push({ f: num(r[di.frequency]), tan: num(r[iTan]), c: num(r[iC]) * 1e12 });
     });
     return Array.from(groups, ([id, pts]) => {
       const m = info.get(id) || {}, ident = identify(m.name);

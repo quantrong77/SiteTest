@@ -92,3 +92,18 @@ test('mọi nút trên trang phụ lục được chuyển tới AppendixUI.acti
   assert.ok(acts.includes('dfrFiles') && acts.includes('dfrFolder'));
   acts.forEach(a => assert.ok(routes(a), `nút ${a} không tới AppendixUI.action`));
 });
+
+test('DIRANA bản 4.x: đọc [FrequencySweeps] (Tangent Delta, C(Real)), bỏ qua [PolarizationSweeps]', () => {
+  const c = load(CORE);
+  const src = ['[DIRANA CSV]', 'Version,Decimal', '4.10,point', '', '[Test]', 'Name,Comment', 'Fake,""', '',
+    '[Measurements]', 'ID,Name,Date,Color,Temperature,Channel', '1,bushing500_A,18/03/2026 08:52:36,,22,CH1', '2,bushing500_B,18/03/2026 09:10:00,,22,CH2', '',
+    '[FrequencySweeps]', 'ID,Frequency,Tangent Delta,Power Factor,C(Real),C(Imag)',
+    '1,0.01,0.9,0.9,4E-10,-1E-12', '1,1000,0.3,0.3,3.9E-10,-1E-12', '2,0.01,0.8,0.8,4.1E-10,-1E-12', '2,1000,0.35,0.35,4E-10,-1E-12', '',
+    '[PolarizationSweeps]', 'ID,Time,Current', '1,0,0', '1,1,-3E-10'].join('\n');
+  const ms = c.Dirana.parse(src, 'v410.csv');
+  assert.equal(ms.length, 2);
+  assert.deepEqual([ms[0].phase, ms[1].phase], ['A', 'B']);
+  assert.deepEqual(Array.from(ms[0].tan), [0.9, 0.3]);
+  assert.ok(Math.abs(ms[0].c[0] - 400) < 1e-9);
+  assert.throws(() => c.Dirana.parse(src.replace('Tangent Delta', 'X'), 'bad.csv'), /thiếu cột/);
+});
