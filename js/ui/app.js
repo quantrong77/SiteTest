@@ -43,7 +43,19 @@
   // Loại thiết bị của biên bản đang mở và phần giao diện riêng của loại đó
   const T = () => EquipmentTypes.get(EquipmentTypes.codeOf(state));
   const TU = () => (window.TypeUI || {})[EquipmentTypes.codeOf(state)] || {};
-  const applyFactoryDefaults = cfg => { if (T().applyFactoryDefaults) T().applyFactoryDefaults(cfg, FX); };
+  const applyFactoryDefaults = cfg => { const F = fxOn(); if (F && T().applyFactoryDefaults) T().applyFactoryDefaults(cfg, F); };
+  // Số chế tạo của biên bản dùng để chọn số liệu xuất xưởng: máy chính; tổ 3 máy 1 pha rời thêm các máy pha A/B/C
+  function fxSerials() {
+    if (!state) return [];
+    return [state.v['meta.serial']].concat(state.cfg.topology === 'bank1p' ? Object.values(state.cfg.ps || {}) : [])
+      .map(x => String(x || '').trim()).filter(Boolean);
+  }
+  // Số liệu xuất xưởng áp dụng cho biên bản: chỉ khi file đang chọn có đúng số chế tạo của biên bản.
+  // Không mượn test report của máy khác (dù cùng chủng loại); "Chưa có số liệu xuất xưởng" (cfg.noFactory) → không dùng XX.
+  function fxOn() {
+    if (!FX || !state || state.cfg.noFactory) return null;
+    return fxSerials().some(sn => FX.has(sn)) ? FX : null;
+  }
 
   // ---------------------------------------------------------------- xóa / hoàn tác theo hạng mục
   let secOfFn = null, secOfSchema = null, editStart = null;
@@ -107,7 +119,7 @@
     applyFactoryDefaults(cfg);
     schema = T().buildSchema(state.cfg);
     await readTemplateDefaults();
-    const key = T().templateKeyFor ? T().templateKeyFor(state, FX) : null;
+    const key = T().templateKeyFor ? T().templateKeyFor(state, fxOn()) : null;
     if (key && state.cfg.template !== 'custom' && key !== state.cfg.template && EMB.templates[key]) {
       state.cfg.template = key;
       state.v = {};
@@ -120,7 +132,7 @@
     if (!state.v['meta.reason']) state.v['meta.reason'] = T().report.defaultReason || '';
     rememberTemplateHead();
     // biên bản mới: chưa gắn ngăn / thiết bị của danh mục
-    ['bayId', 'pickSub', 'pickBay', 'pickEq', 'pickPhase'].forEach(k => { delete state.cfg[k]; });
+    ['bayId', 'pickSub', 'pickBay', 'pickEq', 'pickPhase', 'pickOrphan'].forEach(k => { delete state.cfg[k]; });
   }
 
   // Lấy giá trị sẵn có trong template (thông tin chung, Uo = 10 kV…) làm mặc định
@@ -145,7 +157,7 @@
 
   function recompute() {
     // lịch sử đo của thiết bị (CSDL / bản lưu tạm) → đánh giá xu hướng so với giá trị khởi đầu / lần trước
-    res = T().evaluate(state, FX, schema, { history: TrendInlineUI.history(), sessionId: state.db && state.db.sessionId });
+    res = T().evaluate(state, fxOn(), schema, { history: TrendInlineUI.history(), sessionId: state.db && state.db.sessionId });
   }
 
   // ---------------------------------------------------------------- nav
@@ -217,7 +229,7 @@
   }
   // Thanh thông tin BBTN: bấm để mở lại trình khởi tạo (thông tin chung & cấu hình)
   function renderRecordChip() {
-    const v = state.v, u = FX && FX.unit(v['meta.serial']);
+    const v = state.v, u = fxOn() && FX.unit(v['meta.serial']);
     const serial = v['meta.serial'] || (state.cfg.ps && state.cfg.ps.A) || '';
     $('#recordChip').innerHTML = `<button type="button" class="record-edit${current === 'general' ? ' on' : ''}" data-nav="general" data-setup="${current === 'general' ? setupStep : 'test'}" `
       + `title="Sửa thông tin chung & cấu hình biên bản" aria-label="Sửa thông tin chung & cấu hình biên bản">`
@@ -305,9 +317,11 @@
     // cột pha: gắn mã pha để tô vạch màu A vàng · B xanh · C đỏ
     g.cols.forEach(c => {
       const ph = c.phase ? String(c.k).charAt(0).toUpperCase() : '';
-      const lbl = g.editHdr
-        ? `<input class="hdr" data-hk="${g.id}.${c.k}" value="${esc(c.label)}" placeholder="${esc(c.defLabel)}" title="Sửa đề mục cột — để trống để dùng lại “${esc(c.defLabel)}”" autocomplete="off">`
-        : esc(c.label);
+      // đề mục cột sửa được (cột có defLabel); khóa lưu c.hk (dùng chung nhiều bảng, vd chỉ danh BCT theo phía) hoặc lưới.cột
+      const hk = c.hk || `${g.id}.${c.k}`;
+      const lbl = g.editHdr && c.defLabel !== undefined && !c.noEdit
+        ? `<input class="hdr" data-hk="${esc(hk)}" value="${esc(c.label)}" placeholder="${esc(c.defLabel)}" title="Sửa đề mục cột — để trống để dùng lại “${esc(c.defLabel)}”" aria-label="Đề mục cột ${esc(c.label)}" autocomplete="off">`
+        : c.hk ? `<span data-hkm="${esc(c.hk)}">${esc(c.label)}</span>` : esc(c.label);
       h += `<th${ph ? ` data-ph="${ph}" title="Pha ${ph}"` : ''}>${lbl}</th>`;
     });
     h += '</tr></thead><tbody>';
@@ -509,7 +523,19 @@
     // ô tự điền lần trước (thiết bị khác) mà nguồn mới không có → trả về mặc định template
     Object.keys(auto).forEach(k => { if (!fills[k]) { state.v[k] = tpl[k] ?? ''; delete ocr[k]; } });
     const plan = EquipmentSpecs.fillPlan(state.v, fills, Object.assign({}, tpl, auto));
-    const label = k => ((schema.head.find(f => f.k === k) || {}).label || k);
+    // nhãn ô: trường đầu biên bản, hoặc ô bảng (vd sứ xuyên: "Sứ phía cao áp (HV) · A · Kiểu loại")
+    const label = k => {
+      const f = schema.head.find(x => x.k === k);
+      if (f) return f.label;
+      let out = k;
+      Common.eachGrid(schema, g => {
+        if (!k.startsWith(g.id + '.')) return;
+        const [rk, ck] = k.slice(g.id.length + 1).split('.');
+        const r = g.rows.find(x => x.k === rk), c = g.cols.find(x => x.k === ck);
+        if (r && c) out = `${(schema.sections.find(s => (s.groups || []).some(gr => (gr.grids || []).includes(g))) || {}).title || ''} · ${c.label} · ${r.label}`.replace(/^ · /, '');
+      });
+      return out;
+    };
     Object.entries(plan).forEach(([k, f]) => { state.v[k] = f.value; ocr[k] = { status: 'check', label: label(k), src: f.src }; });
     // ô không có trong CSDL / test report mà còn giá trị mẫu của template → để trống, tô đỏ "nhập tay"
     EquipmentSpecs.staleKeys(state.v, fills, tpl).forEach(k => { state.v[k] = ''; ocr[k] = { status: 'missing', label: label(k), src: 'CSDL / test report' }; });
@@ -542,6 +568,16 @@
     return `<section class="panel setup-panel">${h}${setupFootHTML()}</section>`;
   }
 
+  // Tùy chọn "Chưa có số liệu xuất xưởng": biên bản (vd BBTN cũ) của máy chưa có test report — không tìm / không áp XX
+  function noFactoryHTML() {
+    const sns = fxSerials(), has = sns.length && FXS.some(x => sns.some(sn => x.api.has(sn)));
+    const on = !!state.cfg.noFactory;
+    const note = on ? 'Không so sánh với số liệu xuất xưởng; giá trị khởi đầu lấy theo lần sau lắp đặt / lần trước trong CSDL.'
+      : has ? `Đang dùng số liệu xuất xưởng của ${esc(sns.filter(sn => fxOn() && FX.has(sn)).join(', ') || sns.join(', '))}.`
+        : `Chưa có số liệu xuất xưởng của ${esc(sns.join(', ') || 'máy này')} — không dùng test report của máy khác (dù cùng chủng loại).`;
+    return `<div class="callout${on || has ? '' : ' warn'}"><label class="chk"><input type="checkbox" data-nofx${on ? ' checked' : ''}> <b>Chưa có số liệu xuất xưởng</b></label> — ${note}</div>`;
+  }
+
   function renderConfigStep() {
     const D = FX && FX.data, U = TU();
     const topology = state.cfg.topology || 'single1p';
@@ -559,6 +595,7 @@
       : `<div class="field"><label>File số liệu xuất xưởng</label><div class="calcval file" title="${esc(D ? D.fileName : '')}">${esc(D ? D.fileName : 'chưa nạp')}</div></div>`;
     h += `<div class="field"><label>Thêm file xuất xưởng (.xlsx, giữ cả các file đã nạp)</label><button class="btn" data-act="loadXlsx">Thêm file .xlsx…</button></div>`;
     h += (U.generalFiles ? U.generalFiles(App) : '') + '</div>';
+    h += noFactoryHTML();
     h += U.reportScopeFields ? U.reportScopeFields(App) : '';
     if (D && D.warnings.length) h += `<div class="callout warn"><b>${esc(D.fileName)}:</b><br>${D.warnings.map(esc).join('<br>')}</div>`;
     h += U.generalConfig ? U.generalConfig(App) : '';
@@ -793,7 +830,7 @@
   const recordSerials = () => [...new Set([state.v['meta.serial']].concat(Object.values(state.cfg.ps || {}))
     .map(x => String(x || '').trim()).filter(Boolean))];
   async function autoFactory() {
-    if (!state || T().code !== 'MBA' || !factoryReader().fromRows) return;
+    if (!state || T().code !== 'MBA' || !factoryReader().fromRows || state.cfg.noFactory) return;
     const sns = recordSerials();
     if (!sns.length) return;
     const covered = sn => FXS.some(x => x.api.has(sn));
@@ -933,6 +970,11 @@
       const id = el.dataset.hk || el.dataset.lbl;
       if (t && t !== el.placeholder) map[id] = t; else delete map[id];
       if (el.dataset.lbl) $$(`[data-lblm="${id}"]`).forEach(x => { x.textContent = t || el.placeholder; });
+      // cùng khóa ở bảng khác (bảng quy đổi 20 °C, các bảng BCT cùng phía): cập nhật ngay
+      if (el.dataset.hk) {
+        $$(`[data-hk="${CSS.escape(id)}"]`).forEach(x => { if (x !== el) x.value = t || el.placeholder; });
+        $$(`[data-hkm="${CSS.escape(id)}"]`).forEach(x => { x.textContent = t || el.placeholder; });
+      }
       if (!t) el.value = el.dataset.hk ? el.placeholder : '';
       schema = T().buildSchema(state.cfg); recompute(); updateComputed(); persist();
     } else if (el.dataset.skipsec && e.type === 'change') {
@@ -1007,6 +1049,11 @@
       if (el.checked) selected.add(phase); else selected.delete(phase);
       state.cfg.reportPhases = ['A', 'B', 'C'].filter(ph => selected.has(ph));
       persist();
+    } else if (el.dataset.nofx !== undefined && e.type === 'change') {
+      if (el.checked) state.cfg.noFactory = true; else delete state.cfg.noFactory;
+      schema = T().buildSchema(state.cfg); recompute(); renderNav(); renderMain(); persist();
+      toast(el.checked ? 'Biên bản này chưa có số liệu xuất xưởng — không so sánh với XX' : 'Dùng số liệu xuất xưởng khi có đúng số chế tạo của biên bản');
+      if (!el.checked) loadInlineTrend();
     } else if (el.dataset.fxsel !== undefined && e.type === 'change') {
       const entry = FXS[+el.value];
       if (entry) { setFactory(entry); recompute(); renderNav(); renderMain(); persist(); }
@@ -1018,9 +1065,11 @@
   }
   function onSerialChange() {
     pickFactory(); // số chế tạo thuộc file xuất xưởng khác (vd AT2) → chuyển sang file đó
-    const u = FX && FX.unit(state.v['meta.serial']);
-    if (!u) { toast('Số chế tạo không có trong file xuất xưởng — các so sánh với máy chính sẽ thiếu tham chiếu', true); return; }
-    const key = T().templateKeyFor ? T().templateKeyFor(state, FX) : null;
+    if (state.cfg.noFactory) return;
+    const u = fxOn() && FX.unit(state.v['meta.serial']);
+    if (!u) { toast('Chưa có số liệu xuất xưởng của số chế tạo này trên máy — không so sánh với XX (app sẽ tìm trong CSDL; không có thì chọn "Chưa có số liệu xuất xưởng" ở Mẫu & cấu hình)', true); return; }
+    applyFactoryDefaults(state.cfg);
+    const key = T().templateKeyFor ? T().templateKeyFor(state, fxOn()) : null;
     if (key && state.cfg.template !== 'custom' && EMB.templates[key] && state.cfg.template !== key) {
       state.cfg.template = key;
       toast(`Đã chọn template ${EMB.templates[key].name} theo pha ${key}`);
@@ -1169,7 +1218,7 @@
   // ---------------------------------------------------------------- files
   // File .json mang theo file đính kèm (báo cáo SFRA) dạng base64 để mở được trên máy khác
   async function saveJson() {
-    const data = { app: 'bbtn-mba', version: 1, savedAt: new Date().toISOString(), factoryFile: FX ? FX.data.fileName : null, state, files: await AppendixUI.filesFor(state) };
+    const data = { app: 'bbtn-mba', version: 1, savedAt: new Date().toISOString(), factoryFile: fxOn() ? FX.data.fileName : null, state, files: await AppendixUI.filesFor(state) };
     const name = `BBTN_${T().report.filePrefix}_${safeName(state.v['meta.serial'])}_${safeName(state.v['meta.date'])}.json`;
     download(new Blob([JSON.stringify(data, null, 1)], { type: 'application/json' }), name);
     toast('Đã lưu ' + name);
@@ -1230,6 +1279,8 @@
       schema = T().buildSchema(state.cfg);
     }
     if (!quiet) toast(`Dùng số liệu xuất xưởng ${entry.name} (${FX.data.order.join(', ')})`);
+    // file không có số chế tạo của biên bản: chỉ chọn làm file đang xem, không áp vào biên bản
+    if (!quiet && state && fxSerials().length && !state.cfg.noFactory && !fxOn()) toast(`${entry.name} không có số chế tạo ${fxSerials().join(', ')} của biên bản — không áp số liệu xuất xưởng máy khác vào biên bản này`, true);
   }
   // Chọn file chứa số chế tạo máy chính (rồi đến các cột pha) của biên bản đang mở
   function pickFactory(quiet) {
@@ -1265,7 +1316,7 @@
         const phaseSchema = T().buildSchema(cfg);
         const phaseState = R.phaseState(state, schema, phaseSchema, phase);
         const serial = phaseState.v['meta.serial'];
-        const phaseFX = (FXS.find(entry => entry.api.has(serial)) || {}).api || FX;
+        const phaseFX = state.cfg.noFactory ? null : (FXS.find(entry => entry.api.has(serial)) || {}).api || null;
         const phaseRes = T().evaluate(phaseState, phaseFX, phaseSchema);
         const phaseApp = Object.assign({}, App, { state: phaseState, res: phaseRes, schema: phaseSchema, FX: phaseFX });
         const assets = Object.assign(
@@ -1339,7 +1390,7 @@
       const S = res.sec[s.id];
       return [s.no, s.title, S.text || 'Chưa nhập', S.counts.pass, S.counts.warn, S.counts.fail, S.counts.missing, S.counts.info];
     }));
-    sum.push([], ['Kết luận gợi ý', T().autoConclusion(res, schema, state)], ['Thiết bị', `${v['meta.site'] || ''} — S/N ${v['meta.serial'] || ''}`], ['File xuất xưởng', FX ? FX.data.fileName : '']);
+    sum.push([], ['Kết luận gợi ý', T().autoConclusion(res, schema, state)], ['Thiết bị', `${v['meta.site'] || ''} — S/N ${v['meta.serial'] || ''}`], ['File xuất xưởng', fxOn() ? FX.data.fileName : (state.cfg.noFactory ? 'Chưa có số liệu xuất xưởng' : '')]);
     const ws2 = XLSX.utils.aoa_to_sheet(sum);
     ws2['!cols'] = [{ wch: 14 }, { wch: 46 }, { wch: 16 }, { wch: 8 }, { wch: 12 }, { wch: 10 }, { wch: 13 }, { wch: 10 }];
     const wb = XLSX.utils.book_new();
@@ -1443,7 +1494,7 @@
 
   // API cho các trang khác (js/ui/*.js) và phần giao diện riêng của loại thiết bị (TypeUI)
   const App = window.App = {
-    get state() { return state; }, get res() { return res; }, get schema() { return schema; }, get FX() { return FX; }, get type() { return T(); }, EMB,
+    get state() { return state; }, get res() { return res; }, get schema() { return schema; }, get FX() { return fxOn(); }, get FXfile() { return FX; }, get type() { return T(); }, EMB,
     get factories() { return FXS; }, addFactoryFile, addFactoryApi, factoryFileB64, factoryBlob, pickXlsx, removeFactory, localFactoryHTML,
     applyTemplate, applyHeadFills, setupGo, pickFactory: quiet => pickFactory(quiet),
     useFactory(name) { const e = FXS.find(x => x.name === name); if (e) { setFactory(e); recompute(); renderNav(); renderMain(); persist(); } return e; },

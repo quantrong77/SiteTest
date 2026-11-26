@@ -78,7 +78,7 @@
       { k: 'r2', label: 'C2: Rcđ (MΩ)', doc: 9 },
     ];
     if (identityRows) rows.slice(0, 2).forEach(r => { r.cmap = identityRows; });
-    const cols = phases.map(p => col(p.k, p.label, p.doc, { phase: true }))
+    const cols = phases.map(p => col(p.k, p.label, p.doc, Object.assign({ phase: true }, p.x)))
       .concat([col('u', 'U đo (kV)', serialCols.u, { text: true }), col('d', 'Sơ đồ đo', serialCols.d, { text: true })]);
     const skip = (r, c) => (c === 'u' && !['tgd1', 'r1', 'tgd2', 'r2'].includes(r)) || (c === 'd' && !['tgd1', 'tgd2'].includes(r));
     return { id: `b.${side}.meas`, title: 'Số liệu đo', tables, rows, cols, skip, transposed: true };
@@ -89,7 +89,7 @@
       { k: 'serial', label: 'Số chế tạo sứ', doc: 3, text: true }, { k: 'tgd1', label: 'C1: tgδ@20 °C (%)', doc: 4 },
       { k: 'c1', label: 'C1@20 °C (pF)', doc: 5 }, { k: 'tgd2', label: 'C2: tgδ@20 °C (%)', doc: 6 }, { k: 'c2', label: 'C2@20 °C (pF)', doc: 7 },
     ];
-    const cols = phases.map(p => col(p.k, p.label, p.doc, { calc: true }))
+    const cols = phases.map(p => col(p.k, p.label, p.doc, Object.assign({ calc: true }, p.x)))
       .concat([col('u', 'U đo (kV)', serialCols.u, { calc: true }), col('d', 'Sơ đồ đo', serialCols.d, { calc: true })]);
     const skip = (r, c) => (c === 'u' || c === 'd') && !['tgd1', 'tgd2'].includes(r);
     return { id: `b.${side}.c20`, title: 'Quy đổi về 20 °C (tự tính)', tables: [table], rows, cols, skip, transposed: true, readonly: true };
@@ -127,22 +127,32 @@
     }
     return rows;
   }
-  function bctGrids(side, cores) {
+  // Chỉ danh biến dòng chân sứ sửa được: nhãn cột theo phía (cfg.hdr["bct.<phía>.<pha>"], dùng chung cho các bảng của phía),
+  // nhãn hàng từng bảng (cfg.bctLbl_<phía>_<bảng>). Bảng tỷ số / R một chiều: nhãn hàng là cột "Đầu phân dòng" (cột 1).
+  function bctGrids(side, cores, cfg) {
     const S = BCT_SIDES[side], T = BCT_TABLES[side][cores];
     const ph = S.phases;
+    const hdrOf = p => ((cfg && cfg.hdr) || {})[`bct.${side}.${p}`] || `Pha ${p}`;
+    const pcol = (p, doc, o) => col(p, hdrOf(p), doc, Object.assign({ phase: true, defLabel: `Pha ${p}`, hk: `bct.${side}.${p}` }, o));
+    const rowsL = (kind, rows) => {
+      const map = (cfg && cfg[`bctLbl_${side}_${kind}`]) || {};
+      return rows.map(r => Object.assign({}, r, { label: map[r.k] || r.label, defLabel: r.label }));
+    };
     const grids = [];
     grids.push({
-      id: `bct.${side}.ir`, title: `Điện trở cách điện (MΩ) — TI có ${cores} cuộn thứ cấp`, tables: T.ir,
-      rows: range(cores, i => ({ k: `w${i + 1}`, label: `Thứ cấp ${i + 1} – (TC khác + Vỏ)`, doc: i + 1 })),
-      cols: ph.map((p, i) => col(p, `Pha ${p}`, i + 1, { phase: true })),
+      id: `bct.${side}.ir`, title: `Điện trở cách điện (MΩ) — TI có ${cores} cuộn thứ cấp`, tables: T.ir, editHdr: true, editLabels: true, labelCfg: `bctLbl_${side}_ir`,
+      rows: rowsL('ir', range(cores, i => ({ k: `w${i + 1}`, label: `Thứ cấp ${i + 1} – (TC khác + Vỏ)`, doc: i + 1 }))),
+      cols: ph.map((p, i) => pcol(p, i + 1)),
     });
     grids.push({
-      id: `bct.${side}.ratio`, title: 'Tỷ số biến (đo) & sai số (%)', tables: T.ratio, rows: bctTapRows(cores, 2),
-      cols: ph.flatMap((p, i) => [col(`${p}`, `${p}: tỷ số đo`, 2 + 2 * i, { phase: true }), col(`${p}e`, `${p}: sai số %`, 3 + 2 * i, { auto: true })]),
+      id: `bct.${side}.ratio`, title: 'Tỷ số biến (đo) & sai số (%)', tables: T.ratio, editHdr: true, editLabels: true, labelCfg: `bctLbl_${side}_ratio`, lblCol: 1,
+      rows: rowsL('ratio', bctTapRows(cores, 2)),
+      cols: ph.flatMap((p, i) => [pcol(p, 2 + 2 * i), col(`${p}e`, `${hdrOf(p)}: sai số %`, 3 + 2 * i, { auto: true, noEdit: true })]),
     });
     grids.push({
-      id: `bct.${side}.dcr`, title: 'Điện trở một chiều (Ω)', tables: T.dcr, rows: bctTapRows(cores, 1),
-      cols: ph.map((p, i) => col(p, `Pha ${p}`, 2 + i, { phase: true })),
+      id: `bct.${side}.dcr`, title: 'Điện trở một chiều (Ω)', tables: T.dcr, editHdr: true, editLabels: true, labelCfg: `bctLbl_${side}_dcr`, lblCol: 1,
+      rows: rowsL('dcr', bctTapRows(cores, 1)),
+      cols: ph.map((p, i) => pcol(p, 2 + i)),
     });
     const exPhases = side === 'mv' ? ['A', 'B', 'C'] : ph;
     T.ex.forEach((tables, i) => grids.push(exGrid(`bct.${side}.ex.${exPhases[i]}`, `Đặc tính từ hóa — Pha ${exPhases[i]}`, tables, cores, side === 'lv' ? 3 : 4)));
@@ -386,7 +396,7 @@
           { k: 'bct.t_dcr', label: 'Nhiệt độ đo điện trở 1 chiều (°C)', num: true },
         ],
         // không có bảng trong thân BBTN mẫu 3 pha: số liệu xuất thành Phụ lục biến dòng chân sứ
-        groups: ['hv', 'mv', 'lv'].map(side => ({ id: side, title: BCT_SIDES[side].label, bct: side, grids: bctGrids(side, +cfg.bctCores[side]).map(noDoc) }))
+        groups: ['hv', 'mv', 'lv'].map(side => ({ id: side, title: BCT_SIDES[side].label, bct: side, grids: bctGrids(side, +cfg.bctCores[side], cfg).map(noDoc) }))
           .concat([{ id: 'n', title: 'Phía trung tính — đặc tính từ hóa', grids: [noDoc(exGrid('bct.n.ex.N', 'Đặc tính từ hóa — Trung tính', [50], 3, 4))] }]),
       },
       {
@@ -610,7 +620,32 @@
     });
     return Object.assign({}, schema, { sections, oltcWinding: 'MV', docSwaps: swaps });
   }
+  // Mẫu theo pha (BBTN_MBA_500_A/B/C): biên bản của MỘT máy 1 pha — mọi cột của bảng sứ và biến dòng chân sứ là sứ / TI
+  // của máy đang lập (không phải 3 máy của tổ). Cột sứ gắn vị trí đầu sứ: cao áp 1.1, trung áp 2.1, trung tính 2,
+  // hạ áp: cột a = 3.1, cột b = 3.2 (máy 1 pha có hai sứ hạ áp), cột c dự phòng. Nhãn cột sửa được (cfg.hdr["b.<phía>.meas.<cột>"]).
+  const LV_UNIT = { a: '3.1', b: '3.2', c: '3.3' };
+  // Pha của máy đang lập (mẫu theo pha): template A/B/C, hoặc cfg.unitPhase (BBTN nhập từ file)
+  function unitPhaseOf(cfg) {
+    const t = String((cfg && cfg.template) || '').toUpperCase();
+    if (['A', 'B', 'C'].includes(t)) return t;
+    const p = String((cfg && cfg.unitPhase) || '').toUpperCase();
+    return ['A', 'B', 'C'].includes(p) ? p : '';
+  }
+  function bushingCols(cfg, side, list, perUnit) {
+    const H = (cfg && cfg.hdr) || {};
+    return list.map(([k, tplLabel, doc, term]) => {
+      const def = perUnit && side === 'lv' && LV_UNIT[k] && k !== 'c' ? LV_UNIT[k] : tplLabel;
+      return { k, doc, label: H[`b.${side}.meas.${k}`] || def,
+        x: Object.assign({ defLabel: def, tplLabel, hk: `b.${side}.meas.${k}` }, perUnit ? { term: side === 'lv' ? LV_UNIT[k] : term, own: true } : {}) };
+    });
+  }
   function build1P(cfg) {
+    const perUnit = layoutOf(cfg) === '1P';
+    const BH = bushingCols(cfg, 'hv', [['A', 'A', 2, '1.1'], ['B', 'B', 3, '1.1'], ['C', 'C', 4, '1.1']], perUnit);
+    const BM = bushingCols(cfg, 'mv', [['A', 'Am', 2, '2.1'], ['B', 'Bm', 3, '2.1'], ['C', 'Cm', 4, '2.1'], ['N', 'N', 5, '2']], perUnit);
+    const BL = bushingCols(cfg, 'lv', [['a', 'a', 2, '3.1'], ['b', 'b', 3, '3.1'], ['c', 'c', 4, '3.1']], perUnit);
+    const editB = g => Object.assign(g, { editHdr: true });
+    const mirrorB = g => Object.assign(g, { hdrDoc: true });
     const taps = (cfg.taps && cfg.taps.length === 19) ? cfg.taps : DEFAULT_TAPS;
     // Đầu đo theo pha cho bảng 7.1: app hiện "A-N" / "A-Am"; template ghi liền "AN" / "AAm"
     const hvSer = cfg.hvMeas === 'SER';
@@ -684,8 +719,8 @@
               { k: 'b.hv.k', label: 'Hệ số K (tgδ20 = tgδ × K)', num: true, doc: { before: 8, re: /quy đổi K\s*=(?<v>.*)$/ } },
             ],
             grids: [
-              bushingGrid('hv', [{ k: 'A', label: 'A', doc: 2 }, { k: 'B', label: 'B', doc: 3 }, { k: 'C', label: 'C', doc: 4 }], [7], { u: 5, d: 6 }),
-              bushingC20Grid('hv', [{ k: 'A', label: 'A', doc: 2 }, { k: 'B', label: 'B', doc: 3 }, { k: 'C', label: 'C', doc: 4 }], 8, { u: 5, d: 6 }),
+              editB(bushingGrid('hv', BH, [7], { u: 5, d: 6 })),
+              mirrorB(bushingC20Grid('hv', BH, 8, { u: 5, d: 6 })),
             ],
           },
           {
@@ -699,9 +734,8 @@
               { k: 'b.mv.k', label: 'Hệ số K (tgδ20 = tgδ × K)', num: true, doc: { before: 11, re: /quy đổi K\s*=(?<v>.*)$/ } },
             ],
             grids: [
-              bushingGrid('mv', [{ k: 'A', label: 'Am', doc: 2 }, { k: 'B', label: 'Bm', doc: 3 }, { k: 'C', label: 'Cm', doc: 4 }, { k: 'N', label: 'N', doc: 5 }], [9, 10], { u: 6, d: 7 },
-                { A: 1, B: 2, C: 3, N: 4 }),
-              bushingC20Grid('mv', [{ k: 'A', label: 'Am', doc: 2 }, { k: 'B', label: 'Bm', doc: 3 }, { k: 'C', label: 'Cm', doc: 4 }, { k: 'N', label: 'N', doc: 5 }], 11, { u: 6, d: 7 }),
+              editB(bushingGrid('mv', BM, [9, 10], { u: 6, d: 7 }, { A: 1, B: 2, C: 3, N: 4 })),
+              mirrorB(bushingC20Grid('mv', BM, 11, { u: 6, d: 7 })),
             ],
           },
           {
@@ -715,8 +749,8 @@
               { k: 'b.lv.k', label: 'Hệ số K (tgδ20 = tgδ × K)', num: true, doc: { before: 13, re: /quy đổi K\s*=(?<v>.*)$/ } },
             ],
             grids: [
-              bushingGrid('lv', [{ k: 'a', label: 'a', doc: 2 }, { k: 'b', label: 'b', doc: 3 }, { k: 'c', label: 'c', doc: 4 }], [12], { u: 5, d: 6 }),
-              bushingC20Grid('lv', [{ k: 'a', label: 'a', doc: 2 }, { k: 'b', label: 'b', doc: 3 }, { k: 'c', label: 'c', doc: 4 }], 13, { u: 5, d: 6 }),
+              editB(bushingGrid('lv', BL, [12], { u: 5, d: 6 })),
+              mirrorB(bushingC20Grid('lv', BL, 13, { u: 5, d: 6 })),
             ],
           },
           {
@@ -728,7 +762,10 @@
                 { k: 'serial', label: 'Số chế tạo', doc: 3, text: true }, { k: 'u', label: 'Điện áp thử (kV AC)', doc: 4 },
                 { k: 'dur', label: 'Thời gian thử (phút)', doc: 5 }, { k: 'eval', label: 'Đánh giá', doc: 6, select: ['', 'Đạt', 'Không đạt'] },
               ],
-              cols: [col('a', 'a', 1, { phase: true }), col('b', 'b', 2, { phase: true }), col('c', 'c', 3, { phase: true }), col('N', 'N', 4, { phase: true })],
+              // nhãn cột theo bảng sứ hạ áp (mẫu theo pha: 3.1, 3.2), ghi vào hàng tiêu đề khi xuất
+              hdrDoc: true,
+              cols: BL.map((p, i) => col(p.k, p.label, i + 1, Object.assign({ phase: true }, p.x, { hk: undefined })))
+                .concat([col('N', 'N', 4, Object.assign({ phase: true }, perUnit ? { term: '2', own: true } : {}))]),
             }],
           },
         ],
@@ -849,7 +886,7 @@
           { k: 'bct.polarity', label: 'Kết quả kiểm tra cực tính', placeholder: 'vd: Đúng cực tính (giảm)', doc: { before: 54, re: /S2,3,4,5\)\s*–(?<v>.*)$/ } },
           { k: 'bct.t_dcr', label: 'Nhiệt độ đo điện trở 1 chiều (°C)', num: true, doc: { before: 63, re: /t=(?<v>\s*)oC/ } },
         ],
-        groups: ['hv', 'mv', 'lv'].map(side => ({ id: side, title: BCT_SIDES[side].label, bct: side, grids: bctGrids(side, +cfg.bctCores[side]) }))
+        groups: ['hv', 'mv', 'lv'].map(side => ({ id: side, title: BCT_SIDES[side].label, bct: side, grids: bctGrids(side, +cfg.bctCores[side], cfg) }))
           .concat([{ id: 'n', title: 'Phía trung tính — đặc tính từ hóa', grids: [exGrid('bct.n.ex.N', 'Đặc tính từ hóa — Trung tính', [50], 3, 4)] }]),
       },
       {
@@ -857,12 +894,13 @@
         id: 'shortCircuit', no: 12, title: 'Thí nghiệm ngắn mạch máy biến áp', en: 'Short-circuit impedance & load loss',
       },
     ];
-    return { sections, taps, head: META, tail: CLOSING, layout: '1P', summary: SUMMARY['1P'], tables: 73 };
+    // unitOwn: sứ, biến dòng chân sứ thuộc máy đang lập (mẫu theo pha); unitPhase: pha của máy đó
+    return { sections, taps, head: META, tail: CLOSING, layout: '1P', summary: SUMMARY['1P'], tables: 73, unitOwn: perUnit, unitPhase: perUnit ? unitPhaseOf(cfg) : '' };
   }
 
   // Duyệt mọi grid/field của schema
   // Duyệt biểu mẫu: hàm chung ở js/domain/common.js (trường đầu/cuối biên bản lấy từ schema.head/tail)
   const { eachGrid, eachField } = Common;
 
-  window.Schema = { dcrTemp, dcrRefOf, dcrMidMoves, HV_MEAS, OLTC_WINDINGS, BASELINE_RESETS, ATT_SECTIONS, REASONS, LAYOUT_3P, LAYOUT_110, MAP_110, TAPS_19, layoutOf, TAPS_17, build, eachGrid, eachField, META, CLOSING, SUMMARY_ROWS, DEFAULT_TAPS, BCT_SIDES, BCT_TABLES };
+  window.Schema = { unitPhaseOf, LV_UNIT, dcrTemp, dcrRefOf, dcrMidMoves, HV_MEAS, OLTC_WINDINGS, BASELINE_RESETS, ATT_SECTIONS, REASONS, LAYOUT_3P, LAYOUT_110, MAP_110, TAPS_19, layoutOf, TAPS_17, build, eachGrid, eachField, META, CLOSING, SUMMARY_ROWS, DEFAULT_TAPS, BCT_SIDES, BCT_TABLES };
 })();

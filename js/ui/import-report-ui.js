@@ -38,6 +38,72 @@
     } catch (e) { it.dup = null; }
   }
 
+  // Số liệu xuất xưởng cho biên bản nhập: chỉ file có đúng số chế tạo; "Chưa có số liệu xuất xưởng" → không dùng.
+  // Không lấy test report của máy khác (dù cùng chủng loại).
+  function fxFor(st, A) {
+    const sn = String(st && st.v && st.v['meta.serial'] || '').trim();
+    if (!sn || st.cfg.noFactory) return null;
+    const hit = (A.factories || []).find(x => x.api && x.api.has && x.api.has(sn));
+    return hit ? hit.api : null;
+  }
+  function fxCell(it, A) {
+    const st = activeState(it, A);
+    if (!st || it.error || it.processing || !String(st.v && st.v['meta.serial'] || '').trim()) return '';
+    if (fxFor(st, A)) return '<div class="note">Có số liệu xuất xưởng của máy này trên máy tính.</div>';
+    return `<div class="note"><label class="imp-nofx"><input type="checkbox" data-impnofx="${it.id}"${st.cfg.noFactory ? ' checked' : ''}> Chưa có số liệu xuất xưởng</label>`
+      + `${st.cfg.noFactory ? ' — không so sánh với XX' : ' — chưa thấy test report của máy này trên máy tính (app không dùng test report của máy khác)'}</div>`;
+  }
+
+  // ---------- Trạm / ngăn của thiết bị trong BBTN nhập (lưu CSDL gắn ngăn này khi thiết bị chưa thuộc ngăn nào)
+  const signedIn = () => !!(window.DB && DB.user);
+  const cat = () => (window.Catalog && Catalog.data) || {};
+  let catAsked = false;
+  function ensureCatalog(A) {
+    if (!signedIn() || cat().subs || cat().loading || catAsked) return;
+    catAsked = true;
+    Catalog.load().then(() => { catAsked = false; items.forEach(it => suggestBay(it, A)); A.render(); }).catch(() => { catAsked = false; });
+  }
+  const foldTxt = s => String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/gi, 'd').toLowerCase();
+  const subCore = s => foldTxt(s).replace(/\b(tram|tba|trạm|bien ap|biến áp|\d+\s*kv)\b/g, ' ').replace(/[^a-z0-9]+/g, ' ').trim();
+  // thiết bị đã có trong CSDL theo số chế tạo (máy chính)
+  const eqOfSerial = sn => (cat().eqs || []).find(e => !e.parent_id && e.class_code === 'MBA' && String(e.serial_no || '').trim().toUpperCase() === String(sn || '').trim().toUpperCase()) || null;
+  // Gợi ý ngăn: tên trạm (Tên dự án / tên trạm) và mã ngăn (vd AT1) trong "Vị trí lắp đặt"; chỉ khi khớp duy nhất
+  function suggestBay(it, A) {
+    const st = activeState(it, A), c = cat();
+    if (!st || !st.cfg || st.cfg.bayId || it.bayTouched || !c.bays) return;
+    const eq = eqOfSerial(st.v['meta.serial']);
+    if (eq && eq.bay_id) return; // đã gắn ngăn trong CSDL
+    const proj = subCore(st.v['meta.project']), site = ` ${foldTxt(st.v['meta.site']).replace(/[^a-z0-9]+/g, ' ')} `;
+    const subs = (c.subs || []).filter(s => { const k = subCore(s.name); return k && proj && (proj.includes(k) || k.includes(proj)); });
+    if (subs.length !== 1) return;
+    const bays = (c.bays || []).filter(b => b.substation_id === subs[0].id && b.code && site.includes(` ${foldTxt(b.code).replace(/[^a-z0-9]+/g, ' ').trim()} `));
+    if (bays.length !== 1) return;
+    [st, it.state].forEach(s => { if (s && s.cfg) s.cfg.bayId = bays[0].id; });
+    it.baySuggested = true;
+  }
+  function bayCell(it, A) {
+    const st = activeState(it, A), esc = A.esc;
+    if (!st || it.error || it.processing) return '—';
+    if (!signedIn()) return '<span class="muted">Đăng nhập để chọn</span>';
+    const c = cat();
+    if (!c.subs) { ensureCatalog(A); return '<span class="muted">Đang tải danh mục…</span>'; }
+    const eq = eqOfSerial(st.v['meta.serial']);
+    const bayOf = id => (c.bays || []).find(b => b.id === id);
+    const subOf = b => (c.subs || []).find(s => s.id === (b && b.substation_id)) || {};
+    if (eq && eq.bay_id) {
+      const b = bayOf(eq.bay_id);
+      return `${esc(subOf(b).name || eq.substation_name || '')} · <b>${esc((b && b.code) || eq.bay_code || '')}</b><div class="note">thiết bị đã gắn ngăn trong CSDL</div>`;
+    }
+    const cur = st.cfg.bayId || '';
+    const groups = (c.subs || []).map(s => {
+      const bs = (c.bays || []).filter(b => b.substation_id === s.id);
+      return bs.length ? `<optgroup label="${esc(s.name)}">${bs.map(b => `<option value="${esc(b.id)}" ${b.id === cur ? 'selected' : ''}>${esc(s.name)} · ${esc(b.code)}${b.name ? ` — ${esc(b.name)}` : ''}</option>`).join('')}</optgroup>` : '';
+    }).join('');
+    return `<select data-impbay="${it.id}" aria-label="Trạm / ngăn của ${esc(it.file)}" style="max-width:220px"><option value="">— Chưa gắn ngăn —</option>${groups}</select>`
+      + (cur && it.baySuggested ? '<div class="note">gợi ý theo tên trạm / vị trí lắp đặt — kiểm tra</div>' : '')
+      + (!cur ? '<div class="note">Lưu CSDL không gắn ngăn: chọn được sau ở bước ① (Thiết bị chưa gắn ngăn) hoặc mục XX</div>' : '');
+  }
+
   function canSave(it, A) {
     const st = activeState(it, A);
     if (!it || it.error || (it.saved && it.saved.status !== 'draft') || !it.reviewed || !st || dupPending(it)) return false;
@@ -61,7 +127,8 @@
       ${items.some(it => canSave(it, A)) ? `<button class="btn primary" data-act="impSaveAll"${busy ? ' disabled' : ''}>Lưu các biên bản đã soát (${items.filter(it => canSave(it, A)).length})</button>` : ''}</div>`;
     if (!items.length) return `<section class="panel">${h}<p class="wf-none">Chưa chọn file nào.</p></section>`;
     markListDups(A);
-    h += '<div class="grid-wrap"><table class="ftable"><thead><tr><th>File</th><th>Định dạng / mẫu</th><th>Số chế tạo</th><th>Ngày TN</th><th>Lý do</th><th>Số biên bản</th><th>Ô số liệu</th><th>Trạng thái</th><th></th></tr></thead><tbody>';
+    h += '<div class="grid-wrap"><table class="ftable"><thead><tr><th>File</th><th>Định dạng / mẫu</th><th>Số chế tạo</th><th>Trạm / ngăn</th><th>Ngày TN</th><th>Lý do</th><th>Số biên bản</th><th>Ô số liệu</th><th>Trạng thái</th><th></th></tr></thead><tbody>';
+    items.forEach(it => suggestBay(it, A));
     h += items.map(it => {
       const st = activeState(it, A), v = st && st.v || {};
       const progressStatus = String(it.progress && it.progress.status || 'Đang xử lý');
@@ -81,9 +148,9 @@
         : notes.length ? `<div class="note">${notes.map(esc).join('<br>')}</div>` : '';
       const format = it.format === 'pdf' ? `PDF · ${esc(LAYOUT_NAME[it.layout] || it.layout || 'chưa nhận dạng')}` : `DOCX · ${esc(LAYOUT_NAME[it.layout] || it.layout || 'chưa nhận dạng')}`;
       const kind = v['meta.reason'] ? Common.kindOf(v['meta.reason']) : '';
-      return `<tr><td>${esc(it.file)}</td><td>${format}</td><td>${esc(v['meta.serial'] || '—')}</td><td>${esc(v['meta.date'] || '—')}</td>`
+      return `<tr><td>${esc(it.file)}</td><td>${format}</td><td>${esc(v['meta.serial'] || '—')}</td><td>${bayCell(it, A)}</td><td>${esc(v['meta.date'] || '—')}</td>`
         + `<td>${esc(v['meta.reason'] || '—')}${kind === 'SAT' ? ' <span class="badge st-pass" title="Lần sau lắp đặt: giá trị khởi đầu khi không có test report">khởi đầu</span>' : ''}</td><td>${esc(it.reportNo || st && st.imported && st.imported.reportNo || '—')}</td>
-        <td class="num">${Number(it.count) || 0}</td><td>${status}${warnings}</td><td><div class="row-actions" style="margin:0">
+        <td class="num">${Number(it.count) || 0}</td><td>${status}${warnings}${fxCell(it, A)}</td><td><div class="row-actions" style="margin:0">
         ${it.state && !it.error && !it.processing ? `<button class="btn small" data-act="impOpen" data-id="${it.id}">${it.format === 'pdf' ? 'Soát cạnh PDF' : 'Mở để soát'}</button>` : ''}
         ${it.state && !it.error && !it.processing && !it.reviewed ? `<button class="btn small" data-act="impReviewDone" data-id="${it.id}">Đã soát</button>` : ''}
         ${dupPending(it) && it.dup ? `<button class="btn small" data-act="impDupOver" data-id="${it.id}"${busy ? ' disabled' : ''} title="Ghi số liệu file này vào lần thí nghiệm đã có (thay số liệu cũ)">Ghi đè</button>` : ''}
@@ -99,6 +166,8 @@
     const reports = Array.from(files || []).filter(f => /\.(docx|pdf)$/i.test(f.name) && !/^~\$/.test(f.name));
     if (!reports.length) { A.toast('Không có file .docx hoặc .pdf trong lựa chọn', true); return; }
     let n = 0, saved = 0;
+    // danh mục trạm / ngăn trước khi tự lưu nháp: gợi ý ngăn cho từng file
+    if (signedIn() && !cat().subs) { try { await Catalog.load(); } catch (e) { /* lưu không gắn ngăn */ } }
     for (const f of reports) {
       const format = /\.pdf$/i.test(f.name) ? 'pdf' : 'docx';
       const it = { id: 'imp' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6), file: f.webkitRelativePath || f.name, blob: f, format, reviewed: format === 'docx', processing: true };
@@ -129,6 +198,7 @@
       } catch (e) { it.error = e.message; }
       it.processing = false;
       it.progress = null;
+      if (!it.error) suggestBay(it, A);
       if (!it.error && await autoSaveDraft(it, A)) saved++;
       A.render();
     }
@@ -167,8 +237,7 @@
   function evalOf(it, A) {
     const T = EquipmentTypes.get('MBA'), state = activeState(it, A);
     const schema = T.buildSchema(state.cfg);
-    const FX = A.FX && A.FX.unit && A.FX.unit(state.v['meta.serial']) ? A.FX : null;
-    return { state, schema, res: T.evaluate(state, FX, schema) };
+    return { state, schema, res: T.evaluate(state, fxFor(state, A), schema) };
   }
 
   async function save(it, A, status) {
@@ -290,6 +359,28 @@
   }
 
   function init(A) {
+    // chọn trạm / ngăn cho một file trong lô: lưu CSDL gắn thiết bị vào ngăn này (khi thiết bị chưa thuộc ngăn nào)
+    document.addEventListener('change', e => {
+      const el = e.target;
+      if (!el.dataset || el.dataset.impbay === undefined) return;
+      const it = items.find(x => x.id === el.dataset.impbay), st = activeState(it, A);
+      if (!st) return;
+      [st, it.state].forEach(s => { if (!s || !s.cfg) return; if (el.value) s.cfg.bayId = el.value; else delete s.cfg.bayId; });
+      it.bayTouched = true; it.baySuggested = false;
+      if (st === A.state) A.persist();
+      if (it.saved && el.value) it.saveNotice = 'Đã chọn ngăn — lần lưu tiếp theo (Đã soát / Lưu & chốt) sẽ gắn thiết bị vào ngăn.';
+      A.render();
+    });
+    // tích "Chưa có số liệu xuất xưởng" của một file trong lô (ghi vào cấu hình biên bản, lưu kèm khi lưu CSDL)
+    document.addEventListener('change', e => {
+      const el = e.target;
+      if (!el.dataset || el.dataset.impnofx === undefined) return;
+      const it = items.find(x => x.id === el.dataset.impnofx), st = activeState(it, A);
+      if (!st) return;
+      [st, it.state].forEach(s => { if (!s || !s.cfg) return; if (el.checked) s.cfg.noFactory = true; else delete s.cfg.noFactory; });
+      if (st === A.state) { A.recompute(); A.persist(); }
+      A.render();
+    });
     ['fileImpDocx', 'dirImpDocx'].forEach(id => $('#' + id).addEventListener('change', async e => {
       await readFiles(e.target.files, A);
       e.target.value = '';

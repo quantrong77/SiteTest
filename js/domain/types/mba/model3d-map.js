@@ -48,7 +48,8 @@
       const grid = (g.grids || []).find(gr => /\.meas$/.test(String(gr.id || '')));
       if (!grid) return;
       const row = (grid.rows || []).some(r => r.k === 'tgd1') ? 'tgd1' : (grid.rows || [])[0] && grid.rows[0].k;
-      (grid.cols || []).filter(c => c.phase).forEach(c => {
+      // mẫu theo pha: sứ hạ áp chỉ có 3.1, 3.2 (cột c dự phòng không vẽ)
+      (grid.cols || []).filter(c => c.phase && !(schema.unitOwn && g.id === 'lv' && c.k === 'c')).forEach(c => {
         const target = g.id !== 'n' && c.k === 'N' ? 'bush-n' : part;
         out[target].push({ k: c.k, label: c.label, grid: grid.id, group: g.id, cell: `${grid.id}.${row}.${c.k}` });
       });

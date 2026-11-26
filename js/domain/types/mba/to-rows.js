@@ -31,7 +31,7 @@
       return k;
     };
     const mainRef = addRef('MBA', main, {
-      name: str(v['meta.site']) || undefined, manufacturer: str(v['meta.manuf']) || undefined, model: str(v['meta.type']) || undefined,
+      name: str(v['meta.site']) || undefined, phase: schema.unitPhase || undefined, manufacturer: str(v['meta.manuf']) || undefined, model: str(v['meta.type']) || undefined,
       year_made: toNum(v['meta.year']) || undefined,
       rated: { power_mva: str(v['meta.power']), voltage: str(v['meta.voltage']), current_a: str(v['meta.current']), vector_group: str(v['meta.vector']),
         // mẫu 110–220 kV: cuộn đặt OLTC (HV / MV) — thuộc tính của máy, lần thí nghiệm sau dùng lại
@@ -39,6 +39,7 @@
     });
     const unitRef = ph => {
       const p = String(ph || '').toUpperCase();
+      // mẫu theo pha: sứ, TI chân sứ của máy đang lập (unitOwn) — gọi qua ownRef
       const s = p === 'N' || schema.layout === Schema.LAYOUT_110 ? main : (str(cfg.ps[p]) || main);
       return s === main ? mainRef : addRef('MBA', s, { phase: p });
     };
@@ -58,6 +59,7 @@
       if (opts.withKey && o.key) rows[rows.length - 1].key = o.key;
     };
     const val = k => str(v[k]) || str(res.calc[k]);
+    const ownRef = ph => (schema.unitOwn ? mainRef : unitRef(ph));
     // Mẫu chung 3 pha: hạng mục theo máy lưu cho từng máy A, B, C (khóa nl.A.*, ir.A.*, wtgd.A.*, moist.r.A)
     const is3P = schema.layout === Schema.LAYOUT_3P;
     const PH3 = ['A', 'B', 'C'];
@@ -144,15 +146,22 @@
     const BSIDES = is3P
       ? [['hv', '1.1', PH3], ['mv', '2.1', PH3], ['n', '2', PH3], ['lv', '3.1', ['a', 'b', 'c']], ['lv2', '3.2', ['a', 'b', 'c']]]
       : [['hv', '1.1', ['A', 'B', 'C']], ['mv', '2.1', ['A', 'B', 'C', 'N']], ['lv', '3.1', ['a', 'b', 'c']]];
+    // cột sứ của schema (mẫu theo pha: vị trí đầu sứ theo cột, nhãn cột người dùng sửa)
+    const bcol = (side, c) => { const g = !is3P && findGrid(schema, `b.${side}.meas`); return (g && g.cols.find(x => x.k === c)) || {}; };
+    const bType = side => str(v[`b.${side}.btype`]) || undefined;
     BSIDES.forEach(([side, term, cols]) => {
       // mẫu 3 pha ghi một nhiệt độ chung: nhóm sứ để trống lấy nhiệt độ của sứ cao áp
       const t = is3P && !ok(toNum(v[`b.${side}.t`])) ? toNum(v['b.hv.t']) : toNum(v[`b.${side}.t`]);
       cols.forEach(c => {
         const p = `b.${side}.meas`, q = `b.${side}.c20`;
         const bs = str(v[`${p}.serial.${c}`]);
-        const terminal = c === 'N' ? '2' : term;
-        const parent = unitRef(c);
-        const eq = bs ? addRef('SU', bs, { parent, position: terminal, phase: c.toUpperCase(), model: str(v[`${p}.type.${c}`]) || undefined, manufacturer: str(v[`${p}.manuf.${c}`]) || undefined }) : parent;
+        const sc = bcol(side, c);
+        const terminal = sc.term || (c === 'N' ? '2' : term);
+        const parent = sc.own ? mainRef : unitRef(c);
+        // sứ của máy 1 pha: pha của máy (trung tính: N); tên theo nhãn cột trên BBTN
+        const sPhase = sc.own ? (c === 'N' ? 'N' : schema.unitPhase || c.toUpperCase()) : c.toUpperCase();
+        const eq = bs ? addRef('SU', bs, { parent, position: terminal, phase: sPhase, model: str(v[`${p}.type.${c}`]) || undefined, manufacturer: str(v[`${p}.manuf.${c}`]) || undefined,
+          name: sc.own ? `Sứ ${terminal}${sc.label && sc.label !== terminal ? ` (${sc.label})` : ''}` : undefined, rated: bType(side) ? { insulation: bType(side) } : undefined }) : parent;
         // mẫu 3 pha: nhiệt độ đo riêng của sứ (đã lắp: nhiệt độ dầu; chưa lắp: nhiệt độ môi trường) thay nhiệt độ chung
         const tC = is3P ? toNum(v[`${p}.t.${c}`]) : NaN;
         const mounted = window.HitachiBushing ? HitachiBushing.isMounted(v[`b.${side}.mount`] || 'Đã lắp') : true;
@@ -170,10 +179,13 @@
     });
     ['a', 'b', 'c', 'N'].forEach(c => {
       const bs = str(v[`b.ac.serial.${c}`]) || str(res.calc[`b.ac.serial.${c}`]);
-      const eq = bs ? addRef('SU', bs, { parent: unitRef(c), position: c === 'N' ? '2' : '3.1' }) : unitRef(c);
-      put(eq, 'BUSHING_AC', 'U', { config: c === 'N' ? '2' : '3.1', phase: c, value: v[`b.ac.u.${c}`], unit: 'kV', key: `b.ac.u.${c}` });
-      put(eq, 'BUSHING_AC', 'DURATION', { config: c === 'N' ? '2' : '3.1', phase: c, value: v[`b.ac.dur.${c}`], unit: 'min' });
-      put(eq, 'BUSHING_AC', 'EVAL', { config: c === 'N' ? '2' : '3.1', phase: c, value: v[`b.ac.eval.${c}`], key: `b.ac.eval.${c}` });
+      const ac = (findGrid(schema, 'b.ac') || { cols: [] }).cols.find(x => x.k === c) || {};
+      const pos = ac.term || (c === 'N' ? '2' : '3.1');
+      const par = ac.own ? mainRef : unitRef(c);
+      const eq = bs ? addRef('SU', bs, { parent: par, position: pos }) : par;
+      put(eq, 'BUSHING_AC', 'U', { config: pos, phase: c, value: v[`b.ac.u.${c}`], unit: 'kV', key: `b.ac.u.${c}` });
+      put(eq, 'BUSHING_AC', 'DURATION', { config: pos, phase: c, value: v[`b.ac.dur.${c}`], unit: 'min' });
+      put(eq, 'BUSHING_AC', 'EVAL', { config: pos, phase: c, value: v[`b.ac.eval.${c}`], key: `b.ac.eval.${c}` });
     });
 
     // 7. Điện trở một chiều (mΩ, quy đổi 75 °C) & 8. tỷ số biến
@@ -227,19 +239,19 @@
       const ctOf = (w, ph) => ((ph === 'N' ? ctN : ctList)[w - 1] || String(w));
       findGrid(schema, `bct.${side}.ir`).rows.forEach(r => S.phases.forEach(ph => {
         const k = `bct.${side}.ir.${r.k}.${ph}`;
-        put(unitRef(ph), 'BCT_IR', 'R', { config: `${SIDE}/W${r.k.slice(1)}`, phase: ph, value: v[k], unit: 'MΩ', temp: tCTir, key: k });
+        put(ownRef(ph), 'BCT_IR', 'R', { config: `${SIDE}/W${r.k.slice(1)}`, phase: ph, value: v[k], unit: 'MΩ', temp: tCTir, key: k });
       }));
       findGrid(schema, `bct.${side}.ratio`).rows.forEach(r => S.phases.forEach(ph => {
         const k = `bct.${side}.ratio.${r.k}.${ph}`;
         if (!str(v[k])) return;
         const ct = ctOf(r.w, ph), cfgK = `${SIDE}/${ct}S1-${ct}S${r.s}`;
-        put(unitRef(ph), 'BCT_RATIO', 'RATIO', { config: cfgK, phase: ph, value: v[k], key: k });
-        put(unitRef(ph), 'BCT_RATIO', 'ERR', { config: cfgK, phase: ph, value: val(`${k}e`), unit: '%', key: k });
+        put(ownRef(ph), 'BCT_RATIO', 'RATIO', { config: cfgK, phase: ph, value: v[k], key: k });
+        put(ownRef(ph), 'BCT_RATIO', 'ERR', { config: cfgK, phase: ph, value: val(`${k}e`), unit: '%', key: k });
       }));
       findGrid(schema, `bct.${side}.dcr`).rows.forEach(r => S.phases.forEach(ph => {
         const k = `bct.${side}.dcr.${r.k}.${ph}`, m = toNum(v[k]);
         const ct = ctOf(r.w, ph);
-        put(unitRef(ph), 'BCT_DCR', 'R', { config: `${SIDE}/${ct}S1-${ct}S${r.s}`, phase: ph, value: v[k], unit: 'Ω', temp: tCT, norm: ok(m) && ok(tCT) ? QD.convDCR(m, tCT, 75) : NaN, normT: 75, key: k });
+        put(ownRef(ph), 'BCT_DCR', 'R', { config: `${SIDE}/${ct}S1-${ct}S${r.s}`, phase: ph, value: v[k], unit: 'Ω', temp: tCT, norm: ok(m) && ok(tCT) ? QD.convDCR(m, tCT, 75) : NaN, normT: 75, key: k });
       }));
     });
     eachGrid(schema, g => {
@@ -247,7 +259,7 @@
       if (!m) return;
       g.rows.forEach(r => g.cols.forEach(c => {
         const k = `${g.id}.${r.k}.${c.k}`;
-        put(unitRef(m[2]), 'BCT_EXC', (r.k.endsWith('u') ? 'U' : 'I') + c.k.slice(1), { config: `${m[1].toUpperCase()}/${r.label.split(':')[0]}`, phase: m[2], value: v[k], unit: r.k.endsWith('u') ? 'V' : 'mA' });
+        put(ownRef(m[2]), 'BCT_EXC', (r.k.endsWith('u') ? 'U' : 'I') + c.k.slice(1), { config: `${m[1].toUpperCase()}/${r.label.split(':')[0]}`, phase: m[2], value: v[k], unit: r.k.endsWith('u') ? 'V' : 'mA' });
       }));
     });
 

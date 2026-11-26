@@ -66,7 +66,12 @@
           if (col.calc || col.nodoc) return;
           let sourceForCell = sourceGrid;
           let sourceColKey = col.k;
-          if (targetGrid.id === 'b.mv.meas' && col.k === 'N') {
+          // mẫu theo pha: bảng sứ hạ áp là hai sứ của máy — cột a ← sứ 3.1, cột b ← sứ 3.2 của pha đó; cột c bỏ trống
+          if (targetSchema.unitOwn && /^b\.lv\.(meas|c20)$/.test(targetGrid.id) && /^[abc]$/.test(col.k)) {
+            if (col.k === 'c') return;
+            sourceForCell = sourceGrids.get(col.k === 'a' ? targetGrid.id : targetGrid.id.replace('b.lv.', 'b.lv2.'));
+            sourceColKey = lowerPhase;
+          } else if (targetGrid.id === 'b.mv.meas' && col.k === 'N') {
             sourceForCell = sourceGrids.get('b.n.meas');
             sourceColKey = phase;
           } else if (targetGrid.id === 'b.mv.c20' && col.k === 'N') {
@@ -173,7 +178,17 @@
       if (!g.tables) return; // bảng chỉ có trong app (vd quy đổi 20 °C sứ, biến dòng chân sứ ở mẫu 3 pha → phụ lục)
       // Đối tượng đo đã sửa/thêm → ghi vào cột đầu; đề mục cột đã sửa → ghi vào hàng tiêu đề của template
       if (/^wtgd\./.test(g.id) && !is3P) g.rows.forEach(r => { if (r.label && r.label !== r.defLabel) tpl.setCellText(tpl.cell(g.tables, r.doc, 0), r.label); });
-      if (g.editHdr) g.cols.forEach(c => { if (c.label !== c.defLabel) tpl.setCellText(tpl.cell([g.tables[0]], 0, c.doc), c.label); });
+      // nhãn hàng sửa được khác (vd chỉ danh biến dòng chân sứ): ghi vào cột nhãn của bảng (lblCol, mặc định cột 0)
+      if (g.editLabels && !/^wtgd\./.test(g.id)) g.rows.forEach(r => { if (r.label && r.defLabel !== undefined && r.label !== r.defLabel) tpl.setCellText(tpl.cell(g.tables, r.doc, g.lblCol || 0), r.label); });
+      // đề mục cột: so với chữ trên template (tplLabel, vd cột "a" của mẫu theo pha ghi thành "3.1");
+      // hàng tiêu đề lệch cột như hàng kiểu loại / hãng (cmap, bảng sứ trung áp) thì dùng cùng vị trí
+      if (g.editHdr || g.hdrDoc) {
+        const cm = (g.rows[0] && g.rows[0].cmap) || {};
+        g.cols.forEach(c => {
+          if (c.noEdit || c.defLabel === undefined) return;
+          if (c.label !== (c.tplLabel ?? c.defLabel)) tpl.setCellText(tpl.cell([g.tables[0]], 0, cm[c.k] !== undefined ? cm[c.k] : c.doc), c.label);
+        });
+      }
       // đề mục cột đổi theo cấu hình (vd 7.1 đo A-Am thay cho A-N) → ghi chữ tương ứng vào hàng tiêu đề của template
       g.cols.forEach(c => { if (c.docLabel && c.doc !== undefined) tpl.setCellText(tpl.cell([g.tables[0]], 0, c.doc), c.docLabel); });
       // bảng đặc tính từ hóa có số liệu điểm khuỷu → chèn cột thứ 4 vào bảng của template
