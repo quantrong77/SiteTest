@@ -271,6 +271,8 @@
     if (att.oltc && Object.keys(att.oltc).length) out.push({ kind: 'oltc' });
     if (att.fra && has.fra !== false) out.push({ kind: 'fra' });
     if (att.dfr && Array.isArray(att.dfr.items) && att.dfr.items.some(x => x.use)) out.push({ kind: 'dfr' });
+    // DFR cách điện cuộn dây (mục độ ẩm cách điện rắn)
+    if (window.DfrW && DfrW.has(state)) out.push({ kind: 'dfrw' });
     const oilHas = id => has.oil === undefined || (typeof has.oil.has === 'function' ? has.oil.has(id) : !!has.oil[id]);
     (att.oil && att.oil.items || []).filter(x => x.use !== false && oilHas(x.id)).forEach(x => out.push({ kind: 'oil', id: x.id }));
     // thí nghiệm ngắn mạch: mục cuối thân biên bản (MbaReport.fill); chỉ thành phụ lục khi template không có chỗ chèn
