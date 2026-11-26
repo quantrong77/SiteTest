@@ -29,13 +29,16 @@ test('DFR thứ tự A/B/C và giữ điểm 10 mHz',()=>{
  const c=load(CORE.concat(['js/ui/types/mba/dfr-chart.js']));
  // canvas giả: ghi chữ và điểm moveTo đầu tiên của từng đường; mọi lệnh vẽ khác bỏ qua
  const events=[], moves=[]; let style='';
- const g=new Proxy({},{get:(o,k)=>k==='fillText'?t=>events.push(t):k==='moveTo'?(x,y)=>moves.push([style,x,y]):k in o?o[k]:()=>{},set:(o,k,v)=>{if(k==='strokeStyle')style=v;o[k]=v;return true;}});
+ const legendY=[];
+ const g=new Proxy({},{get:(o,k)=>k==='measureText'?t=>({width:t.length*12}):k==='fillText'?(t,x,y)=>{events.push(t);if(/^Pha /.test(t))legendY.push(y);}:k==='moveTo'?(x,y)=>moves.push([style,x,y]):k in o?o[k]:()=>{},set:(o,k,v)=>{if(k==='strokeStyle')style=v;o[k]=v;return true;}});
  const cv={getContext:()=>g};
  const ms=['C','B','A'].map(phase=>({phase,f:[0.00999999977648258,.1],tan:[.2,.3],c:[1,1]}));
  c.DfrChart.draw(cv,ms,true);
  assert.ok(events.includes('10m'));
  // chú giải theo thứ tự A, B, C; điểm 10 mHz (0,0099999998 Hz) nằm ở mép trái khung đồ thị, không bị bỏ
  assert.deepEqual(events.filter(t=>/^Pha /.test(t)),['Pha A','Pha B','Pha C']);
+ // chú giải nằm ngoài khung đồ thị (trên mép trên khung, không có tiêu đề: khung bắt đầu ở 22 + 40), không đè lên đường đo
+ assert.ok(legendY.length===3&&legendY.every(y=>y<62));
  const first=c.DfrChart.COLORS, starts=moves.filter(([s])=>Object.values(first).includes(s)).map(m=>m[0]);
  assert.equal(starts[0],first.A);
  assert.ok(moves.some(([s,x])=>s===first.A&&Math.abs(x-128)<1e-6));

@@ -35,7 +35,9 @@
     const top = Math.max(o.yMax || 0, maxTan(items), 0.1);
     const ys = niceStep(top, 5), y1 = Math.ceil(top / ys - 1e-9) * ys;
     const yd = Math.max(0, -Math.floor(Math.log10(ys) + 1e-9));
-    const L = 128, R = 30, T = o.title ? 58 : 22, B = 80;
+    // chú giải (đồ thị xếp chồng): một hàng ngang giữa tiêu đề và khung đồ thị, không đè lên đường đo
+    const legend = overlay && data.length, T0 = o.title ? 58 : 22;
+    const L = 128, R = 30, T = T0 + (legend ? 40 : 0), B = 80;
     const px = f => L + Math.log10(Math.max(F0, f) / F0) / DECADES * (W - L - R);
     const py = y => H - B - y / y1 * (H - T - B);
 
@@ -78,16 +80,18 @@
     });
     g.restore();
 
-    // chú giải (đồ thị xếp chồng) ở góc phải trên, nền trắng để không lẫn với đường
-    if (overlay && data.length) {
+    if (legend) {
       g.font = `600 24px ${FONT}`; g.textAlign = 'left'; g.textBaseline = 'middle';
-      const bw = 128, bh = 14 + data.length * 30, bx = W - R - bw - 10, by = T + 10;
-      g.fillStyle = 'rgba(255,255,255,0.92)'; g.fillRect(bx, by, bw, bh);
-      g.strokeStyle = GRID; g.lineWidth = 1; g.strokeRect(bx + 0.5, by + 0.5, bw, bh);
-      data.forEach((s, i) => {
-        const yy = by + 22 + i * 30, c = COLORS[s.phase] || INK;
-        g.strokeStyle = c; g.lineWidth = 3; g.beginPath(); g.moveTo(bx + 12, yy); g.lineTo(bx + 42, yy); g.stroke();
-        g.fillStyle = INK; g.fillText(`Pha ${s.phase}`, bx + 50, yy);
+      const items = data.map(s => ({ s, t: `Pha ${s.phase}`, w: 40 + g.measureText(`Pha ${s.phase}`).width }));
+      const gap = 36, total = items.reduce((a, x) => a + x.w, 0) + gap * (items.length - 1);
+      let x = L + (W - L - R - total) / 2;
+      const yy = T0 + 18;
+      items.forEach(({ s, t, w }) => {
+        const c = COLORS[s.phase] || INK;
+        g.strokeStyle = c; g.lineWidth = 3; g.beginPath(); g.moveTo(x, yy); g.lineTo(x + 30, yy); g.stroke();
+        g.fillStyle = c; g.beginPath(); g.arc(x + 15, yy, 4, 0, Math.PI * 2); g.fill();
+        g.fillStyle = INK; g.fillText(t, x + 40, yy);
+        x += w + gap;
       });
     }
     return canvas;
