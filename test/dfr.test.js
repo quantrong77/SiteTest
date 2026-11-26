@@ -81,3 +81,11 @@ test('DFR gộp lần nạp: xếp hạng lại phía cho phép đo đã có, gi
  assert.deepEqual(xs.filter(x=>x.use&&x.side==='HV').map(x=>x.file),['g.csv']);
  assert.equal(xs[0].side,'N');
 });
+test('mọi nút trên trang phụ lục được chuyển tới AppendixUI.action', () => {
+  const fs = require('node:fs'), path = require('node:path'), read = f => fs.readFileSync(path.join(__dirname, '..', f), 'utf8');
+  const route = read('js/ui/app.js').match(/else if \(act && (.+?)\) await AppendixUI\.action/)[1];
+  const routes = new Function('act', `return ${route};`);
+  const acts = [...new Set([...read('js/ui/appendix-ui.js').matchAll(/data-act="([A-Za-z]+)"/g)].map(m => m[1]))];
+  assert.ok(acts.includes('dfrFiles') && acts.includes('dfrFolder'));
+  acts.forEach(a => assert.ok(routes(a), `nút ${a} không tới AppendixUI.action`));
+});

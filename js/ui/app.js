@@ -1193,7 +1193,7 @@
         renderMain(); persist();
       } else if (act && act.startsWith('fx')) await FactoryUI.action(act, b, App);
       else if (act && act.startsWith('db')) await DbUI.action(act, b);
-      else if (act && act.startsWith('appx')) await AppendixUI.action(act, b, App);
+      else if (act && /^(appx|dfr)/.test(act)) await AppendixUI.action(act, b, App);
       else if (act && act.startsWith('imp')) await ImportReportUI.action(act, b, App);
       else if (act && TU().actions && TU().actions[act]) await track(b.textContent.trim() || act, () => TU().actions[act](b, App));
     } catch (err) {
