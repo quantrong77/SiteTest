@@ -54,6 +54,10 @@
     return A.cfgField('bctPlace', 'Số liệu BCT trong BBTN', { options: BCT_PLACES });
   }
 
+  // Nút nhập file .txt máy đo tgδ Doble M4000 (mục 5 sứ, mục 7 cuộn dây): một file có cả sứ và cuộn dây của các pha
+  const dobleField = what => `<div class="field"><label>tgδ, điện dung ${what} từ máy đo</label><button class="btn primary" data-act="loadDoble">Nhập file Doble M4000 (.txt)…</button></div>`;
+  const DOBLE_HINT = 'Doble M4000: file .txt xuất từ máy (Clipboard) có cả cuộn dây và sứ của các pha — app ghép theo đề mục pha, tên phép đo và sơ đồ đo, cho xem và sửa ô đích trước khi điền; tgδ lấy %PF đo (app tự quy đổi về 20 °C).';
+
   // Công cụ đầu hạng mục (mục 7, 8, 9: nhập file Haefely 2293; mục 11: số cuộn thứ cấp, nhập XML CPC 100)
   function sectionTools(id, A) {
     if (['dcr', 'ratio', 'oltc'].includes(id)) {
@@ -63,7 +67,9 @@
         + '<div class="hint-text">Chọn cùng lúc các file <b>.csv</b> xuất từ máy (điện trở một chiều, tỷ số biến, chuyển nấc) và file <b>.bin</b> cùng tên (dạng sóng chụp OLTC); có thể chọn file của cả ba pha. Bỏ qua các file .dat, .mat.</div></div>';
     }
     // mục 5: test report sứ của hãng (tra theo S/N sứ) — nạp ngay tại mục dùng nó
-    if (id === 'bushing') return `<div class="bct-tools"><div class="fields">${generalFiles(A)}</div><div class="hint-text">File test report sứ Hitachi (.xlsx, sheet TestReport + TraCuu): app gộp theo S/N sứ, so C1, tanδ đo được với giá trị hãng. Nạp được nhiều file (sứ của nhiều máy).</div></div>`;
+    if (id === 'bushing') return `<div class="bct-tools"><div class="fields">${generalFiles(A)}${dobleField('sứ')}</div><div class="hint-text">File test report sứ Hitachi (.xlsx, sheet TestReport + TraCuu): app gộp theo S/N sứ, so C1, tanδ đo được với giá trị hãng. Nạp được nhiều file (sứ của nhiều máy). ${DOBLE_HINT}</div></div>`;
+    // mục 7: tgδ, điện dung cuộn dây từ file Doble M4000
+    if (id === 'wtgd') return `<div class="bct-tools"><div class="fields">${dobleField('cuộn dây')}</div><div class="hint-text">${DOBLE_HINT}</div></div>`;
     if (id !== 'bct') return '';
     return `<div class="bct-tools"><div class="fields">${bctPlaceField(A)}${A.cfgField('bctCores.hv', 'Số cuộn thứ cấp TI phía HV', { options: [4, 5, 6] })}${A.cfgField('bctCores.mv', 'Số cuộn thứ cấp TI phía MV', { options: [4, 5] })}<div class="field"><label>Đặc tính từ hóa từ máy đo</label><button class="btn primary" data-act="loadCpc">Nhập XML CPC 100…</button></div><div class="field"><label>Tỷ số, điện trở, từ hóa</label><button class="btn primary" data-act="loadMrct">Nhập Megger MRCT (.pdbxml, PDF)…</button></div></div><div class="hint-text">CPC 100: chọn một hoặc nhiều file XML (mỗi file một pha/một phía); app lấy 3 điểm (U, I) theo IEC 61869-2 và điền vào bảng đặc tính từ hóa. Megger MRCT: chọn file .pdbxml của PowerDB và/hoặc báo cáo PDF "CT TEST REPORT"; tỷ số đo, sai số, góc pha, cực tính chỉ có trong báo cáo PDF. File có cuộn 5, 6 sẽ tự mở thêm cuộn. Phía LV và trung tính theo template chỉ có 4 và 3 cuộn.</div></div>`;
   }
@@ -403,6 +409,7 @@
       A.rebuild(false);
     },
     loadMrct: () => { $('#fileMrct').click(); },
+    loadDoble: () => { $('#fileDoble').click(); },
     loadCpc: () => { cpcTarget = null; $('#fileCpc').multiple = true; $('#fileCpc').click(); },
     cpcSlot(b) {
       const m = b.dataset.grid.match(/^bct\.(\w+)\.ex\.(\w)$/);
@@ -438,6 +445,7 @@
     $('#fileNameplate').addEventListener('change', e => { const f = e.target.files[0]; e.target.value = ''; if (f) NameplateImport.open(f); });
     bindDrop(A);
     $('#file2293').addEventListener('change', e => { const fl = Array.from(e.target.files); e.target.value = ''; if (fl.length) Wa2293Import.open(fl).catch(err => A.toast('Lỗi đọc file 2293: ' + err.message, true)); });
+    $('#fileDoble').addEventListener('change', e => { const fl = Array.from(e.target.files); e.target.value = ''; if (fl.length) DobleImport.open(fl).catch(err => A.toast('Lỗi đọc file Doble: ' + err.message, true)); });
     $('#fileMrct').addEventListener('change', e => { const fl = Array.from(e.target.files); e.target.value = ''; if (fl.length) MrctImport.open(fl).catch(err => A.toast('Lỗi đọc file MRCT: ' + err.message, true)); });
     $('#fileCpc').addEventListener('change', e => { const fl = Array.from(e.target.files); e.target.value = ''; if (fl.length) CpcImport.open(fl, cpcTarget); });
     $('#fileHitachi').addEventListener('change', e => A.readFile(e.target, async f => {

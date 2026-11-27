@@ -203,6 +203,7 @@ Mỗi hạng mục có đủ 4 bước; phần dưới chỉ ghi điều riêng.
 [Mở →](#app:bushing)
 
 - Chọn phía, loại cách điện (OIP, RIP…), **Đã lắp / Chưa lắp**, nhiệt độ; nhập C1, tgδ1, C2, tgδ2 và thử AC (nếu có).
+- **Nhập file Doble M4000 (.txt)…** (mục 5 và mục 6): file .txt xuất từ máy (Clipboard), một file có cả cuộn dây và sứ của các pha. App ghép theo đề mục trong file (“DAY QUAN”, “SU”, “Pha A/B/C”): cuộn dây theo tên và sơ đồ đo (CH GAR → Cao, Trung ~ Vỏ; CHT UST → Hạ ~ Cao, Trung; CH+CHT GND → Cao, Trung ~ Hạ, Vỏ; CT GAR → Hạ ~ Vỏ; CT+CTH GND → Hạ ~ Cao, Trung, Vỏ; CH+CT GND → Cao, Trung, Hạ ~ Vỏ), sứ theo tên (500 → HV, 220 → MV, N → trung tính, 35.1 / 35.2 → hạ áp) và C1 / C2. Hộp thoại cho xem từng phép đo, sửa ô đích hoặc bỏ chọn trước khi điền; đo lặp cùng một ô dùng lần sau cùng; tên bị cắt (“35”, “N-”) được đoán và ghi chú. tgδ lấy **%PF đo** (chưa hiệu chỉnh), app tự quy đổi về 20 °C; ghi kèm C (pF), U đo, sơ đồ đo; nhiệt độ dầu trong file ghi vào ô nhiệt độ còn trống. Mẫu theo pha chỉ lấy pha của biên bản. Dòng đo kích từ (đơn vị H) không điền.
 - **Cách quy đổi về 20 °C**: bảng QĐ 1901, HD hãng (Hitachi RIP) hoặc nhập K — bảng hệ số ở trang [Hệ số quy đổi sứ](#k-he-so-quy-doi-su).
 - **Thêm file .xlsx…** nạp test report sứ (gộp theo S/N sứ) để so với hãng.
 - **Đề mục cột sửa được** (ô ở hàng tiêu đề bảng): vd hạ áp **3.1 / 3.2** hoặc **LV1 / LV2**. Bảng quy đổi 20 °C, bảng thử AC và BBTN xuất ra dùng cùng nhãn. Để trống để về nhãn mặc định.
