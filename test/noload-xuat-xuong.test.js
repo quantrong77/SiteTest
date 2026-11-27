@@ -35,12 +35,16 @@ test('test report: đọc P0 / I0 không tải theo mức điện áp (% Ur, kV,
     { pu: 90, kv: null, p0: 48 },
     { pu: null, kv: 2, p0: 0.25, i0A: 0.15 },
     { pu: null, kv: 0.38, p0: 0.014 }]);
-  // ghép theo kV trước, rồi theo %Uđm; U lệch > 2 % → không cùng mức
+  // ghép theo kV trước, rồi theo %Uđm; U lệch ≤ 5 % là cùng mức
   eq(FX.noLoadAt('X-001', { kv: 2.02, pu: 5.8 }).kv, 2);
-  eq(FX.noLoadAt('X-001', { kv: 0.385, pu: 1.1 }).kv, 0.38);
-  eq(FX.noLoadAt('X-001', { pu: 90.5 }).pu, 90);
-  assert.equal(FX.noLoadAt('X-001', { kv: 2.1, pu: 6 }), null);
-  assert.equal(FX.noLoadAt('X-001', { pu: 95 }), null);
+  eq(FX.noLoadAt('X-001', { kv: 0.397, pu: 1.1 }).kv, 0.38); // +4,5 %
+  eq(FX.noLoadAt('X-001', { pu: 94 }).pu, 90);
+  assert.equal(FX.noLoadAt('X-001', { kv: 2.2, pu: 6 }), null);
+  assert.equal(FX.noLoadAt('X-001', { pu: 84 }), null);
+  // không trùng: mức kV gần nhất để tham khảo (≤ 25 %), xa hơn thì near = false
+  const n = FX.noLoadNear('X-001', { kv: 0.42 });
+  eq([n.level.kv, Math.round(n.du * 10) / 10, n.near], [0.38, 10.5, true]);
+  eq(FX.noLoadNear('X-001', { kv: 1 }).near, false);
 });
 
 test('lưu CSDL rồi dựng lại: giữ đủ các mức điện áp không tải', () => {
@@ -74,7 +78,7 @@ test('đánh giá: lần đo cùng mức điện áp với test report tự so �
   const p1 = f('X-001', /P0 \(lần 1\)/), p2 = f('X-001', /P0 \(lần 2\)/), i2 = f('X-001', /I0 \(lần 2\)/);
   eq([p1.status, p1.dev, p1.ref], ['pass', '+1,11', '14,00 W ở 0,380 kV (XX)']);
   eq([p2.status, p2.dev, p2.ref, res.calc['nl.A.rated.r1.dp']], ['pass', '+4,83', '250,00 W ở 2,000 kV (XX)', '+4,83']);
-  assert.match(p2.note, /Test report xuất xưởng có số liệu ở 2,000 kV/);
+  assert.match(p2.note, /Test report có số liệu ở 2,000 kV — cùng mức điện áp/);
   eq([i2.status, i2.dev, res.calc['nl.A.rated.r1.di']], ['pass', '+10,94', '+10,94']);
   eq(f('X-002', /P0 \(lần 2\)/).status, 'fail');
   eq(f('X-003', /P0 \(lần 2\)/).status, 'info');
@@ -120,7 +124,7 @@ test('MBA 3 pha 110–220 kV, đo 380 V theo cặp pha: ΔPo (±5 % sau lắp đ
     'nl.lv.ab.u': '0,38', 'nl.lv.ab.i': '0,52', 'nl.lv.ab.p': '309',
     'nl.lv.bc.u': '0,381', 'nl.lv.bc.i': '0,70', 'nl.lv.bc.p': '330',
     'nl.lv.ca.u': '0,38', 'nl.lv.ca.p': '425', 'nl.lv.ca.pref': '410',
-    'nl.hv.AB.u': '0,38', 'nl.hv.AB.p': '110' };
+    'nl.hv.AB.u': '0,37', 'nl.hv.AB.p': '110' };
   const run = reason => M.evaluate({ type: 'MBA', v: Object.assign({}, v, { 'meta.reason': reason }), cfg, sum: { tick: {}, ev: {} }, att: {} }, FX, schema);
   const res = run('Sau lắp đặt');
   const f = re => res.findings.find(x => x.sec === 'noload' && re.test(x.item));
@@ -132,23 +136,28 @@ test('MBA 3 pha 110–220 kV, đo 380 V theo cặp pha: ΔPo (±5 % sau lắp đ
   eq([f(/^Po ở điện áp thấp — bc/).status, f(/^Io ở điện áp thấp — bc/).status], ['fail', 'fail']);
   // ca: nhập tay cột XX được ưu tiên
   eq(f(/^Po ở điện áp thấp — ca/).ref, '410,00 W (XX, nhập tay)');
-  // cuộn cao áp đo 380 V, test report có 400 V → không cùng mức, ghi rõ lệch U
-  assert.match(f(/^Po, Io ở điện áp thấp — AB/).note, /gần nhất ở 0,400 kV — U đo lệch -5,0 %/);
+  // cuộn cao áp đo 370 V, test report có 400 V (lệch -7,5 % > 5 %) → vẫn ghép, độ lệch chỉ để tham khảo
+  const hab = f(/^Po ở điện áp thấp — AB/);
+  eq([hab.status, hab.dev, hab.ref], ['info', '-8,33', '120,00 W ở 0,400 kV (XX)']);
+  assert.match(hab.limit, /tham khảo — U đo lệch > 5 %/);
+  assert.match(hab.note, /ghép mức gần nhất 0,400 kV — U đo lệch -7,5 % \(> 5 %\)/);
   // vận hành: ±15 % giá trị khởi đầu → bc đạt
   const op = run('Định kỳ').findings.find(x => /^Po ở điện áp thấp — bc/.test(x.item));
   eq([op.status, op.limit], ['pass', '±15% giá trị khởi đầu (vận hành)']);
 });
 
-test('MBA 1 pha: lần đo 380 V lệch U > 2 % so với mức test report → ghi chú mức gần nhất và độ lệch U', () => {
+test('MBA 1 pha: U đo lệch > 5 % so với mức test report → vẫn ghép mức gần nhất, độ lệch để tham khảo, ghi rõ', () => {
   const ctx = load(CORE), M = ctx.EquipmentTypes.get('MBA');
   const FX = ctx.Factory.fromBase64(book(ctx), 'nl.xlsx');
   const cfg = Object.assign(M.defaultCfg(), { template: '3P', topology: 'bank1p', sLV: '60', iLV: '1714', sR: '300', ps: { A: 'X-001', B: 'X-002', C: 'X-003' } });
   const schema = M.buildSchema(cfg);
   const v = { 'nl.A.rated.r0.ur': '0,4', 'nl.A.rated.r0.ia': '0,06', 'nl.A.rated.r0.p0': '0,015' };
   const res = M.evaluate({ type: 'MBA', v, cfg, sum: { tick: {}, ev: {} }, att: {} }, FX, schema);
-  const p = res.findings.find(x => x.sec === 'noload' && /P0 \(lần 1\)/.test(x.item));
-  eq(p.status, 'info');
-  assert.match(p.note, /gần nhất ở 0,380 kV — U đo lệch \+5,3 %/);
+  const p = res.findings.find(x => x.sec === 'noload' && /P0 \(lần 1\)/.test(x.item)), i = res.findings.find(x => x.sec === 'noload' && /I0 \(lần 1\)/.test(x.item));
+  eq([p.status, p.dev, p.ref, res.calc['nl.A.rated.r0.dp']], ['info', '+7,14', '14,00 W ở 0,380 kV (XX)', '+7,14']);
+  assert.match(p.note, /ghép mức gần nhất 0,380 kV — U đo lệch \+5,3 % \(> 5 %\): không cùng mức điện áp, độ lệch chỉ để tham khảo/);
+  // test report không có I0 ở 380 V → I0 chỉ ghi nhận
+  eq(i.status, 'info');
 });
 
 test('chỉ có Pm (chưa có U′mean / P0) và Io: vẫn so với xuất xưởng cùng mức — ΔPm, ΔI0 và đánh giá', () => {

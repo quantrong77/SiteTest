@@ -15,8 +15,9 @@
   const norm = s => String(s || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
   // Khóa sơ đồ đo cách điện, giữ dấu +/- để phân biệt "HV+MV+N-LV+TANK" và "HV+MV+N+LV-TANK"
   const cfgKey = s => String(s || '').toUpperCase().replace(/\s/g, '');
-  // Ghép lần đo không tải với mức điện áp xuất xưởng: U lệch ≤ 2 % coi là cùng mức (quy tắc ghép, không phải ngưỡng đánh giá)
-  const NOLOAD_U_MATCH = 2;
+  // Ghép lần đo không tải với mức điện áp xuất xưởng (quy tắc ghép, không phải ngưỡng đánh giá):
+  // U lệch ≤ 5 % coi là cùng mức → so và đánh giá; lệch hơn nhưng ≤ 25 % → ghép mức kV gần nhất để tham khảo (không đánh giá)
+  const NOLOAD_U_MATCH = 5, NOLOAD_U_NEAR = 25;
   const rowsOf = ws => XLSX.utils.sheet_to_json(ws, { header: 1, defval: null, raw: true });
 
   function findSheet(wb, re) {
@@ -469,6 +470,16 @@
         return list.find(x => x.kv != null && close(at && at.kv, x.kv))
           || list.find(x => x.kv == null && x.pu != null && close(at && at.pu, x.pu)) || null;
       },
+      // Mức kV gần nhất (cùng cặp pha / cuộn) khi không có mức trùng: { level, du (% U đo lệch so với mức), near: du ≤ NOLOAD_U_NEAR }
+      noLoadNear(s, at) {
+        const kv = at && at.kv;
+        if (!Number.isFinite(kv)) return null;
+        const list = ((F.units[s] && F.units[s].noLoad) || []).filter(x => x.kv > 0 && (x.pair || '') === ((at && at.pair) || '') && (!x.side || !at.side || x.side === at.side));
+        if (!list.length) return null;
+        const level = list.reduce((a, b) => (Math.abs(b.kv - kv) < Math.abs(a.kv - kv) ? b : a)), du = (kv - level.kv) / level.kv * 100;
+        return { level, du, near: Math.abs(du) <= NOLOAD_U_NEAR };
+      },
+      NOLOAD_U_MATCH, NOLOAD_U_NEAR,
       shortCircuitFor,
       ratioTap: tap => matchTap(F.ratio.taps, tap),
       // opts.byTap: cuộn có bộ điều áp không phải cuộn nối tiếp (OLTC ở cuộn trung áp) — chỉ trả giá trị khi file XX có

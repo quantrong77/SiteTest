@@ -20,7 +20,7 @@
     const ps = `Cột pha A/B/C ↔ ${['A', 'B', 'C'].map(p => esc(state.cfg.ps[p] || '—')).join(' / ')}`;
     // mẫu 3 pha: giá trị xuất xưởng của từng máy A, B, C
     const perUnit = f => ['A', 'B', 'C'].map(p => { const sn = state.cfg.ps[p]; const x = sn && FX.unit(sn) ? f(sn) : NaN; return `${p}: <b>${fm(x, 2)}</b>`; }).join(', ');
-    // các mức điện áp test report có số liệu không tải → lần đo cùng mức (U lệch ≤ 2 %) tự so ΔP0, ΔI0
+    // các mức điện áp test report có số liệu không tải → lần đo cùng mức (U lệch ≤ 5 %) tự so ΔP0, ΔI0
     const lvTxt = l => (l.kv != null ? (l.kv < 1 ? `${fm(l.kv * 1000, 0)} V` : `${fm(l.kv, 2)} kV`) : `${fm(l.pu, 0)} % Ur`);
     // MBA 3 pha đo theo cặp pha: gộp các cặp cùng mức, cùng cuộn — "380 V hạ áp (ab, bc, ca)"
     const levels = sn => {
@@ -33,7 +33,7 @@
       return [...g].map(([k, prs]) => (prs.length ? `${k} (${prs.join(', ')})` : k)).join(', ');
     };
     // sns: { nhãn: số chế tạo } — mẫu 3 pha ghi theo pha, mẫu theo pha một máy
-    const nlLevels = sns => { const t = Object.entries(sns).map(([k, sn]) => (sn && levels(sn) ? `${k ? `${k}: ` : ''}${levels(sn)}` : '')).filter(Boolean); return t.length ? ` Test report có P0 / I0 ở: <b>${esc(t.join('; '))}</b> — lần đo cùng mức điện áp (U lệch ≤ 2 %) tự tính ΔP0, ΔI0 và đánh giá.` : ''; };
+    const nlLevels = sns => { const t = Object.entries(sns).map(([k, sn]) => (sn && levels(sn) ? `${k ? `${k}: ` : ''}${levels(sn)}` : '')).filter(Boolean); return t.length ? ` Test report có P0 / I0 ở: <b>${esc(t.join('; '))}</b> — lần đo cùng mức điện áp (U lệch ≤ 5 %) tự tính ΔP0, ΔI0 và đánh giá; lệch hơn 5 % (đến 25 %) vẫn ghép mức gần nhất, độ lệch chỉ để tham khảo.` : ''; };
     if (is3P && id === 'noload') return `<div class="callout">P0 xuất xưởng (kW) ${perUnit(sn => FX.unit(sn).noLoadLoss)}.${nlLevels({ A: state.cfg.ps.A, B: state.cfg.ps.B, C: state.cfg.ps.C })} Mỗi máy đưa điện áp vào phía hạ áp; P0 = Pm(1+d), d=(U′−U)/U′; I0% = Io/I<sub>LV</sub> × S<sub>LV</sub>/S<sub>r</sub> × 100 với I<sub>LV</sub>=${esc(state.cfg.iLV)} A, S<sub>LV</sub>=${esc(state.cfg.sLV)} MVA, S<sub>r</sub>=${esc(state.cfg.sR)} MVA (sửa ở mục 0).</div>`;
     if (is3P && id === 'moisture') return `<div class="callout">Độ ẩm cách điện cứng theo DFR xuất xưởng (%) ${perUnit(sn => FX.moisture(sn))}. Phân loại theo Điều 28.</div>`;
     switch (id) {
