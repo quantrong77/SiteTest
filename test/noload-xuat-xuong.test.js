@@ -150,3 +150,25 @@ test('MBA 1 pha: lần đo 380 V lệch U > 2 % so với mức test report → g
   eq(p.status, 'info');
   assert.match(p.note, /gần nhất ở 0,380 kV — U đo lệch \+5,3 %/);
 });
+
+test('chỉ có Pm (chưa có U′mean / P0) và Io: vẫn so với xuất xưởng cùng mức — ΔPm, ΔI0 và đánh giá', () => {
+  const ctx = load(CORE), M = ctx.EquipmentTypes.get('MBA');
+  const FX = ctx.Factory.fromBase64(book(ctx), 'nl.xlsx');
+  const cfg = Object.assign(M.defaultCfg(), { template: '3P', topology: 'bank1p', ps: { A: 'X-001', B: 'X-002', C: 'X-003' } });
+  const schema = M.buildSchema(cfg);
+  // không có S, I hạ áp → %Uđm không tính được; ghép theo U đo 2 kV
+  const v = { 'meta.reason': 'Sau lắp đặt', 'nl.A.rated.r1.ur': '2', 'nl.A.rated.r1.ia': '0,16641', 'nl.A.rated.r1.pm': '0,26208',
+    'nl.A.rated.r0.pu': '100', 'nl.A.rated.r0.ur': '35', 'nl.A.rated.r0.ia': '3,1', 'nl.A.rated.r0.pm': '70' };
+  const res = M.evaluate({ type: 'MBA', v, cfg, sum: { tick: {}, ev: {} }, att: {} }, FX, schema);
+  const f = re => res.findings.find(x => x.sec === 'noload' && x.loc.includes('X-001') && re.test(x.item));
+  const pm2 = f(/Pm \(lần 2\)/), i2 = f(/I0 \(lần 2\)/);
+  eq([pm2.item, pm2.meas, pm2.ref, pm2.dev, pm2.status, res.calc['nl.A.rated.r1.dp']], ['Tổn hao không tải Pm (lần 2) — đo ở 2,000 kV', '262,08 W', '250,00 W ở 2,000 kV (XX)', '+4,83', 'pass', '+4,83']);
+  assert.match(pm2.note, /Chưa có P0/);
+  assert.equal(i2.item, 'Dòng không tải I0 (lần 2) — đo ở 2,000 kV');
+  eq([i2.dev, i2.status, res.calc['nl.A.rated.r1.di']], ['+10,94', 'pass', '+10,94']);
+  // tại Uđm: Pm 70 kW lệch +16,1 % so với 60,3 kW → không đạt; I0 % chưa tính được (thiếu mục 0) → báo thiếu
+  const pm1 = f(/Pm tại Uđm \(lần 1\)/), i1 = f(/I0 \(lần 1\)/);
+  eq([pm1.dev, pm1.status], ['+16,09', 'fail']);
+  assert.match(pm1.note, /Chưa có P0/);
+  eq([i1.status, i1.ref], ['missing', '0,0360 % ở 100,0 % Ur (XX)']);
+});
