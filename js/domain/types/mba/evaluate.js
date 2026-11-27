@@ -172,11 +172,36 @@
       }
       const p0 = ok(val(`${p}.p0`)) ? val(`${p}.p0`) : toNum(calc[`${p}.p0`]);
       const pu = puOf(p), low = ok(pu) && Math.round(pu) < 100;
-      const lowNote = low ? `Đo ở ${fmt(pu, pu < 10 ? 2 : 1)} % Uđm — số liệu xuất xưởng cho tại Uđm nên không so sánh; lưu làm giá trị khởi đầu cho các lần đo cùng điện áp (Bảng 1 ghi chú c).` : '';
+      const lan = r === 'r0' ? 'lần 1' : 'lần 2';
+      // Đo dưới Uđm: so với số liệu xuất xưởng / khởi đầu ở cùng điện áp đo (cột "XX cùng mức"); không có thì chỉ ghi nhận.
+      // P0 lệch ≤ 10 % (MBA 1 pha ≥110 kV sau lắp đặt/sửa chữa) / ≤ 15 % (vận hành) giá trị khởi đầu — Điều 34 mục 3;
+      // I0 ≤ +30 % số liệu NSX (Điều 34 nêu cho MBA 3 pha — tham khảo, như ở Uđm).
+      const uref = val(`${p}.uref`), pref = val(`${p}.pref`), iref = val(`${p}.iref`);
+      const uTxt = ok(uref) ? ` ở ${fmt(uref, 3)} kV` : '';
+      const uNote = ok(uref) && ok(ur) ? ` U đo ${fmt(ur, 3)} kV / U xuất xưởng ${fmt(uref, 3)} kV${uref ? ` (${sgn(devPct(ur, uref), 1)} %)` : ''} — chỉ so khi cùng mức điện áp.` : '';
+      const lowNote = low ? `Đo ở ${fmt(pu, pu < 10 ? 2 : 1)} % Uđm — số liệu xuất xưởng tại Uđm không so được; so với số liệu xuất xưởng / khởi đầu ở cùng điện áp (Bảng 1 ghi chú c).` : '';
       if (ok(p0) && low) {
-        add({ sec: 'noload', item: `Tổn hao không tải P0 (${r === 'r0' ? 'lần 1' : 'lần 2'}) — đo dưới Uđm`, loc: unitLabel(unit), meas: `${fmt(p0 * 1000, 2)} W`,
-          status: 'info', basis: R.noload, note: lowNote, keys: [`${p}.p0`, `${p}.pm`] });
-      } else if (ok(p0)) {
+        const d = ok(pref) ? devPct(p0, pref) : NaN, lim = isNew ? L.NOLOAD_1PH_NEW : L.NOLOAD_OPER;
+        if (ok(d)) calc[`${p}.dp`] = sgn(d, 2);
+        add({ sec: 'noload', item: `Tổn hao không tải P0 (${lan}) — đo dưới Uđm`, loc: unitLabel(unit), meas: `${fmt(p0 * 1000, 2)} W`,
+          ref: ok(pref) ? `${fmt(pref * 1000, 2)} W${uTxt} (XX)` : '', dev: ok(d) ? sgn(d) : '',
+          limit: ok(d) ? `±${lim}% giá trị khởi đầu cùng điện áp (MBA 1 pha ≥110 kV, ${isNew ? 'sau lắp đặt/sửa chữa' : 'vận hành'})` : '',
+          status: ok(d) ? (Math.abs(d) <= lim ? 'pass' : 'fail') : 'info', basis: R.noload,
+          note: ok(d) ? lowNote + uNote : `${lowNote} Nhập P0 xuất xưởng ở cùng điện áp (cột “P0 XX”) để so sánh; không có thì lưu làm giá trị khởi đầu cho các lần sau.`,
+          keys: [`${p}.p0`, `${p}.pm`, `${p}.pref`] });
+      }
+      if (low) {
+        const cur = curCols.map(c => val(`${p}.${c}`)).filter(ok), io = cur.length ? cur.reduce((a, b) => a + b, 0) / cur.length : NaN;
+        const d = ok(io) && ok(iref) ? devPct(io, iref) : NaN;
+        if (ok(d)) {
+          calc[`${p}.di`] = sgn(d, 2);
+          add({ sec: 'noload', item: `Dòng không tải I0 (${lan}) — đo dưới Uđm`, loc: unitLabel(unit), meas: `${fmt(io, 5)} A`,
+            ref: `${fmt(iref, 5)} A${uTxt} (XX)`, dev: sgn(d), limit: '≤ +30% số liệu NSX (tham khảo)', status: d <= 30 ? 'pass' : 'warn', basis: R.noload,
+            note: `${lowNote}${uNote} Tiêu chí 30% QĐ 1901 nêu cho MBA 3 pha — dùng tham khảo.`, keys: curCols.map(c => `${p}.${c}`).concat([`${p}.iref`]) });
+        }
+      }
+      // tại Uđm: so với P0 xuất xưởng (test report)
+      if (ok(p0) && !low) {
         const ref = F && F.unit(unit) ? F.unit(unit).noLoadLoss : null;
         const lim = isNew ? L.NOLOAD_1PH_NEW : L.NOLOAD_OPER;
         const d = devPct(p0, ref);
@@ -188,8 +213,9 @@
       const i0 = ok(val(`${p}.i0`)) ? val(`${p}.i0`) : toNum(calc[`${p}.i0`]);
       const i0ref = toNum(cfg.i0Ref);
       if (ok(i0) && low) {
-        add({ sec: 'noload', item: `Dòng không tải I0 (${r === 'r0' ? 'lần 1' : 'lần 2'}) — đo dưới Uđm`, loc: unitLabel(unit), meas: `${fmt(i0, 4)} %`,
-          status: 'info', basis: R.noload, note: lowNote, keys: [`${p}.i0`] });
+        // I0 % ở điện áp thấp chỉ ghi nhận (so I0 theo A với xuất xưởng cùng điện áp ở trên)
+        if (!ok(iref)) add({ sec: 'noload', item: `Dòng không tải I0 (${lan}) — đo dưới Uđm`, loc: unitLabel(unit), meas: `${fmt(i0, 4)} %`,
+          status: 'info', basis: R.noload, note: `${lowNote} Nhập I0 xuất xưởng ở cùng điện áp (cột “I0 XX”, A) để so sánh.`, keys: [`${p}.i0`] });
       } else if (ok(i0)) {
         const d = devPct(i0, i0ref);
         add({ sec: 'noload', item: `Dòng không tải I0 (${r === 'r0' ? 'lần 1' : 'lần 2'})`, loc: unitLabel(unit), meas: `${fmt(i0, 4)} %`,

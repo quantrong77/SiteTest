@@ -8,6 +8,10 @@
 
   const range = (n, f) => Array.from({ length: n }, (_, i) => f(i));
   const col = (k, label, doc, o = {}) => Object.assign({ k, label, doc }, o);
+  // Không tải đo ở điện áp thấp (vd 380 V, 2 kV — QĐ 1901 Bảng 1 ghi chú c): số liệu xuất xưởng / khởi đầu ở cùng điện áp đo
+  // (nhập tay — test report thường chỉ có P0, I0 tại 100 % Ur) và độ lệch tự tính. Chỉ trong app, không xuất BBTN.
+  const NL_REF_COLS = [col('uref', 'U XX cùng mức (kV)', undefined, { ref: true }), col('iref', 'I0 XX (A)', undefined, { ref: true }),
+    col('pref', 'P0 XX (kW)', undefined, { ref: true }), col('di', 'ΔI0 (%)', undefined, { calc: true }), col('dp', 'ΔP0 (%)', undefined, { calc: true })];
 
   // ---------------- Thông tin chung (bảng 0) ----------------
   // Loại thí nghiệm (ô "Lý do thí nghiệm"); giá trị cũ khác danh sách vẫn giữ nguyên trong biên bản
@@ -268,7 +272,7 @@
             id: `nl.${ph}.rated`, title: 'Đưa điện áp vào phía hạ áp', tables: [2 + i],
             rows: [{ k: 'r0', label: 'Lần 1', doc: 1 }, { k: 'r1', label: 'Lần 2', doc: 2 }],
             cols: [col('pu', '%Uđm', 0, { text: true }), col('um', "U' mean (kV)", 1), col('ur', 'U rms (kV)', 2), col('ia', 'I0 (A)', 3), col('i0', 'I0 (%)', 4, { auto: true }),
-              col('pm', 'Pmean (kW)', 5), col('p0', 'P0 (kW)', 6, { auto: true })],
+              col('pm', 'Pmean (kW)', 5), col('p0', 'P0 (kW)', 6, { auto: true })].concat(NL_REF_COLS),
           }],
         })),
       },
@@ -683,7 +687,7 @@
             id: 'nl.rated', title: '2.3 Đo ở điện áp định mức', tables: [3],
             rows: [{ k: 'r0', label: 'Uđm (lần 1)', doc: 1 }, { k: 'r1', label: 'Uđm (lần 2)', doc: 2 }],
             cols: [col('um', "U' mean (kV)", 1), col('ur', 'U rms (kV)', 2), col('ia', 'Iax (A)', 3), col('ib', 'Iby (A)', 4), col('ic', 'Icz (A)', 5),
-              col('i0', 'I0 (%)', 6, { auto: true }), col('pm', 'Pm (kW)', 7), col('p0', 'P0 (kW)', 8, { auto: true })],
+              col('i0', 'I0 (%)', 6, { auto: true }), col('pm', 'Pm (kW)', 7), col('p0', 'P0 (kW)', 8, { auto: true })].concat(NL_REF_COLS),
           },
         ],
       },

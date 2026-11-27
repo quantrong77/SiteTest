@@ -117,3 +117,28 @@ test('đánh giá không tải: đo dưới Uđm (theo ô %Uđm hoặc U rms / U
   const rated = rows.find(r => /P0 tại Uđm \(lần 2\)/.test(r.item));
   assert.equal(rated.status, 'missing');
 });
+
+test('không tải dưới Uđm: so với số liệu xuất xưởng cùng điện áp — ΔP0 theo ±10 % / ±15 % (Điều 34), ΔI0 ≤ +30 % tham khảo; tách pha giữ cột', () => {
+  const c = ctx(), M = c.EquipmentTypes.get('MBA');
+  const cfg = Object.assign(M.defaultCfg(), { template: '3P', topology: 'bank1p', sLV: '50', iLV: '2000', sR: '150', ps: { A: 'SN-A', B: 'SN-B', C: 'SN-C' } });
+  const schema = M.buildSchema(cfg);
+  const g = c.Common.findGrid(schema, 'nl.A.rated');
+  eq(g.cols.filter(x => ['uref', 'iref', 'pref', 'di', 'dp'].includes(x.k)).map(x => [x.k, x.doc === undefined, !!x.calc]),
+    [['uref', true, false], ['iref', true, false], ['pref', true, false], ['di', true, true], ['dp', true, true]]);
+  const v = { 'meta.reason': 'Sau lắp đặt', 'nl.A.rated.r1.ur': '2', 'nl.A.rated.r1.ia': '0,16641', 'nl.A.rated.r1.pm': '0,26208', 'nl.A.rated.r1.p0': '0,26208',
+    'nl.A.rated.r1.uref': '2', 'nl.A.rated.r1.iref': '0,15', 'nl.A.rated.r1.pref': '0,25',
+    'nl.B.rated.r1.ur': '2', 'nl.B.rated.r1.ia': '0,2', 'nl.B.rated.r1.p0': '0,3', 'nl.B.rated.r1.iref': '0,14', 'nl.B.rated.r1.pref': '0,25' };
+  const st = { type: 'MBA', v, cfg, sum: { tick: {}, ev: {} }, att: {} };
+  const res = M.evaluate(st, null, schema);
+  const f = (ph, re) => res.findings.find(x => x.sec === 'noload' && x.loc && x.loc.includes(`SN-${ph}`) && re.test(x.item));
+  const pA = f('A', /P0 \(lần 2\) — đo dưới Uđm/), iA = f('A', /I0 \(lần 2\) — đo dưới Uđm/);
+  eq([pA.status, pA.dev, pA.ref, res.calc['nl.A.rated.r1.dp']], ['pass', '+4,83', '250,00 W ở 2,000 kV (XX)', '+4,83']);
+  assert.match(pA.limit, /±10% giá trị khởi đầu cùng điện áp/);
+  eq([iA.status, iA.dev, res.calc['nl.A.rated.r1.di']], ['pass', '+10,94', '+10,94']);
+  // pha B: P0 lệch +20 % > 10 % → không đạt; I0 +42,9 % > 30 % → cần xem xét
+  eq([f('B', /P0 \(lần 2\)/).status, f('B', /I0 \(lần 2\)/).status], ['fail', 'warn']);
+  // tách BBTN pha A: cột số liệu xuất xưởng cùng điện áp đi theo
+  const tgt = M.buildSchema(Object.assign(M.defaultCfg(), { template: 'A', topology: 'bank1p' }));
+  const pv = c.MbaReport.phaseState(st, schema, tgt, 'A').v;
+  eq([pv['nl.rated.r1.pref'], pv['nl.rated.r1.iref'], pv['nl.rated.r1.uref']], ['0,25', '0,15', '2']);
+});
