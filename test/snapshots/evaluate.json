@@ -1061,8 +1061,10 @@
   "calc": {
    "nl.rated.r0.p0": "60,66",
    "nl.rated.r0.i0": "0,0345",
+   "nl.rated.r0.dp": "+4,59",
    "nl.rated.r1.p0": "60,90",
    "nl.rated.r1.i0": "0,0346",
+   "nl.rated.r1.dp": "+5,00",
    "ir.meas.r0.kht": "1,50",
    "ir.meas.r0.pi": "2,09",
    "ir.c20.r0.r15": "12960",
@@ -2293,8 +2295,10 @@
   "calc": {
    "nl.rated.r0.p0": "60,66",
    "nl.rated.r0.i0": "0,0345",
+   "nl.rated.r0.dp": "+4,59",
    "nl.rated.r1.p0": "60,90",
    "nl.rated.r1.i0": "0,0346",
+   "nl.rated.r1.dp": "+5,00",
    "ir.meas.r0.kht": "1,50",
    "ir.meas.r0.pi": "2,09",
    "ir.c20.r0.r15": "12960",

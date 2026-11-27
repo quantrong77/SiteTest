@@ -296,6 +296,13 @@
           norm_temp_c: ok(o.norm) ? o.normT ?? null : null, status: null, note: o.note || null });
       };
       put(mainRef, 'NOLOAD', 'P0', { config: 'RATED', tap: '1', value: u.noLoadLoss, unit: 'kW', temp: c.noload });
+      // không tải theo mức điện áp: 100 % Ur → RATED (P0 ở trên, I0 %); mức khác → LEVEL, nấc = "90%" | "10KV"
+      (u.noLoad || []).forEach(l => {
+        const rated = l.kv == null && l.pu === 100, o = rated ? { config: 'RATED', tap: '1' } : { config: 'LEVEL', tap: l.kv != null ? `${l.kv}KV` : `${l.pu}%` };
+        if (!rated) put(mainRef, 'NOLOAD', 'P0', Object.assign({ value: l.p0, unit: 'kW', temp: c.noload }, o));
+        put(mainRef, 'NOLOAD', 'I0', Object.assign({ value: l.i0, unit: '%', temp: c.noload }, o));
+        put(mainRef, 'NOLOAD', 'I0_A', Object.assign({ value: l.i0A, unit: 'A', temp: c.noload }, o));
+      });
       put(mainRef, 'MOISTURE', 'WC', { value: c.moisture, unit: '%', temp: c.dfr, note: 'DFR xuất xưởng' });
       put(mainRef, 'VECTOR', 'RESULT', { text: D.specs.vector });
       // Tỷ số biến: K = Kđm·(1+sai số)

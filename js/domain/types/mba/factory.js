@@ -15,6 +15,8 @@
   const norm = s => String(s || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
   // Khóa sơ đồ đo cách điện, giữ dấu +/- để phân biệt "HV+MV+N-LV+TANK" và "HV+MV+N+LV-TANK"
   const cfgKey = s => String(s || '').toUpperCase().replace(/\s/g, '');
+  // Ghép lần đo không tải với mức điện áp xuất xưởng: U lệch ≤ 2 % coi là cùng mức (quy tắc ghép, không phải ngưỡng đánh giá)
+  const NOLOAD_U_MATCH = 2;
   const rowsOf = ws => XLSX.utils.sheet_to_json(ws, { header: 1, defval: null, raw: true });
 
   function findSheet(wb, re) {
@@ -229,6 +231,7 @@
     // --- Tổn hao & trở kháng (chỉ để xem)
     const ls = findSheet(wb, /Losses|Impedance/i);
     if (ls) F.losses = ls.rows;
+    noLoadLevels(F, ls);
 
     // --- Sứ xuyên
     const bs = findSheet(wb, /Bushing|Sứ/i);
@@ -321,6 +324,58 @@
     return F;
   }
 
+  // Mức điện áp ghi trong nhãn: "(100% Ur)", "(90 % Un)", "(10 kV)", "(380 V)". Không ghi → null.
+  function levelOf(label) {
+    const s = String(label || '').replace(/,/g, '.');
+    const pu = s.match(/(\d+(?:\.\d+)?)\s*%\s*U/i);
+    const kv = s.match(/(?:^|[\s(@=])(\d+(?:\.\d+)?)\s*(kV|V)(?![A-Za-z])/);
+    return { pu: pu ? +pu[1] : null, kv: kv ? +kv[1] / (kv[2] === 'V' ? 1000 : 1) : null };
+  }
+  // Giá trị không tải: P → kW, I0 → % hoặc A theo đơn vị trong ô / cột đơn vị
+  function nlValue(v, unitHint, kind) {
+    const n = num(v);
+    if (n === null) return null;
+    const u = (typeof v === 'string' && /[a-z%]/i.test(v) ? v : String(unitHint || '')).replace(/\s/g, '');
+    if (kind === 'p') return /(^|[^k])W/.test(u) && !/kW/i.test(u) ? { p0: n / 1000 } : { p0: n };
+    if (/mA/.test(u)) return { i0A: n / 1000 };
+    if (/A/.test(u) && !/%/.test(u)) return { i0A: n };
+    return { i0: n };
+  }
+  // Tổn hao / dòng không tải xuất xưởng theo từng mức điện áp đo → F.units[s].noLoad = [{ pu, kv, p0 (kW), i0 (%), i0A (A) }].
+  // Nguồn: bảng tổng quan (không ghi mức → 100 % Ur) và sheet tổn hao (nhãn ghi mức). Dùng để so lần đo hiện trường cùng mức điện áp.
+  function noLoadLevels(F, ls) {
+    const add = (s, lv, val) => {
+      const u = F.units[s];
+      if (!u || !val) return;
+      const list = u.noLoad = u.noLoad || [];
+      const same = x => (lv.kv != null ? x.kv === lv.kv : x.kv == null && x.pu === lv.pu);
+      let e = list.find(same);
+      if (!e) { e = { pu: lv.pu, kv: lv.kv }; list.push(e); }
+      Object.keys(val).forEach(k => { if (e[k] == null) e[k] = val[k]; });
+    };
+    const kindOf = label => (/kh[ôo]ng\s*t[ảa]i|no.?load/i.test(label) && !/ngắn mạch|ồn|noise|sound/i.test(label)
+      ? (/tổn hao|loss|\bP0\b|\bPo\b/i.test(label) ? 'p' : /dòng|current|\bI0\b|\bIo\b/i.test(label) ? 'i' : null) : null);
+    if (ls) {
+      const h = ls.rows.findIndex(r => r && unitCols(r, F, /Đánh giá|Bảo đảm|Guarantee/i).length);
+      const mc = h >= 0 ? unitCols(ls.rows[h], F, /Đánh giá|Bảo đảm|Guarantee/i) : [];
+      for (let r = h + 1; h >= 0 && r < ls.rows.length; r++) {
+        const row = ls.rows[r];
+        const label = String(row && row[0] || ''), kind = kindOf(label);
+        if (!kind) continue;
+        const lv = levelOf(label);
+        if (lv.pu == null && lv.kv == null) lv.pu = 100;
+        mc.forEach(({ c, serial }) => add(serial, lv, nlValue(row[c], null, kind)));
+      }
+    }
+    F.overview.forEach(o => {
+      const kind = kindOf(o.label);
+      if (!kind) return;
+      const lv = levelOf(o.label);
+      if (lv.pu == null && lv.kv == null) lv.pu = 100;
+      Object.entries(o.vals).forEach(([s, v]) => add(s, lv, nlValue(v, o.unit, kind)));
+    });
+  }
+
   function parseBushingCriteria(text, F) {
     const c1 = text.match(/C1[^±]*±\s*([\d.,]+)\s*%/i);
     const td = text.match(/Tan\S*\s*≤\s*([\d.,]+)\s*%/i);
@@ -400,6 +455,14 @@
       data: F,
       has: s => !!F.units[s],
       unit: s => F.units[s] || null,
+      // Số liệu không tải xuất xưởng cùng mức điện áp với lần đo: { kv: U rms đo (kV), pu: %Uđm }.
+      // Cùng mức: U lệch ≤ NOLOAD_U_MATCH % (theo kV khi xuất xưởng ghi kV, theo %Uđm khi ghi %Ur). Không có → null.
+      noLoadAt(s, at) {
+        const list = (F.units[s] && F.units[s].noLoad) || [];
+        const close = (a, b) => Number.isFinite(a) && Number.isFinite(b) && b > 0 && Math.abs(a - b) / b * 100 <= NOLOAD_U_MATCH;
+        return list.find(x => x.kv != null && close(at && at.kv, x.kv))
+          || list.find(x => x.kv == null && x.pu != null && close(at && at.pu, x.pu)) || null;
+      },
       shortCircuitFor,
       ratioTap: tap => matchTap(F.ratio.taps, tap),
       // opts.byTap: cuộn có bộ điều áp không phải cuộn nối tiếp (OLTC ở cuộn trung áp) — chỉ trả giá trị khi file XX có
@@ -449,6 +512,17 @@
       F.order.push(s);
       if (!F.reportDate && S.testDate) F.reportDate = S.testDate;
       if (p0 && fin(n(p0.temp_c))) c.noload = n(p0.temp_c);
+      // không tải theo mức điện áp (MbaRows.factorySessions: RATED = 100 % Ur, LEVEL nấc "90%" | "10KV")
+      main.filter(r => r.item === 'NOLOAD' && (r.config === 'RATED' || r.config === 'LEVEL') && fin(n(r.value))).forEach(r => {
+        const k = { P0: 'p0', I0: 'i0', I0_A: 'i0A' }[r.param];
+        if (!k) return;
+        const t = String(r.tap || '').toUpperCase(), kv = r.config === 'LEVEL' && /KV$/.test(t) ? parseFloat(t) : null;
+        const pu = r.config === 'RATED' ? 100 : kv == null ? parseFloat(t) : null;
+        const list = F.units[s].noLoad = F.units[s].noLoad || [];
+        let e = list.find(x => x.kv === kv && x.pu === pu);
+        if (!e) { e = { pu, kv }; list.push(e); }
+        e[k] = n(r.value);
+      });
       main.forEach(r => {
         const v = n(r.value), t = n(r.temp_c);
         if (r.item === 'MOISTURE' && r.param === 'WC') { if (fin(v)) c.moisture = v; if (fin(t)) c.dfr = t; }
