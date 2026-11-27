@@ -293,6 +293,8 @@ code { font-family: var(--mono); font-size: 12px; }
 .cpc-tbl td.note { max-width: none; min-width: 260px; }
 .doble-tbl tr.off td { color: var(--muted); }
 .doble-tbl select { max-width: 260px; }
+.doble-sel { justify-content: flex-start; align-items: center; flex-wrap: wrap; gap: 8px; margin: 4px 0 8px; }
+.doble-count { font-size: 13px; color: var(--muted, #64748b); }
 .doble-opt { display: flex; gap: 8px; align-items: flex-start; margin: 4px 0 8px; font-size: 13px; }
 .ad-body.cpc { max-height: calc(100vh - 140px); overflow: auto; }
 .cpc-file { border: 1px solid var(--line); border-radius: var(--radius); margin: 12px 0; overflow-x: auto; }

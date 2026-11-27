@@ -208,6 +208,7 @@
       NOLOAD_1PH_NEW: 10,  // Điều 34 — MBA 1 pha ≥110 kV sau lắp đặt/sửa chữa: ±10% giá trị khởi đầu
       NOLOAD_OPER: 15,     // Điều 34 — trong vận hành: ±15%
       NOLOAD_3PH_NEW: 5,   // Điều 34 mục 3 — MBA 3 pha ≥110 kV sau lắp đặt/sửa chữa: ±5% giá trị xuất xưởng
+      NOLOAD_I0_NSX: 30,   // Điều 34 mục 3 — MBA 3 pha: dòng không tải không vượt quá 30% số liệu NSX
       NOLOAD_LV_PHASE: 5,  // Điều 34 mục 3 — MBA 3 pha, đo điện áp thấp: Po, Io (nguồn bc, ngắn mạch a) và (nguồn ab, ngắn mạch c) lệch ≤5%
       UK_PHASE: 3,         // Điều 35 — MBA 3 pha: Uk từng pha lệch ≤3% giá trị trung bình 3 pha
       UK_DEV: 3,           // Điều 35 — Uk sai số cho phép 3% so với giá trị ghi trên mác máy (đối chiếu Test Report)
@@ -224,6 +225,7 @@
       NOLOAD_1PH_NEW: { sec: 'noload', label: 'Tổn hao không tải MBA 1 pha ≥110 kV — sau lắp đặt / sửa chữa, lệch tối đa so với giá trị khởi đầu', unit: '%', source: 'Điều 34' },
       NOLOAD_3PH_NEW: { sec: 'noload', label: 'Tổn hao không tải MBA 3 pha ≥110 kV — sau lắp đặt / sửa chữa, lệch tối đa so với giá trị xuất xưởng', unit: '%', source: 'Điều 34 mục 3' },
       NOLOAD_OPER: { sec: 'noload', label: 'Tổn hao không tải — trong vận hành, lệch tối đa so với giá trị khởi đầu', unit: '%', source: 'Điều 34' },
+      NOLOAD_I0_NSX: { sec: 'noload', label: 'Dòng điện không tải MBA 3 pha — vượt tối đa so với số liệu nhà sản xuất', unit: '%', source: 'Điều 34 mục 3' },
       NOLOAD_LV_PHASE: { sec: 'noload', label: 'MBA 3 pha, đo ở điện áp thấp — Po, Io hai pha biên (nguồn bc / ab) lệch tối đa', unit: '%', source: 'Điều 34 mục 3' },
       UK_PHASE: { sec: 'shortCircuit', label: 'MBA 3 pha — Uk từng pha lệch tối đa so với trung bình 3 pha', unit: '%', source: 'Điều 35' },
       UK_DEV: { sec: 'shortCircuit', label: 'Điện áp ngắn mạch Uk — sai số tối đa so với mác máy / Test Report', unit: '%', source: 'Điều 35' },

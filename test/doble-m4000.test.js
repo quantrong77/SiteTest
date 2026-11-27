@@ -47,8 +47,10 @@ test('ghép mẫu 3 pha: cuộn dây theo tên + sơ đồ đo, sứ theo tên /
   const items = c.MbaDoble.guess(c.DobleM4000.parse(FILE, 'FAKE.txt'), schema, cfg);
   const by = no => items.find(it => it.no === no);
   eq([3, 4, 5, 6, 7, 8].map(n => by(n).target), ['w|wtgd.A.meas|r4', 'w|wtgd.A.meas|r3', 'w|wtgd.A.meas|r0', 'w|wtgd.A.meas|r5', 'w|wtgd.A.meas|r1', 'w|wtgd.A.meas|r2']);
-  eq([by(11).use, by(12).use, by(11).target], [false, true, 'w|wtgd.B.meas|r5']);
-  assert.match(by(11).note, /đo lặp — dùng lần sau \(TT 12\)/);
+  // mặc định chọn tất cả (cả lần đo lặp); khi điền dùng lần chọn sau cùng
+  eq([by(11).use, by(12).use, by(11).target], [true, true, 'w|wtgd.B.meas|r5']);
+  assert.match(by(11).note, /đo lặp — điền lần sau \(TT 12\)/);
+  assert.ok(!c.MbaDoble.effective(items).includes(by(11)) && c.MbaDoble.effective(items).includes(by(12)));
   eq([29, 30, 31, 32, 33, 52, 55, 56].map(n => by(n).target),
     ['b|b.hv.meas|1|A', 'b|b.mv.meas|1|A', 'b|b.n.meas|1|A', 'b|b.lv.meas|1|a', 'b|b.lv2.meas|1|a', 'b|b.hv.meas|2|A', 'b|b.lv.meas|2|a', 'b|b.lv2.meas|2|a']);
   assert.match(by(31).note, /đoán C1/);
@@ -91,7 +93,7 @@ test('không tải: mỗi pha điện áp thấp → lần 1 (đo lặp lấy l�
   const p = c.DobleM4000.parse(NL, 'nl.txt');
   eq(p.items.map(it => [it.group, it.phase, it.kv, it.ma, it.watts]), [['noload', 'A', 0.385, 58.029, 14.291], ['noload', 'A', 0.38, 58.55, 14.156], ['noload', 'A', 2, 166.407, 262.08], ['noload', 'B', 0.387, 115.073, 17.583]]);
   const items = c.MbaDoble.guess(p, schema, cfg);
-  eq(items.map(it => [it.no, it.use, it.target]), [[73, false, 'n|nl.A.rated|r0'], [74, true, 'n|nl.A.rated|r0'], [76, true, 'n|nl.A.rated|r1'], [78, true, 'n|nl.B.rated|r0']]);
+  eq(items.map(it => [it.no, it.use, it.target]), [[73, true, 'n|nl.A.rated|r0'], [74, true, 'n|nl.A.rated|r0'], [76, true, 'n|nl.A.rated|r1'], [78, true, 'n|nl.B.rated|r0']]);
   const uLV = c.MbaDoble.uLV(cfg, schema);
   assert.equal(uLV, 25); // 50 MVA × 1000 / 2000 A
   const { v } = c.MbaDoble.writes(items, { p0FromPm: true, uLV, hasPu: true });
@@ -99,6 +101,11 @@ test('không tải: mỗi pha điện áp thấp → lần 1 (đo lặp lấy l�
   assert.equal(v['nl.A.rated.r1.um'], undefined); // U'mean: Doble không đo
   eq(['ur', 'ia', 'pm', 'pu'].map(k => v[`nl.A.rated.r0.${k}`]), ['0,38', '0,05855', '0,014156', '1,52']);
   assert.equal(c.MbaDoble.writes(items, {}).v['nl.A.rated.r1.p0'], undefined);
+  // bỏ chọn lần sau (TT 74) → lần trước (TT 73, 0,385 kV) được điền; bỏ chọn tất cả → không điền gì
+  items.find(it => it.no === 74).use = false;
+  assert.equal(c.MbaDoble.writes(items, {}).v['nl.A.rated.r0.ur'], '0,385');
+  items.forEach(it => { it.use = false; });
+  assert.equal(c.MbaDoble.writes(items, {}).n, 0);
   assert.ok(Number.isNaN(c.MbaDoble.uLV(Object.assign({}, cfg, { iLV: '' }), schema)));
 });
 
