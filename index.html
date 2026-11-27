@@ -32,6 +32,11 @@
       <button class="ad-x" onclick="this.closest('dialog').close()" aria-label="Đóng">×</button></div>
     <div id="mrctPanel"></div>
   </dialog>
+  <dialog class="auth-dialog cpc-dialog doble-dialog" id="dobleDialog" aria-labelledby="dobleTitle">
+    <div class="ad-band"><span>tgδ, điện dung — Doble M4000</span>
+      <button class="ad-x" onclick="this.closest('dialog').close()" aria-label="Đóng">×</button></div>
+    <div id="doblePanel"></div>
+  </dialog>
   <dialog class="auth-dialog cpc-dialog wa-dialog" id="waDialog" aria-labelledby="waTitle">
     <div class="ad-band"><span>Nhập số liệu máy đo Haefely 2293</span>
       <button class="ad-x" onclick="this.closest('dialog').close()" aria-label="Đóng">×</button></div>
@@ -43,6 +48,7 @@
   <input type="file" id="fileHitachi" accept=".xlsx,.xlsm" hidden>
   <input type="file" id="fileCpc" accept=".xml" multiple hidden>
   <input type="file" id="fileMrct" accept=".pdbxml,.pdf" multiple hidden>
+  <input type="file" id="fileDoble" accept=".txt,text/plain" multiple hidden>
   <input type="file" id="fileFra" accept=".docx" hidden>
   <input type="file" id="fileOil" accept=".docx" multiple hidden>
   <input type="file" id="fileNameplate" accept="image/*" hidden>
