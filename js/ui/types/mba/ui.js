@@ -55,7 +55,7 @@
   }
 
   // Nút nhập file .txt máy đo tgδ Doble M4000 (mục 5 sứ, mục 7 cuộn dây): một file có cả sứ và cuộn dây của các pha
-  const dobleField = what => `<div class="field"><label>tgδ, điện dung ${what} từ máy đo</label><button class="btn primary" data-act="loadDoble">Nhập file Doble M4000 (.txt)…</button></div>`;
+  const dobleField = (what, lead = 'tgδ, điện dung') => `<div class="field"><label>${lead === 'tgδ, điện dung' ? `tgδ, điện dung ${what}` : what} từ máy đo</label><button class="btn primary" data-act="loadDoble">Nhập file Doble M4000 (.txt)…</button></div>`;
   const DOBLE_HINT = 'Doble M4000: file .txt xuất từ máy (Clipboard) có cả cuộn dây và sứ của các pha — app ghép theo đề mục pha, tên phép đo và sơ đồ đo, cho xem và sửa ô đích trước khi điền; tgδ lấy %PF đo (app tự quy đổi về 20 °C).';
 
   // Công cụ đầu hạng mục (mục 7, 8, 9: nhập file Haefely 2293; mục 11: số cuộn thứ cấp, nhập XML CPC 100)
@@ -68,7 +68,8 @@
     }
     // mục 5: test report sứ của hãng (tra theo S/N sứ) — nạp ngay tại mục dùng nó
     if (id === 'bushing') return `<div class="bct-tools"><div class="fields">${generalFiles(A)}${dobleField('sứ')}</div><div class="hint-text">File test report sứ Hitachi (.xlsx, sheet TestReport + TraCuu): app gộp theo S/N sứ, so C1, tanδ đo được với giá trị hãng. Nạp được nhiều file (sứ của nhiều máy). ${DOBLE_HINT}</div></div>`;
-    // mục 7: tgδ, điện dung cuộn dây từ file Doble M4000
+    // mục 7: tgδ, điện dung cuộn dây từ file Doble M4000; mục 2: không tải (U rms, I0, Pmean) cùng file
+    if (id === 'noload') return `<div class="bct-tools"><div class="fields">${dobleField('không tải (U, I0, P)', 'không tải')}</div><div class="hint-text">${DOBLE_HINT} Không tải: mỗi pha lần đo điện áp thấp (vd 380 V) vào lần 1, điện áp cao nhất (vd 2 kV, 10 kV) vào lần 2; U'mean Doble không đo.</div></div>`;
     if (id === 'wtgd') return `<div class="bct-tools"><div class="fields">${dobleField('cuộn dây')}</div><div class="hint-text">${DOBLE_HINT}</div></div>`;
     if (id !== 'bct') return '';
     return `<div class="bct-tools"><div class="fields">${bctPlaceField(A)}${A.cfgField('bctCores.hv', 'Số cuộn thứ cấp TI phía HV', { options: [4, 5, 6] })}${A.cfgField('bctCores.mv', 'Số cuộn thứ cấp TI phía MV', { options: [4, 5] })}<div class="field"><label>Đặc tính từ hóa từ máy đo</label><button class="btn primary" data-act="loadCpc">Nhập XML CPC 100…</button></div><div class="field"><label>Tỷ số, điện trở, từ hóa</label><button class="btn primary" data-act="loadMrct">Nhập Megger MRCT (.pdbxml, PDF)…</button></div></div><div class="hint-text">CPC 100: chọn một hoặc nhiều file XML (mỗi file một pha/một phía); app lấy 3 điểm (U, I) theo IEC 61869-2 và điền vào bảng đặc tính từ hóa. Megger MRCT: chọn file .pdbxml của PowerDB và/hoặc báo cáo PDF "CT TEST REPORT"; tỷ số đo, sai số, góc pha, cực tính chỉ có trong báo cáo PDF. File có cuộn 5, 6 sẽ tự mở thêm cuộn. Phía LV và trung tính theo template chỉ có 4 và 3 cuộn.</div></div>`;

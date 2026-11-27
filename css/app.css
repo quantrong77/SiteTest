@@ -293,6 +293,7 @@ code { font-family: var(--mono); font-size: 12px; }
 .cpc-tbl td.note { max-width: none; min-width: 260px; }
 .doble-tbl tr.off td { color: var(--muted); }
 .doble-tbl select { max-width: 260px; }
+.doble-opt { display: flex; gap: 8px; align-items: flex-start; margin: 4px 0 8px; font-size: 13px; }
 .ad-body.cpc { max-height: calc(100vh - 140px); overflow: auto; }
 .cpc-file { border: 1px solid var(--line); border-radius: var(--radius); margin: 12px 0; overflow-x: auto; }
 .cpc-file-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; padding: 8px 12px; background: #f4f6f7; border-bottom: 1px solid var(--line); font-size: 13px; }

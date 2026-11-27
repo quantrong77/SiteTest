@@ -3,6 +3,7 @@
 // app tự quy đổi về 20 °C); C ghi pF; U đo (kV), sơ đồ đo (UST/GAR/GND). Đích là chuỗi:
 //   cuộn dây  "w|<grid id>|<hàng>"            vd "w|wtgd.A.meas|r4"
 //   sứ        "b|<grid id>|<1|2>|<cột pha>"   vd "b|b.hv.meas|1|A"
+//   không tải "n|<grid id>|<r0|r1>"            vd "n|nl.A.rated|r0" — lần 1: điện áp thấp (vd 380 V), lần 2: điện áp cao nhất (vd 2 kV, 10 kV)
 (function () {
   'use strict';
 
@@ -12,6 +13,8 @@
     Common.eachGrid(schema, g => {
       const w = g.id.match(/^wtgd(?:\.([ABC]))?\.meas$/);
       if (w) g.rows.forEach(r => out.push({ id: `w|${g.id}|${r.k}`, kind: 'winding', grid: g.id, row: r.k, phase: w[1] || '', label: `Cuộn dây${w[1] ? ` pha ${w[1]}` : ''}: ${r.label}` }));
+      const n = g.id.match(/^nl(?:\.([ABC]))?\.rated$/);
+      if (n) g.rows.forEach((r, i) => out.push({ id: `n|${g.id}|${r.k}`, kind: 'noload', grid: g.id, row: r.k, phase: n[1] || '', label: `Không tải${n[1] ? ` pha ${n[1]}` : ''}: lần ${i + 1}` }));
       const b = g.id.match(/^b\.(\w+)\.meas$/);
       if (b && g.rows.some(r => r.k === 'tgd1')) {
         const side = b[1], title = { hv: 'Sứ HV', mv: 'Sứ MV', n: 'Sứ N', lv: 'Sứ LV', lv2: 'Sứ LV (x,y,z)' }[side] || `Sứ ${side}`;
@@ -49,8 +52,17 @@
     const bs = items.filter(it => it.group === 'bushing').map(it => Object.assign(it, { tk: bushingTok(it) }));
     const kvs = [...new Set(bs.map(it => it.tk && Math.floor(Number(it.tk.tok))).filter(Number.isFinite))].sort((a, b) => b - a);
     items.forEach(it => {
-      if (it.group === 'noload') { it.note = 'Đo kích từ / không tải — không điền'; return; }
       if (tplPhase && it.phase && it.phase !== tplPhase) { it.note = `Pha ${it.phase} — biên bản đang lập pha ${tplPhase}`; return; }
+      if (it.group === 'noload') {
+        // mỗi pha: điện áp cao nhất → lần 2; thấp hơn → lần 1 (đo lặp: lần sau cùng, đánh dấu ở markRepeats)
+        const grid = T.find(t => t.kind === 'noload' && (t.phase === it.phase || (!t.phase && (!it.phase || tplPhase))));
+        if (!grid || !Number.isFinite(it.kv)) { it.note = 'Biểu mẫu không có bảng không tải pha này — chọn tay'; return; }
+        const same = items.filter(x => x.group === 'noload' && x.phase === it.phase && Number.isFinite(x.kv));
+        const top = Math.max(...same.map(x => x.kv)), two = same.some(x => x.kv < top);
+        it.target = `n|${grid.grid}|${two && it.kv === top ? 'r1' : 'r0'}`;
+        it.use = true;
+        return;
+      }
       if (it.group === 'winding') {
         const rk = windingRow(it);
         const gid = T.find(t => t.kind === 'winding' && (t.phase === it.phase || (!t.phase && (!it.phase || tplPhase))));
@@ -110,13 +122,30 @@
 
   // ---------------------------------------------------------------- ghi vào biểu mẫu
   const txt = (x, d) => (Number.isFinite(x) ? String(Number(x.toFixed(d))).replace('.', ',') : '');
+  // Uđm cuộn hạ áp của một máy 1 pha (kV) = S hạ áp (MVA) × 1000 / I hạ áp (A) — cấu hình mục 0; MBA 3 pha (mẫu 110/220) không tính
+  function uLV(cfg, schema) {
+    const c = cfg || {}, s = Common.toNum(c.sLV), i = Common.toNum(c.iLV);
+    if (schema && schema.layout === '110') return NaN;
+    return Number.isFinite(s) && Number.isFinite(i) && i > 0 ? s * 1000 / i : NaN;
+  }
+  const sig = (x, n) => (Number.isFinite(x) ? String(Number(x.toPrecision(n))).replace('.', ',') : '');
   // Trả về { v: {khóa: giá trị}, n: số dòng điền } — không sửa state; ô U đo / sơ đồ đo chung các pha của bảng sứ lấy theo dòng sau cùng
-  function writes(items) {
+  // opt: { p0FromPm: P0 = Pmean (Doble không đo U'mean, nguồn sin → d = 0), uLV: Uđm hạ áp (kV) để tính %Uđm, hasPu: bảng có cột %Uđm }
+  function writes(items, opt = {}) {
     const v = {};
     let n = 0;
     items.forEach(it => {
       if (!it.use || !it.target) return;
       const p = it.target.split('|');
+      if (p[0] === 'n') {
+        const base = `${p[1]}.${p[2]}`;
+        // U'mean: Doble không đo → để trống; I0 (A), Pmean (kW); I0 % app tự tính
+        v[`${base}.ur`] = txt(it.kv, 3); v[`${base}.ia`] = sig(it.ma / 1000, 5); v[`${base}.pm`] = sig(it.watts / 1000, 5);
+        if (opt.p0FromPm) v[`${base}.p0`] = sig(it.watts / 1000, 5);
+        if (opt.hasPu && Number.isFinite(opt.uLV) && opt.uLV > 0) v[`${base}.pu`] = sig(it.kv / opt.uLV * 100, 3);
+        n++;
+        return;
+      }
       if (p[0] === 'w') {
         const base = `${p[1]}.${p[2]}`;
         v[`${base}.tgd`] = txt(it.pf, 3); v[`${base}.c`] = txt(it.cap, 2); v[`${base}.u`] = txt(it.kv, 3); v[`${base}.d`] = it.mode;
@@ -139,10 +168,10 @@
     items.filter(it => it.use && it.target).forEach(it => {
       const p = it.target.split('|');
       if (p[0] === 'w') put(p[1].replace(/\.meas$/, '.t'));
-      else put('b.hv.t');
+      else if (p[0] === 'b') put('b.hv.t');
     });
     return out;
   }
 
-  window.MbaDoble = { targets, guess, windingRow, bushingTok, markRepeats, clashes, writes, tempWrites };
+  window.MbaDoble = { targets, guess, windingRow, bushingTok, markRepeats, clashes, writes, tempWrites, uLV };
 })();

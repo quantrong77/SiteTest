@@ -41,7 +41,7 @@ test('đọc file Doble M4000: thông tin chung, đề mục nhóm / pha, dòng 
   assert.throws(() => DobleM4000.parse('abc', 'x.txt'), /không phải file Doble M4000/);
 });
 
-test('ghép mẫu 3 pha: cuộn dây theo tên + sơ đồ đo, sứ theo tên / C1-C2, đo lặp lấy lần sau, kích từ không điền', () => {
+test('ghép mẫu 3 pha: cuộn dây theo tên + sơ đồ đo, sứ theo tên / C1-C2, đo lặp lấy lần sau', () => {
   const c = ctx(), M = c.EquipmentTypes.get('MBA');
   const cfg = Object.assign(M.defaultCfg(), { template: '3P', topology: 'bank1p' }), schema = M.buildSchema(cfg);
   const items = c.MbaDoble.guess(c.DobleM4000.parse(FILE, 'FAKE.txt'), schema, cfg);
@@ -53,10 +53,10 @@ test('ghép mẫu 3 pha: cuộn dây theo tên + sơ đồ đo, sứ theo tên /
     ['b|b.hv.meas|1|A', 'b|b.mv.meas|1|A', 'b|b.n.meas|1|A', 'b|b.lv.meas|1|a', 'b|b.lv2.meas|1|a', 'b|b.hv.meas|2|A', 'b|b.lv.meas|2|a', 'b|b.lv2.meas|2|a']);
   assert.match(by(31).note, /đoán C1/);
   assert.match(by(55).note, /bị cắt "35" — đoán 35\.1/);
-  eq([by(73).use, by(73).target], [false, '']);
+  eq([by(73).use, by(73).target], [true, 'n|nl.A.rated|r0']); // một mức điện áp → lần 1
   // ghi vào ô: tgδ = %PF đo, C, U đo, sơ đồ đo; nhiệt độ dầu vào ô nhiệt độ còn trống
   const { v, n } = c.MbaDoble.writes(items);
-  assert.equal(n, 15);
+  assert.equal(n, 16);
   eq([v['wtgd.A.meas.r0.tgd'], v['wtgd.A.meas.r0.c'], v['wtgd.A.meas.r0.u'], v['wtgd.A.meas.r0.d']], ['0,173', '9359,67', '10', 'GND']);
   eq([v['b.lv.meas.tgd2.a'], v['b.lv.meas.c2.a'], v['b.lv.meas.tgd2.u'], v['b.lv.meas.tgd2.d']], ['0,899', '295,95', '0,5', 'GAR']);
   const parsed = c.DobleM4000.parse(FILE, 'FAKE.txt');
@@ -76,4 +76,44 @@ test('ghép mẫu theo pha: chỉ pha của biên bản; sứ trung tính vào c
   assert.equal(c.MbaDoble.clashes(items).length, 1);
   eq(['CHT', 'CH+CHT'].map(l => c.MbaDoble.windingRow({ label: l, mode: l === 'CHT' ? 'UST' : 'GND' })), ['r3', 'r0']);
   eq(['CL', 'CL+CLH', 'CHL'].map((l, i) => c.MbaDoble.windingRow({ label: l, mode: ['GAR', 'GND', 'UST'][i] })), ['r5', 'r1', 'r3']);
+});
+
+
+const NL = ['M4000 - Clipboard', '                                  Test Results', 'No  Test ID             C Desc.     kV     mA      Watts  %PF', '-'.repeat(92),
+  `${' 73'} ${'khong tai pha A'.padEnd(19)} E UST-R     0.385  58.029 14.291  64.112   1.00  64.112  27.854 H`,
+  `${' 74'} ${'khong tai pha A'.padEnd(19)} E UST-R     0.380  58.550 14.156  63.539   1.00  63.539  27.182 H`,
+  `${' 76'} ${'khong tai pha A'.padEnd(19)} E UST-R     2.000  166.407 262.080 78.722   1.00  78.722  63.45 H`,
+  `${' 78'} ${'khong tai pha B'.padEnd(19)} E UST-R     0.387  115.073 17.583  39.623   1.00  39.623  11.768 H`].join('\n');
+
+test('không tải: mỗi pha điện áp thấp → lần 1 (đo lặp lấy lần sau), điện áp cao nhất → lần 2; U rms, I0 (A), Pmean, %Uđm, P0 = Pmean (tùy chọn)', () => {
+  const c = ctx(), M = c.EquipmentTypes.get('MBA');
+  const cfg = Object.assign(M.defaultCfg(), { template: '3P', topology: 'bank1p', sLV: '50', iLV: '2000' }), schema = M.buildSchema(cfg);
+  const p = c.DobleM4000.parse(NL, 'nl.txt');
+  eq(p.items.map(it => [it.group, it.phase, it.kv, it.ma, it.watts]), [['noload', 'A', 0.385, 58.029, 14.291], ['noload', 'A', 0.38, 58.55, 14.156], ['noload', 'A', 2, 166.407, 262.08], ['noload', 'B', 0.387, 115.073, 17.583]]);
+  const items = c.MbaDoble.guess(p, schema, cfg);
+  eq(items.map(it => [it.no, it.use, it.target]), [[73, false, 'n|nl.A.rated|r0'], [74, true, 'n|nl.A.rated|r0'], [76, true, 'n|nl.A.rated|r1'], [78, true, 'n|nl.B.rated|r0']]);
+  const uLV = c.MbaDoble.uLV(cfg, schema);
+  assert.equal(uLV, 25); // 50 MVA × 1000 / 2000 A
+  const { v } = c.MbaDoble.writes(items, { p0FromPm: true, uLV, hasPu: true });
+  eq(['ur', 'ia', 'pm', 'p0', 'pu'].map(k => v[`nl.A.rated.r1.${k}`]), ['2', '0,16641', '0,26208', '0,26208', '8']);
+  assert.equal(v['nl.A.rated.r1.um'], undefined); // U'mean: Doble không đo
+  eq(['ur', 'ia', 'pm', 'pu'].map(k => v[`nl.A.rated.r0.${k}`]), ['0,38', '0,05855', '0,014156', '1,52']);
+  assert.equal(c.MbaDoble.writes(items, {}).v['nl.A.rated.r1.p0'], undefined);
+  assert.ok(Number.isNaN(c.MbaDoble.uLV(Object.assign({}, cfg, { iLV: '' }), schema)));
+});
+
+test('đánh giá không tải: đo dưới Uđm (theo ô %Uđm hoặc U rms / Uđm hạ áp) chỉ ghi nhận, không so với xuất xưởng', () => {
+  const c = ctx(), M = c.EquipmentTypes.get('MBA');
+  const cfg = Object.assign(M.defaultCfg(), { template: '3P', topology: 'bank1p', sLV: '50', iLV: '2000', sR: '150', ps: { A: 'SN-A', B: 'SN-B', C: 'SN-C' } }), schema = M.buildSchema(cfg);
+  const v = { 'nl.A.rated.r0.ur': '0,38', 'nl.A.rated.r0.ia': '0,05855', 'nl.A.rated.r0.pm': '0,014156', 'nl.A.rated.r0.p0': '0,014156',
+    'nl.A.rated.r1.pu': '100', 'nl.A.rated.r1.p0': '30' };
+  const res = M.evaluate({ type: 'MBA', v, cfg, sum: { tick: {}, ev: {} }, att: {} }, null, schema);
+  const rows = res.findings.filter(r => r.sec === 'noload');
+  const low = rows.find(r => /P0 \(lần 1\) — đo dưới Uđm/.test(r.item));
+  eq([low.status, low.meas], ['info', '14,16 W']);
+  assert.match(low.note, /Đo ở 1,52 % Uđm/);
+  assert.ok(rows.some(r => /I0 \(lần 1\) — đo dưới Uđm/.test(r.item)));
+  // lần 2 ở 100 % Uđm vẫn đánh giá như cũ (không có xuất xưởng → thiếu dữ liệu)
+  const rated = rows.find(r => /P0 tại Uđm \(lần 2\)/.test(r.item));
+  assert.equal(rated.status, 'missing');
 });

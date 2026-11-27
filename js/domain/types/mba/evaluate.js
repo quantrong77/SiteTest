@@ -156,6 +156,10 @@
       });
     });
     const iLV = toNum(cfg.iLV), sLV = toNum(cfg.sLV), sR = toNum(cfg.sR);
+    // %Uđm của lần đo: ô %Uđm (mẫu 3 pha); không có thì U rms / Uđm hạ áp của máy 1 pha (S/I hạ áp ở mục 0).
+    // Đo dưới Uđm (vd 380 V, 2 kV bằng máy tgδ): P0, I0 xuất xưởng cho tại Uđm → không so, chỉ ghi nhận làm giá trị khởi đầu.
+    const uLVkV = schema.layout !== Schema.LAYOUT_110 && ok(sLV) && ok(iLV) && iLV ? sLV * 1000 / iLV : NaN;
+    const puOf = p => { const x = val(`${p}.pu`); if (ok(x)) return x; const ur = val(`${p}.ur`); return ok(ur) && ok(uLVkV) && uLVkV ? ur / uLVkV * 100 : NaN; };
     // base: 'nl.rated' (mẫu theo pha) | 'nl.A.rated' (mẫu 3 pha); curCols: cột dòng không tải; unit: số chế tạo máy
     const noloadRated = (base, curCols, unit) => ['r0', 'r1'].forEach(r => {
       const p = `${base}.${r}`;
@@ -167,7 +171,12 @@
         calc[`${p}.i0`] = fmt(io / iLV * sLV / sR * 100, 4);
       }
       const p0 = ok(val(`${p}.p0`)) ? val(`${p}.p0`) : toNum(calc[`${p}.p0`]);
-      if (ok(p0)) {
+      const pu = puOf(p), low = ok(pu) && Math.round(pu) < 100;
+      const lowNote = low ? `Đo ở ${fmt(pu, pu < 10 ? 2 : 1)} % Uđm — số liệu xuất xưởng cho tại Uđm nên không so sánh; lưu làm giá trị khởi đầu cho các lần đo cùng điện áp (Bảng 1 ghi chú c).` : '';
+      if (ok(p0) && low) {
+        add({ sec: 'noload', item: `Tổn hao không tải P0 (${r === 'r0' ? 'lần 1' : 'lần 2'}) — đo dưới Uđm`, loc: unitLabel(unit), meas: `${fmt(p0 * 1000, 2)} W`,
+          status: 'info', basis: R.noload, note: lowNote, keys: [`${p}.p0`, `${p}.pm`] });
+      } else if (ok(p0)) {
         const ref = F && F.unit(unit) ? F.unit(unit).noLoadLoss : null;
         const lim = isNew ? L.NOLOAD_1PH_NEW : L.NOLOAD_OPER;
         const d = devPct(p0, ref);
@@ -178,7 +187,10 @@
       }
       const i0 = ok(val(`${p}.i0`)) ? val(`${p}.i0`) : toNum(calc[`${p}.i0`]);
       const i0ref = toNum(cfg.i0Ref);
-      if (ok(i0)) {
+      if (ok(i0) && low) {
+        add({ sec: 'noload', item: `Dòng không tải I0 (${r === 'r0' ? 'lần 1' : 'lần 2'}) — đo dưới Uđm`, loc: unitLabel(unit), meas: `${fmt(i0, 4)} %`,
+          status: 'info', basis: R.noload, note: lowNote, keys: [`${p}.i0`] });
+      } else if (ok(i0)) {
         const d = devPct(i0, i0ref);
         add({ sec: 'noload', item: `Dòng không tải I0 (${r === 'r0' ? 'lần 1' : 'lần 2'})`, loc: unitLabel(unit), meas: `${fmt(i0, 4)} %`,
           ref: ok(i0ref) ? `${fmt(i0ref, 4)} % (NSX)` : '', dev: sgn(d), limit: ok(i0ref) ? '≤ +30% số liệu NSX (tham khảo)' : '',
