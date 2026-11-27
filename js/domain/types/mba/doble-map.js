@@ -102,16 +102,22 @@
     markRepeats(items);
     return items;
   }
-  // Cùng một ô đo nhiều lần: dùng lần đo sau cùng, các lần trước bỏ chọn
+  // Cùng một ô đo nhiều lần: mặc định vẫn chọn tất cả, khi điền dùng lần đo sau cùng (effective) — ghi chú ở các lần trước
   function markRepeats(items) {
     const last = new Map();
     items.forEach(it => { if (it.target && it.use) last.set(it.target, it); });
     items.forEach(it => {
       if (!it.target || !it.use) return;
       const w = last.get(it.target);
-      if (w !== it) { it.use = false; it.note = [it.note, `đo lặp — dùng lần sau (TT ${w.no})`].filter(Boolean).join('; '); }
+      if (w !== it) it.note = [it.note, `đo lặp — điền lần sau (TT ${w.no})`].filter(Boolean).join('; ');
     });
     return items;
+  }
+  // Các dòng thực sự điền: đang chọn, có ô đích; cùng ô thì lấy dòng chọn sau cùng
+  function effective(items) {
+    const last = new Map();
+    items.forEach(it => { if (it.use && it.target) last.set(it.target, it); });
+    return items.filter(it => it.use && it.target && last.get(it.target) === it);
   }
   // Ô trùng giữa các dòng đang chọn
   function clashes(items) {
@@ -134,8 +140,7 @@
   function writes(items, opt = {}) {
     const v = {};
     let n = 0;
-    items.forEach(it => {
-      if (!it.use || !it.target) return;
+    effective(items).forEach(it => {
       const p = it.target.split('|');
       if (p[0] === 'n') {
         const base = `${p[1]}.${p[2]}`;
@@ -165,7 +170,7 @@
     const keys = new Set();
     Common.eachField(schema, f => keys.add(f.k));
     const out = {}, put = k => { if (keys.has(k) && String((state.v || {})[k] ?? '').trim() === '') out[k] = String(t).replace('.', ','); };
-    items.filter(it => it.use && it.target).forEach(it => {
+    effective(items).forEach(it => {
       const p = it.target.split('|');
       if (p[0] === 'w') put(p[1].replace(/\.meas$/, '.t'));
       else if (p[0] === 'b') put('b.hv.t');
@@ -173,5 +178,5 @@
     return out;
   }
 
-  window.MbaDoble = { targets, guess, windingRow, bushingTok, markRepeats, clashes, writes, tempWrites, uLV };
+  window.MbaDoble = { targets, guess, windingRow, bushingTok, markRepeats, effective, clashes, writes, tempWrites, uLV };
 })();

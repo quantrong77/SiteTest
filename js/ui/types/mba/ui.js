@@ -20,10 +20,24 @@
     const ps = `Cột pha A/B/C ↔ ${['A', 'B', 'C'].map(p => esc(state.cfg.ps[p] || '—')).join(' / ')}`;
     // mẫu 3 pha: giá trị xuất xưởng của từng máy A, B, C
     const perUnit = f => ['A', 'B', 'C'].map(p => { const sn = state.cfg.ps[p]; const x = sn && FX.unit(sn) ? f(sn) : NaN; return `${p}: <b>${fm(x, 2)}</b>`; }).join(', ');
-    if (is3P && id === 'noload') return `<div class="callout">P0 xuất xưởng (kW) ${perUnit(sn => FX.unit(sn).noLoadLoss)}. Mỗi máy đưa điện áp vào phía hạ áp; P0 = Pm(1+d), d=(U′−U)/U′; I0% = Io/I<sub>LV</sub> × S<sub>LV</sub>/S<sub>r</sub> × 100 với I<sub>LV</sub>=${esc(state.cfg.iLV)} A, S<sub>LV</sub>=${esc(state.cfg.sLV)} MVA, S<sub>r</sub>=${esc(state.cfg.sR)} MVA (sửa ở mục 0).</div>`;
+    // các mức điện áp test report có số liệu không tải → lần đo cùng mức (U lệch ≤ 5 %) tự so ΔP0, ΔI0
+    const lvTxt = l => (l.kv != null ? (l.kv < 1 ? `${fm(l.kv * 1000, 0)} V` : `${fm(l.kv, 2)} kV`) : `${fm(l.pu, 0)} % Ur`);
+    // MBA 3 pha đo theo cặp pha: gộp các cặp cùng mức, cùng cuộn — "380 V hạ áp (ab, bc, ca)"
+    const levels = sn => {
+      const g = new Map();
+      (FX.unit(sn) && FX.unit(sn).noLoad || []).forEach(l => {
+        const k = `${lvTxt(l)}${l.side ? (l.side === 'lv' ? ' hạ áp' : ' cao/trung áp') : ''}`;
+        if (!g.has(k)) g.set(k, []);
+        if (l.pair) g.get(k).push(l.pair);
+      });
+      return [...g].map(([k, prs]) => (prs.length ? `${k} (${prs.join(', ')})` : k)).join(', ');
+    };
+    // sns: { nhãn: số chế tạo } — mẫu 3 pha ghi theo pha, mẫu theo pha một máy
+    const nlLevels = sns => { const t = Object.entries(sns).map(([k, sn]) => (sn && levels(sn) ? `${k ? `${k}: ` : ''}${levels(sn)}` : '')).filter(Boolean); return t.length ? ` Test report có P0 / I0 ở: <b>${esc(t.join('; '))}</b> — lần đo cùng mức điện áp (U lệch ≤ 5 %) tự tính ΔP0, ΔI0 và đánh giá; lệch hơn 5 % (đến 25 %) vẫn ghép mức gần nhất, độ lệch chỉ để tham khảo.` : ''; };
+    if (is3P && id === 'noload') return `<div class="callout">P0 xuất xưởng (kW) ${perUnit(sn => FX.unit(sn).noLoadLoss)}.${nlLevels({ A: state.cfg.ps.A, B: state.cfg.ps.B, C: state.cfg.ps.C })} Mỗi máy đưa điện áp vào phía hạ áp; P0 = Pm(1+d), d=(U′−U)/U′; I0% = Io/I<sub>LV</sub> × S<sub>LV</sub>/S<sub>r</sub> × 100 với I<sub>LV</sub>=${esc(state.cfg.iLV)} A, S<sub>LV</sub>=${esc(state.cfg.sLV)} MVA, S<sub>r</sub>=${esc(state.cfg.sR)} MVA (sửa ở mục 0).</div>`;
     if (is3P && id === 'moisture') return `<div class="callout">Độ ẩm cách điện cứng theo DFR xuất xưởng (%) ${perUnit(sn => FX.moisture(sn))}. Phân loại theo Điều 28.</div>`;
     switch (id) {
-      case 'noload': return `<div class="callout">${mainLine}: P0 xuất xưởng = <b>${u ? fm(u.noLoadLoss, 1) : '—'} kW</b> (đo ${fm(cond.noload, 1)} °C). P0 = Pm(1+d), d=(U′−U)/U′; I0% = Io/I<sub>LV</sub> × S<sub>LV</sub>/S<sub>r</sub> × 100 với I<sub>LV</sub>=${esc(state.cfg.iLV)} A, S<sub>LV</sub>=${esc(state.cfg.sLV)} MVA, S<sub>r</sub>=${esc(state.cfg.sR)} MVA (sửa ở mục 0).</div>`;
+      case 'noload': return `<div class="callout">${mainLine}: P0 xuất xưởng = <b>${u ? fm(u.noLoadLoss, 1) : '—'} kW</b> (đo ${fm(cond.noload, 1)} °C).${nlLevels({ '': s })} P0 = Pm(1+d), d=(U′−U)/U′; I0% = Io/I<sub>LV</sub> × S<sub>LV</sub>/S<sub>r</sub> × 100 với I<sub>LV</sub>=${esc(state.cfg.iLV)} A, S<sub>LV</sub>=${esc(state.cfg.sLV)} MVA, S<sub>r</sub>=${esc(state.cfg.sR)} MVA (sửa ở mục 0).</div>`;
       case 'ir': return `<div class="callout">${mainLine}. Quy đổi về 20 °C theo <b>Bảng 4 QĐ 1901</b>: R20 = R(t) × K1 (đo dưới 20 °C thì chia K1); K1 tự tra theo độ chênh nhiệt độ, độ chênh không có trong bảng thì nhân các hệ số (vd 12 °C = K(10)×K(2)). Tiêu chuẩn: <b>R60@20 ≥ Bảng 5 tại 20 °C</b> (MBA ≥110 kV: 600 MΩ). Xuất xưởng (đo ${fm(cond.ins, 1)} °C) chỉ có Kht, PI và R lõi/gông.</div>`;
       case 'bushing': {
         const bl = D.bushings.filter(b => Object.values(state.cfg.ps).includes(b.mba));
