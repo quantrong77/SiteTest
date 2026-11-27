@@ -12,6 +12,9 @@
   // (nhập tay — test report thường chỉ có P0, I0 tại 100 % Ur) và độ lệch tự tính. Chỉ trong app, không xuất BBTN.
   const NL_REF_COLS = [col('uref', 'U XX cùng mức (kV)', undefined, { ref: true }), col('iref', 'I0 XX (A)', undefined, { ref: true }),
     col('pref', 'P0 XX (kW)', undefined, { ref: true }), col('di', 'ΔI0 (%)', undefined, { calc: true }), col('dp', 'ΔP0 (%)', undefined, { calc: true })];
+  // MBA 3 pha đo ở điện áp thấp theo cặp pha: Io, Po xuất xưởng cùng điện áp (nhập tay khi test report không có) và độ lệch tự tính
+  const NL_LV_REF_COLS = [col('iref', 'Io XX (A)', undefined, { ref: true }), col('pref', 'Po XX (W)', undefined, { ref: true }),
+    col('di', 'ΔIo (%)', undefined, { calc: true }), col('dp', 'ΔPo (%)', undefined, { calc: true })];
 
   // ---------------- Thông tin chung (bảng 0) ----------------
   // Loại thí nghiệm (ô "Lý do thí nghiệm"); giá trị cũ khác danh sách vẫn giữ nguyên trong biên bản
@@ -676,12 +679,12 @@
           {
             id: 'nl.lv', title: '2.1 Đo ở điện áp thấp — trên cuộn hạ áp', tables: [1],
             rows: ['ab', 'bc', 'ca'].map((p, i) => ({ k: p, label: p, doc: i + 1 })),
-            cols: [col('u', 'Uo (kV)', 1), col('i', 'Io (A)', 2), col('p', 'Po (W)', 3), col('s', 'Nối tắt', 4, { text: true })],
+            cols: [col('u', 'Uo (kV)', 1), col('i', 'Io (A)', 2), col('p', 'Po (W)', 3), col('s', 'Nối tắt', 4, { text: true })].concat(NL_LV_REF_COLS),
           },
           {
             id: 'nl.hv', title: '2.2 Đo ở điện áp thấp — trên cuộn cao/trung áp', tables: [2],
             rows: ['AB', 'BC', 'CA'].map((p, i) => ({ k: p, label: p, doc: i + 1 })),
-            cols: [col('u', 'Uo (kV)', 1), col('i', 'Io (A)', 2), col('p', 'Po (W)', 3), col('s', 'Nối tắt', 4, { text: true })],
+            cols: [col('u', 'Uo (kV)', 1), col('i', 'Io (A)', 2), col('p', 'Po (W)', 3), col('s', 'Nối tắt', 4, { text: true })].concat(NL_LV_REF_COLS),
           },
           {
             id: 'nl.rated', title: '2.3 Đo ở điện áp định mức', tables: [3],

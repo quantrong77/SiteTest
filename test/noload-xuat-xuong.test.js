@@ -96,3 +96,57 @@ test('đánh giá tại Uđm: I0 % so với test report xuất xưởng (ưu ti�
   eq([p.status, p.ref, res.calc['nl.A.rated.r0.dp']], ['pass', '60,30 kW (XX)', '+1,16']);
   assert.match(i.ref, /0,0360 % ở 100,0 % Ur \(XX\)/);
 });
+
+// MBA 3 pha 110–220 kV: một máy, test report ghi Po, Io ở 380 V theo cặp pha và cuộn đặt nguồn
+function book3p(ctx) {
+  const X = ctx.XLSX, wb = X.utils.book_new();
+  const add = (name, rows) => X.utils.book_append_sheet(wb, X.utils.aoa_to_sheet(rows), name);
+  add('Overview & Comparison', [['TỔNG HỢP'], [], ['Hạng mục', 'Đơn vị', 'Giá trị bảo đảm', 'Máy 1 (T-100)', 'Đánh giá'],
+    ['Tổn hao không tải (No-load loss P0)', 'kW', '≤ 30', 25.1, 'Đạt']]);
+  add('6. Losses & Impedance', [['TỔN HAO'], [], ['Hạng mục', 'Nấc', 'MVA', 'Giá trị bảo đảm', 'Máy 1 (T-100)', 'Đánh giá'],
+    ...['ab', 'bc', 'ca'].flatMap((pr, i) => [
+      [`Tổn hao không tải Po (380 V) cuộn hạ áp, nguồn ${pr}`, '-', 63, 'Tham khảo', `${[300, 302, 420][i]} W`, ''],
+      [`Dòng điện không tải Io (380 V) cuộn hạ áp, nguồn ${pr}`, '-', 63, 'Tham khảo', `${[0.5, 0.51, 0.7][i]} A`, '']]),
+    ['Tổn hao không tải Po (400 V) cuộn cao áp, nguồn AB', '-', 63, 'Tham khảo', '120 W', '']]);
+  return X.write(wb, { type: 'base64', bookType: 'xlsx' });
+}
+
+test('MBA 3 pha 110–220 kV, đo 380 V theo cặp pha: ΔPo (±5 % sau lắp đặt / ±15 % vận hành), ΔIo ≤ +30 % — Điều 34 mục 3', () => {
+  const ctx = load(CORE), M = ctx.EquipmentTypes.get('MBA');
+  const FX = ctx.Factory.fromBase64(book3p(ctx), 'nl3.xlsx');
+  eq(FX.unit('T-100').noLoad.find(x => x.pair === 'bc'), { pu: null, kv: 0.38, pair: 'bc', side: 'lv', p0: 0.302, i0A: 0.51 });
+  const cfg = Object.assign(M.defaultCfg(), { template: '110' }), schema = M.buildSchema(cfg);
+  const v = { 'meta.serial': 'T-100', 'meta.reason': 'Sau lắp đặt',
+    'nl.lv.ab.u': '0,38', 'nl.lv.ab.i': '0,52', 'nl.lv.ab.p': '309',
+    'nl.lv.bc.u': '0,381', 'nl.lv.bc.i': '0,70', 'nl.lv.bc.p': '330',
+    'nl.lv.ca.u': '0,38', 'nl.lv.ca.p': '425', 'nl.lv.ca.pref': '410',
+    'nl.hv.AB.u': '0,38', 'nl.hv.AB.p': '110' };
+  const run = reason => M.evaluate({ type: 'MBA', v: Object.assign({}, v, { 'meta.reason': reason }), cfg, sum: { tick: {}, ev: {} }, att: {} }, FX, schema);
+  const res = run('Sau lắp đặt');
+  const f = re => res.findings.find(x => x.sec === 'noload' && re.test(x.item));
+  const pab = f(/^Po ở điện áp thấp — ab/), iab = f(/^Io ở điện áp thấp — ab/);
+  eq([pab.status, pab.dev, pab.ref, res.calc['nl.lv.ab.dp']], ['pass', '+3,00', '300,00 W ở 0,380 kV (XX)', '+3,00']);
+  assert.match(pab.limit, /±5% giá trị xuất xưởng/);
+  eq([iab.status, iab.dev, res.calc['nl.lv.ab.di']], ['pass', '+4,00', '+4,00']);
+  // bc: Po +9,3 % > 5 % → không đạt; Io +37,3 % > 30 % → không đạt
+  eq([f(/^Po ở điện áp thấp — bc/).status, f(/^Io ở điện áp thấp — bc/).status], ['fail', 'fail']);
+  // ca: nhập tay cột XX được ưu tiên
+  eq(f(/^Po ở điện áp thấp — ca/).ref, '410,00 W (XX, nhập tay)');
+  // cuộn cao áp đo 380 V, test report có 400 V → không cùng mức, ghi rõ lệch U
+  assert.match(f(/^Po, Io ở điện áp thấp — AB/).note, /gần nhất ở 0,400 kV — U đo lệch -5,0 %/);
+  // vận hành: ±15 % giá trị khởi đầu → bc đạt
+  const op = run('Định kỳ').findings.find(x => /^Po ở điện áp thấp — bc/.test(x.item));
+  eq([op.status, op.limit], ['pass', '±15% giá trị khởi đầu (vận hành)']);
+});
+
+test('MBA 1 pha: lần đo 380 V lệch U > 2 % so với mức test report → ghi chú mức gần nhất và độ lệch U', () => {
+  const ctx = load(CORE), M = ctx.EquipmentTypes.get('MBA');
+  const FX = ctx.Factory.fromBase64(book(ctx), 'nl.xlsx');
+  const cfg = Object.assign(M.defaultCfg(), { template: '3P', topology: 'bank1p', sLV: '60', iLV: '1714', sR: '300', ps: { A: 'X-001', B: 'X-002', C: 'X-003' } });
+  const schema = M.buildSchema(cfg);
+  const v = { 'nl.A.rated.r0.ur': '0,4', 'nl.A.rated.r0.ia': '0,06', 'nl.A.rated.r0.p0': '0,015' };
+  const res = M.evaluate({ type: 'MBA', v, cfg, sum: { tick: {}, ev: {} }, att: {} }, FX, schema);
+  const p = res.findings.find(x => x.sec === 'noload' && /P0 \(lần 1\)/.test(x.item));
+  eq(p.status, 'info');
+  assert.match(p.note, /gần nhất ở 0,380 kV — U đo lệch \+5,3 %/);
+});

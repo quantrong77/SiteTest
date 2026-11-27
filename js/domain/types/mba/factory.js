@@ -325,11 +325,16 @@
   }
 
   // Mức điện áp ghi trong nhãn: "(100% Ur)", "(90 % Un)", "(10 kV)", "(380 V)". Không ghi → null.
+  // MBA 3 pha đo ở điện áp thấp theo cặp pha: "nguồn ab", "(BC)" → pair 'ab' | 'bc' | 'ca'; cuộn đặt nguồn: hạ áp → 'lv', cao / trung áp → 'hv'.
   function levelOf(label) {
     const s = String(label || '').replace(/,/g, '.');
     const pu = s.match(/(\d+(?:\.\d+)?)\s*%\s*U/i);
     const kv = s.match(/(?:^|[\s(@=])(\d+(?:\.\d+)?)\s*(kV|V)(?![A-Za-z])/);
-    return { pu: pu ? +pu[1] : null, kv: kv ? +kv[1] / (kv[2] === 'V' ? 1000 : 1) : null };
+    const out = { pu: pu ? +pu[1] : null, kv: kv ? +kv[1] / (kv[2] === 'V' ? 1000 : 1) : null };
+    const pr = s.match(/(?:^|[^A-Za-zÀ-ỹ])(ab|bc|ca|ac)(?![A-Za-zÀ-ỹ])/i);
+    if (pr) out.pair = pr[1].toLowerCase() === 'ac' ? 'ca' : pr[1].toLowerCase();
+    if (/hạ\s*áp|\bLV\b/i.test(s)) out.side = 'lv'; else if (/cao\s*áp|trung\s*áp|\b[HM]V\b/i.test(s)) out.side = 'hv';
+    return out;
   }
   // Giá trị không tải: P → kW, I0 → % hoặc A theo đơn vị trong ô / cột đơn vị
   function nlValue(v, unitHint, kind) {
@@ -348,12 +353,12 @@
       const u = F.units[s];
       if (!u || !val) return;
       const list = u.noLoad = u.noLoad || [];
-      const same = x => (lv.kv != null ? x.kv === lv.kv : x.kv == null && x.pu === lv.pu);
+      const same = x => (lv.kv != null ? x.kv === lv.kv : x.kv == null && x.pu === lv.pu) && x.pair === lv.pair && x.side === lv.side;
       let e = list.find(same);
-      if (!e) { e = { pu: lv.pu, kv: lv.kv }; list.push(e); }
+      if (!e) { e = Object.assign({}, lv); list.push(e); }
       Object.keys(val).forEach(k => { if (e[k] == null) e[k] = val[k]; });
     };
-    const kindOf = label => (/kh[ôo]ng\s*t[ảa]i|no.?load/i.test(label) && !/ngắn mạch|ồn|noise|sound/i.test(label)
+    const kindOf = label => (/kh[ôo]ng\s*t[ảa]i|no.?load/i.test(label) && !/ngắn mạch|mức\s*ồn|độ\s*ồn|noise|sound/i.test(label)
       ? (/tổn hao|loss|\bP0\b|\bPo\b/i.test(label) ? 'p' : /dòng|current|\bI0\b|\bIo\b/i.test(label) ? 'i' : null) : null);
     if (ls) {
       const h = ls.rows.findIndex(r => r && unitCols(r, F, /Đánh giá|Bảo đảm|Guarantee/i).length);
@@ -458,7 +463,8 @@
       // Số liệu không tải xuất xưởng cùng mức điện áp với lần đo: { kv: U rms đo (kV), pu: %Uđm }.
       // Cùng mức: U lệch ≤ NOLOAD_U_MATCH % (theo kV khi xuất xưởng ghi kV, theo %Uđm khi ghi %Ur). Không có → null.
       noLoadAt(s, at) {
-        const list = (F.units[s] && F.units[s].noLoad) || [];
+        // at.pair / at.side: MBA 3 pha đo ở điện áp thấp theo cặp pha — chỉ ghép cùng cặp, cùng cuộn (khi xuất xưởng ghi cuộn)
+        const list = ((F.units[s] && F.units[s].noLoad) || []).filter(x => (x.pair || '') === ((at && at.pair) || '') && (!x.side || !at || !at.side || x.side === at.side));
         const close = (a, b) => Number.isFinite(a) && Number.isFinite(b) && b > 0 && Math.abs(a - b) / b * 100 <= NOLOAD_U_MATCH;
         return list.find(x => x.kv != null && close(at && at.kv, x.kv))
           || list.find(x => x.kv == null && x.pu != null && close(at && at.pu, x.pu)) || null;
@@ -512,15 +518,20 @@
       F.order.push(s);
       if (!F.reportDate && S.testDate) F.reportDate = S.testDate;
       if (p0 && fin(n(p0.temp_c))) c.noload = n(p0.temp_c);
-      // không tải theo mức điện áp (MbaRows.factorySessions: RATED = 100 % Ur, LEVEL nấc "90%" | "10KV")
-      main.filter(r => r.item === 'NOLOAD' && (r.config === 'RATED' || r.config === 'LEVEL') && fin(n(r.value))).forEach(r => {
+      // không tải theo mức điện áp (MbaRows.factorySessions: RATED = 100 % Ur, LEVEL[-LV|-HV] nấc "90%" | "10KV", pha = cặp pha)
+      main.filter(r => r.item === 'NOLOAD' && (r.config === 'RATED' || /^LEVEL(-LV|-HV)?$/.test(r.config)) && fin(n(r.value))).forEach(r => {
         const k = { P0: 'p0', I0: 'i0', I0_A: 'i0A' }[r.param];
         if (!k) return;
-        const t = String(r.tap || '').toUpperCase(), kv = r.config === 'LEVEL' && /KV$/.test(t) ? parseFloat(t) : null;
-        const pu = r.config === 'RATED' ? 100 : kv == null ? parseFloat(t) : null;
+        const lvl = r.config !== 'RATED', t = String(r.tap || '').toUpperCase(), kv = lvl && /KV$/.test(t) ? parseFloat(t) : null;
+        const pu = !lvl ? 100 : kv == null ? parseFloat(t) : null;
+        const pair = lvl && /^(AB|BC|CA)$/i.test(r.phase || '') ? r.phase.toLowerCase() : undefined;
+        const side = (r.config.match(/-(LV|HV)$/) || [])[1];
+        const lv = { pu, kv };
+        if (pair) lv.pair = pair;
+        if (side) lv.side = side.toLowerCase();
         const list = F.units[s].noLoad = F.units[s].noLoad || [];
-        let e = list.find(x => x.kv === kv && x.pu === pu);
-        if (!e) { e = { pu, kv }; list.push(e); }
+        let e = list.find(x => x.kv === kv && x.pu === pu && x.pair === lv.pair && x.side === lv.side);
+        if (!e) { e = lv; list.push(e); }
         e[k] = n(r.value);
       });
       main.forEach(r => {
